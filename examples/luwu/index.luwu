@@ -12,6 +12,7 @@ const .{ h1, h2 } = Heading
 
 const type_checking = require("./type_checking")
 const lints = require("./lints")
+const hovers = require("./hovers")
 const classes = require("./classes")
 const control_flow = require("./control_flow")
 const destructuring = require("./destructuring")
@@ -106,6 +107,13 @@ return Page("Luwu", {
         "to help you write more idiomatic and performant code.",
     }),
     see_more(lints),
+
+    h2("Better Hovers"),
+    Paragraph({
+        "Hovers in your editor show what a name is and where it comes from. ",
+        "A class shows its members, a method its class, and every keyword explains itself with an example.",
+    }),
+    see_more(hovers),
 
     h2("Classes and Traits"),
     Paragraph("A class describes a kind of object: the data it holds and what it can do."),
@@ -219,6 +227,7 @@ return Page("Luwu", {
     :add_page(
         type_checking,
         lints,
+        hovers,
         classes,
         control_flow,
         destructuring,

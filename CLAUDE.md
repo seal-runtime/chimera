@@ -245,6 +245,15 @@ can shrink the font slightly to fit. `luwu-highlight` (the Luwu playground's
 TextMate highlighter) was evaluated and rejected here: it needs a JavaScript
 regex engine, and chimera must not shell out to Node.
 
+`SourceCode` also carries `Squiggle`s (wavy, a message; stored in
+`data-squiggles`) and `Hover`s (dotted underline, any `Content`; each rendered
+into a `<template data-hover="N">` inside the code). Both mark `SourceSpan`s,
+two `vector`s of line and column. Implementors call `render_source(out)` where
+the code goes. The runtime script clones a hover's template into the
+`.chimera-hover` box. The Better Hovers page (`examples/luwu/hovers/`) shows
+luwu-lsp's real hovers: `capture.luwu` asks the server and writes
+`hovers.json`. Rerun it when luwu-lsp's hovers change.
+
 ### Luwu bugs
 
 Report Luwu bugs with a minimal repro. Open: `Element` repeats `expect function

@@ -1,0 +1,10 @@
+const prices: { [string]: number? } = { apple = 1.25, pear = 0.8 }
+
+const total = do
+    local sum = 0
+    for _, fruit in { "apple", "kiwi", "pear" } when const price = prices[fruit] do
+        sum += price
+    end
+    give sum
+
+print(if total > 2 then "pricey" else "cheap")

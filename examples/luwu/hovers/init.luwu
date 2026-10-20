@@ -1,0 +1,191 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const json = require("@std/json")
+const str = require("@std/str")
+const chimera = require("@chimera")
+const .{
+    core.{ Text },
+    elements.{ Heading, Paragraph, Emphasis, Strong, Link, LineBreak, HorizontalRule, UnorderedList, ListItem },
+    components.{ Code, CodeBlock, SourceSpan, Hover },
+    site.{ Page, TableOfContents },
+} = chimera
+type .{ Child } = chimera.core
+const .{ h1, h2 } = Heading
+
+const HERE = "examples/luwu/hovers"
+
+--- What `capture.luwu` asked luwu-lsp: the hovers over each sample, by sample name.
+const captured = json.readfile(`{HERE}/hovers.json`) :: { [string]: { { span: string, markdown: string } }? }
+
+--[=[
+    The inline Markdown of a hover line: code, emphasis, bold and links. Links into the hovered file only work in an
+    editor, so they keep their text and drop the link.
+]=]
+const function inline(text: string): { Child }
+    const parts: { Child } = {}
+    local at = 1
+    while at <= #text do
+        const start = string.find(text, "[`*%[]", at) or #text + 1
+        if start > at then
+            table.insert(parts, Text(string.sub(text, at, start - 1)))
+        end
+        if start > #text then
+            break
+        end
+        const code, after_code = string.match(text, "^`([^`]+)`()", start)
+        const bold, after_bold = string.match(text, "^%*%*(.-)%*%*()", start)
+        const emphasis, after_emphasis = string.match(text, "^%*([^*]+)%*()", start)
+        const label, url, after_link = string.match(text, "^%[(.-)%]%((.-)%)()", start)
+        if code and after_code then
+            table.insert(parts, Code(code):plain())
+            at = after_code
+        elseif bold and after_bold then
+            table.insert(parts, Strong(inline(bold)))
+            at = after_bold
+        elseif emphasis and after_emphasis then
+            table.insert(parts, Emphasis(inline(emphasis)))
+            at = after_emphasis
+        elseif
+            label
+            and url
+            and after_link
+        then
+            if str.startswith(url, "https://") then
+                table.insert(parts, Link(inline(label), url):new_tab())
+            else
+                for _, part in inline(label) do
+                    table.insert(parts, part)
+                end
+            end
+            at = after_link
+        else
+            table.insert(parts, Text(string.sub(text, start, start)))
+            at = start + 1
+        end
+    end
+    return parts
+end
+
+--[=[
+    A hover from luwu-lsp, from the Markdown it sends the editor: fenced Luwu becomes a [CodeBlock], `----------` a
+    rule, and the rest paragraphs. "Jump to" lines go, since they only work in an editor.
+]=]
+const function from_markdown(markdown: string): { Child }
+    const blocks: { Child } = {}
+    local paragraph: { Child } = {}
+    local fence: { string }? = nil
+    local hard_break = false
+    const function end_paragraph()
+        if #paragraph > 0 then
+            table.insert(blocks, Paragraph(paragraph))
+            paragraph = {}
+        end
+    end
+    for _, line in str.splitlines(markdown) do
+        if fence then
+            if str.trimback(line) == "```" then
+                table.insert(blocks, CodeBlock((string.gsub(table.concat(fence, "\n"), "^%s+", ""))))
+                fence = nil
+            else
+                table.insert(fence, line)
+            end
+        elseif str.startswith(line, "```") then
+            end_paragraph()
+            fence = {}
+        elseif line == "----------" then
+            end_paragraph()
+            table.insert(blocks, HorizontalRule())
+        elseif string.find(line, "^%s*$") then
+            end_paragraph()
+        elseif not str.startswith(line, "*Jump to*") then
+            if #paragraph > 0 then
+                table.insert(paragraph, if hard_break then LineBreak() else Text(" "))
+            end
+            for _, part in inline(str.trimback(line)) do
+                table.insert(paragraph, part)
+            end
+            hard_break = str.endswith(line, "  ")
+        end
+    end
+    end_paragraph()
+    return blocks
+end
+
+--- A sample from `samples/`, with every hover luwu-lsp showed over it.
+const function hovered(sample: string): CodeBlock
+    const source = string.gsub(fs.readfile(`{HERE}/samples/{sample}.luwu`), "%s+$", "")
+    const hovers = {
+        for _, .{ span, markdown } in captured[sample] or error(`hovers.json has no '{sample}'; run capture.luwu`)
+        give Hover(SourceSpan.from_string(span), from_markdown(markdown))
+    }
+    return CodeBlock(source)
+        :line_numbers()
+        :copyable()
+        :hover(table.unpack(hovers))
+end
+
+return Page("Better Hovers", {
+    h1("Better Hovers"),
+    Paragraph({
+        "Point at a name in your editor and Luwu tells you what it is. ",
+        "A class shows its constructor and every member. A method says which class it belongs to. ",
+        "A keyword explains itself, with an example.",
+    }),
+    Paragraph({
+        "Try it below: every dotted underline is a hover, copied unedited from Luwu's language server. ",
+        "On a touch screen, tap instead.",
+    }),
+    TableOfContents(),
+
+    h2("Classes at a glance"),
+    Paragraph({
+        "Hover a class's name to see how to build one and what it holds, private members included. ",
+        "Hover an object of the class and you see only what you can use from outside.",
+    }),
+    hovered("classes"),
+    Paragraph({
+        "Access specifiers like ", Code("public"), " and ", Code("private"),
+        " explain the rules they bring, so you don't need to look them up.",
+    }),
+
+    h2("Traits"),
+    Paragraph({
+        "A class's hover marks the members it gets from a trait, like ", Code("-- from Health"), ". ",
+        "A trait method returning ", Code("Self"), " shows the class you called it on: ",
+        Code("ada"), " is a ", Code("Player"), ", not just ", Code("Health"), ".",
+    }),
+    hovered("traits"),
+    Paragraph({
+        "Doc comments link what they mention. ", Code("[Health]"), " jumps to the trait, and ",
+        Code("[math.max]"), " links to the library docs.",
+    }),
+
+    h2("Keywords explain themselves"),
+    Paragraph({
+        "Every keyword has a hover, Luwu's own included: ", Code("do"), " expressions, ", Code("give"),
+        " and ", Code("when"), ". The same word gets a different hover when it means something else, ",
+        "like ", Code("if"), " as an expression.",
+    }),
+    hovered("keywords"),
+
+    h2("Refinements"),
+    Paragraph({
+        "A function that narrows a type says so. Hover ", Code("class.implements"),
+        " to see what it refines, then hover the refined value to see what it became.",
+    }),
+    hovered("refinements"),
+    Paragraph({ Code("literal<T>"), " and the other type functions explain themselves too." }),
+
+    h2("More or less detail"),
+    Paragraph("In your editor, a hover can show more or less. These commands change it for the rest of the session:"),
+    UnorderedList({
+        ListItem({ Strong("More"), " and ", Strong("Less"), " (", Code("alt+="), " and ", Code("alt+-"),
+            "): expand the types a hover mentions, or keep it short." }),
+        ListItem({ Strong("Traits"), " (", Code("alt+t"),
+            "): show the traits a class implements in full, below its hover." }),
+    }),
+    Paragraph({ "The ", Code("luwu.hover.verbosity"), " setting picks where each session starts." }),
+}, "better-hovers.html")

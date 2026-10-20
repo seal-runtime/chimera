@@ -4,7 +4,7 @@
 
 const .{
     elements.{ Heading, Paragraph, UnorderedList, ListItem, Details, Figure, FigureCaption, Image },
-    components.{ Code, CodeBlock, Squiggle, Tabs, Tab },
+    components.{ Code, CodeBlock, SourceSpan, Squiggle, Tabs, Tab },
     site.{ Page, TableOfContents },
     style.{ token },
 } = require("@chimera")
@@ -35,9 +35,10 @@ const function checker_view(source: string, spans: { string }, output: string): 
         give do
             const kind, rest = string.match(message, "^(%a+): (.*)$")
             const text = rest or message
+            const where = SourceSpan.from_string(span)
             give if kind == "Note" or str.startswith(text, "Help")
-                then Squiggle.info(span, text)
-                else Squiggle.error(span, text)
+                then Squiggle.info(where, text)
+                else Squiggle.error(where, text)
     }
     return {
         CodeBlock(source, "luau")
@@ -89,7 +90,7 @@ end
 
 promote({ name = "Ada", levl = 3 })]====])
         :line_numbers()
-        :squiggle(Squiggle.error("7.25-7.28", "Typo: Did you mean 'level' instead of 'levl'?")),
+        :squiggle(Squiggle.error(SourceSpan.on_line(7, 25, 28), "Typo: Did you mean 'level' instead of 'levl'?")),
     CodeBlock([====[Typo: Did you mean 'level' instead of 'levl'?
 TypeError: The given table is missing a property for 'Player':
   • 'level: number']====], "plaintext"),

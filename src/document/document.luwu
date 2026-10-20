@@ -155,7 +155,7 @@ const RUNTIME_JS = [====[(function () {
     to_top.toggleAttribute("data-visible", scrollY > innerHeight * 0.75);
   }
   addEventListener("scroll", function () { if (document.body) sync_to_top(); }, { passive: true });
-  // Squiggle messages show in a box by the pointer, like an editor's hover.
+  // Squiggle messages and code hovers show in a box by the pointer, like an editor's hover.
   var hover = null;
   var hovered = null;
   var hide_timer = 0;
@@ -164,10 +164,21 @@ const RUNTIME_JS = [====[(function () {
     if (hover) hover.hidden = true;
     hovered = null;
   }
+  // A hover's content sits in a <template> with its index, inside the element holding the code.
+  function hover_template(mark) {
+    var index = mark.dataset.hover;
+    if (!index) return null;
+    for (var at = mark.parentElement; at; at = at.parentElement) {
+      var template = at.querySelector(":scope > template[data-hover='" + index + "']");
+      if (template) return template;
+    }
+    return null;
+  }
   function show_hover(mark, x, y) {
     clearTimeout(hide_timer);
+    if (hovered === mark && hover && !hover.hidden) return;
     var message = mark.dataset.message;
-    if (hovered === message && hover && !hover.hidden) return;
+    var template = hover_template(mark);
     if (!hover) {
       hover = document.createElement("div");
       hover.className = "chimera-hover";
@@ -176,9 +187,23 @@ const RUNTIME_JS = [====[(function () {
       hover.addEventListener("mouseleave", function () { hide_timer = setTimeout(hide_hover, 150); });
       document.body.appendChild(hover);
     }
-    hovered = message;
-    hover.textContent = message;
-    hover.style.borderLeftColor = getComputedStyle(mark).getPropertyValue("--chimera-squiggle-color");
+    hovered = mark;
+    hover.replaceChildren();
+    if (message) {
+      var text = document.createElement("div");
+      text.className = "chimera-hover-message";
+      text.textContent = message;
+      text.style.borderLeftColor = getComputedStyle(mark).getPropertyValue("--chimera-squiggle-color");
+      hover.appendChild(text);
+    }
+    if (template) {
+      var body = document.createElement("div");
+      body.className = "chimera-hover-body";
+      body.appendChild(template.content.cloneNode(true));
+      hover.appendChild(body);
+    }
+    hover.style.left = "0px";
+    hover.style.top = "0px";
     hover.hidden = false;
     var width = hover.offsetWidth;
     var height = hover.offsetHeight;
@@ -187,8 +212,10 @@ const RUNTIME_JS = [====[(function () {
     hover.style.left = left + "px";
     hover.style.top = Math.max(8, top) + "px";
   }
+  // Code inside the box doesn't open another box.
   function mark_at(target) {
-    return target && target.closest ? target.closest(".chimera-squiggle[data-message]") : null;
+    if (!target || !target.closest || (hover && hover.contains(target))) return null;
+    return target.closest(".chimera-squiggle[data-message], .chimera-hoverable[data-hover]");
   }
   document.addEventListener("mouseover", function (event) {
     var mark = mark_at(event.target);
@@ -197,7 +224,9 @@ const RUNTIME_JS = [====[(function () {
   document.addEventListener("mouseout", function (event) {
     if (mark_at(event.target) && !mark_at(event.relatedTarget)) hide_timer = setTimeout(hide_hover, 150);
   });
-  document.addEventListener("scroll", hide_hover, true);
+  document.addEventListener("scroll", function (event) {
+    if (!(hover && hover.contains(event.target))) hide_hover();
+  }, true);
   document.addEventListener("click", function (event) {
     close_menus(event.target);
     var link = event.target.closest && event.target.closest(".chimera-menu[data-open] a");

@@ -19,5 +19,5 @@ export .{
 } = require("@self/layout")
 
 const code = require("@self/code")
-export .{ CodeBlock, Code, Squiggle } = code
+export .{ CodeBlock, Code, SourceSpan, Squiggle, Hover } = code
 export type .{ Language } = code

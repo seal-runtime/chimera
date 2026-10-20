@@ -737,6 +737,12 @@
     .chimera-bracket-3 {
       color: var(--chimera-syntax-bracket-3);
     }
+    .chimera-hoverable {
+      cursor: help;
+      text-decoration-skip-ink: none;
+      text-decoration: underline dotted var(--chimera-muted);
+      text-underline-offset: 0.25em;
+    }
     .chimera-squiggle {
       text-decoration-skip-ink: none;
       text-decoration: underline wavy var(--chimera-squiggle-color, var(--chimera-syntax-error));
@@ -748,19 +754,56 @@
     .chimera-hover {
       background: var(--chimera-background);
       border: 1px solid var(--chimera-border);
-      border-left: 3px solid var(--chimera-syntax-error);
       border-radius: 6px;
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
       color: var(--chimera-text);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      max-height: min(26rem, calc(100vh - 16px));
+      max-width: min(38rem, calc(100vw - 16px));
+      overflow-wrap: anywhere;
+      overflow-y: auto;
+      position: fixed;
+      z-index: 50;
+    }
+    .chimera-hover-message {
+      border-left: 3px solid var(--chimera-syntax-error);
       font-family: var(--chimera-mono-font);
       font-size: 0.8rem;
-      line-height: 1.5;
-      max-width: min(36rem, calc(100vw - 16px));
-      overflow-wrap: anywhere;
       padding: 0.55rem 0.75rem;
-      position: fixed;
       white-space: pre-wrap;
-      z-index: 50;
+    }
+    .chimera-hover-message + .chimera-hover-body {
+      border-top: 1px solid var(--chimera-border);
+    }
+    .chimera-hover-body {
+      padding: 0.55rem 0.75rem;
+    }
+    .chimera-hover-body > :first-child {
+      margin-top: 0;
+    }
+    .chimera-hover-body > :last-child {
+      margin-bottom: 0;
+    }
+    .chimera-hover-body p {
+      margin: 0.4em 0;
+    }
+    .chimera-hover-body hr {
+      border: none;
+      border-top: 1px solid var(--chimera-border);
+      margin: 0.5rem -0.75rem;
+    }
+    .chimera-hover-body pre {
+      background: none;
+      border: none;
+      box-shadow: none;
+      container-type: normal;
+      margin: 0.25em 0;
+      overflow-x: auto;
+      padding: 0;
+    }
+    .chimera-hover-body pre code {
+      font-size: 0.8rem;
     }
     .chimera-tabs {
       margin: 1.25em 0;
@@ -1180,7 +1223,7 @@
     to_top.toggleAttribute("data-visible", scrollY > innerHeight * 0.75);
   }
   addEventListener("scroll", function () { if (document.body) sync_to_top(); }, { passive: true });
-  // Squiggle messages show in a box by the pointer, like an editor's hover.
+  // Squiggle messages and code hovers show in a box by the pointer, like an editor's hover.
   var hover = null;
   var hovered = null;
   var hide_timer = 0;
@@ -1189,10 +1232,21 @@
     if (hover) hover.hidden = true;
     hovered = null;
   }
+  // A hover's content sits in a <template> with its index, inside the element holding the code.
+  function hover_template(mark) {
+    var index = mark.dataset.hover;
+    if (!index) return null;
+    for (var at = mark.parentElement; at; at = at.parentElement) {
+      var template = at.querySelector(":scope > template[data-hover='" + index + "']");
+      if (template) return template;
+    }
+    return null;
+  }
   function show_hover(mark, x, y) {
     clearTimeout(hide_timer);
+    if (hovered === mark && hover && !hover.hidden) return;
     var message = mark.dataset.message;
-    if (hovered === message && hover && !hover.hidden) return;
+    var template = hover_template(mark);
     if (!hover) {
       hover = document.createElement("div");
       hover.className = "chimera-hover";
@@ -1201,9 +1255,23 @@
       hover.addEventListener("mouseleave", function () { hide_timer = setTimeout(hide_hover, 150); });
       document.body.appendChild(hover);
     }
-    hovered = message;
-    hover.textContent = message;
-    hover.style.borderLeftColor = getComputedStyle(mark).getPropertyValue("--chimera-squiggle-color");
+    hovered = mark;
+    hover.replaceChildren();
+    if (message) {
+      var text = document.createElement("div");
+      text.className = "chimera-hover-message";
+      text.textContent = message;
+      text.style.borderLeftColor = getComputedStyle(mark).getPropertyValue("--chimera-squiggle-color");
+      hover.appendChild(text);
+    }
+    if (template) {
+      var body = document.createElement("div");
+      body.className = "chimera-hover-body";
+      body.appendChild(template.content.cloneNode(true));
+      hover.appendChild(body);
+    }
+    hover.style.left = "0px";
+    hover.style.top = "0px";
     hover.hidden = false;
     var width = hover.offsetWidth;
     var height = hover.offsetHeight;
@@ -1212,8 +1280,10 @@
     hover.style.left = left + "px";
     hover.style.top = Math.max(8, top) + "px";
   }
+  // Code inside the box doesn't open another box.
   function mark_at(target) {
-    return target && target.closest ? target.closest(".chimera-squiggle[data-message]") : null;
+    if (!target || !target.closest || (hover && hover.contains(target))) return null;
+    return target.closest(".chimera-squiggle[data-message], .chimera-hoverable[data-hover]");
   }
   document.addEventListener("mouseover", function (event) {
     var mark = mark_at(event.target);
@@ -1222,7 +1292,9 @@
   document.addEventListener("mouseout", function (event) {
     if (mark_at(event.target) && !mark_at(event.relatedTarget)) hide_timer = setTimeout(hide_hover, 150);
   });
-  document.addEventListener("scroll", hide_hover, true);
+  document.addEventListener("scroll", function (event) {
+    if (!(hover && hover.contains(event.target))) hide_hover();
+  }, true);
   document.addEventListener("click", function (event) {
     close_menus(event.target);
     var link = event.target.closest && event.target.closest(".chimera-menu[data-open] a");

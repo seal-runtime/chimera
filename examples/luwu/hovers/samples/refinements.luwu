@@ -1,0 +1,19 @@
+trait Named
+    expect name: string
+end
+
+class Cat(name: string) implements Named end
+
+--- The name of anything that has one.
+const function name_of(thing: unknown): string?
+    if class.implements(thing, Named) then
+        return thing.name
+    end
+    return nil
+end
+
+const function tag(name: literal<string>): string
+    return `<{name}>`
+end
+
+print(name_of(Cat("Nyla")), tag("main"))

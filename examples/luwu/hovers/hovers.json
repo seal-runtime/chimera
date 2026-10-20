@@ -1,0 +1,134 @@
+{
+  "classes": [
+    {
+      "span": "2.7-2.9",
+      "markdown": "```luwu\nclass Cat(name: string, hunger: number?)\n    public const name: string\n    private hunger: number\n    public function feed(self, amount: number?): Cat\nend\n```\n*Jump to* [`Cat`](classes.luwu#L2)\n\n----------\nA cat that can be fed.\n"
+    },
+    {
+      "span": "2.11-2.16",
+      "markdown": "An access specifier that marks this field introduced by the class's primary constructor (field parameter list) as `public`. This keyword may be omitted when the class has 0 `private` members.\n\n```luwu\nclass Particle private (\n    public position: Vector2,\n    public velocity: Vector2,\n    private mass: number\n)\n    public function spawn(position: Vector2): Particle\n        return Particle(position, Vector2.zero, 1)\n    end\nend\n\nconst p = Particle.spawn(Vector2.zero)\nprint(p.position) -- all good\nprint(p.mass) -- runtime error, mass is private\n```\n\nA `const` modifier goes after the access specifier: `public const position: Vector2`.\n"
+    },
+    {
+      "span": "2.24-2.27",
+      "markdown": "```luwu\npublic const name: string\n```\n\n----------\nA cat that can be fed.\n"
+    },
+    {
+      "span": "2.38-2.44",
+      "markdown": "An access specifier that marks this field introduced by the class's primary constructor (field parameter list) as `private`. Attempting to access a private field outside the lexical scope of its class raises a runtime error.\n\n```luwu\nclass SshKey private (\n    public const public_key: string,\n    private const private_key: string\n)\n    public function keygen(): SshKey\n        const keys = crypt.ssh.keygen()\n        return SshKey(keys.public, keys.private)\n    end\nend\n```\n\nIf *any* parameter carries an access specifier, every other parameter and every class member must carry one too.\n"
+    },
+    {
+      "span": "2.46-2.51",
+      "markdown": "```luwu\nprivate hunger: number\n```\n\n----------\nA cat that can be fed.\n"
+    },
+    {
+      "span": "4.21-4.24",
+      "markdown": "```luwu\npublic function feed(self: Cat, amount: number?): Cat\n```\n\n----------\nFeeds the cat, so it's less hungry.\n"
+    },
+    {
+      "span": "4.32-4.37",
+      "markdown": "```luwu\nlocal amount: number\n```\n\n----------\nFeeds the cat, so it's less hungry.\n"
+    },
+    {
+      "span": "10.7-10.10",
+      "markdown": "```luwu\nconst nyla: Cat\n```\n*Object of* [`Cat`](classes.luwu#L2)\n\n----------\nA cat that can be fed.\n\n\n----------\n\n```luwu\n\nclass Cat\n    public const name: string\n    public function feed(self, amount: number?): Cat\nend\n```"
+    },
+    {
+      "span": "10.14-10.16",
+      "markdown": "```luwu\nclass Cat(name: string, hunger: number?)\n    public const name: string\n    private hunger: number\n    public function feed(self, amount: number?): Cat\nend\n```\n*Jump to* [`Cat`](classes.luwu#L2)\n\n----------\nA cat that can be fed.\n"
+    },
+    {
+      "span": "11.6-11.9",
+      "markdown": "```luwu\nfunction Cat:feed(amount: number?): Cat\n```  \n*Method of* [`Cat`](classes.luwu#L2)\n\n----------\nFeeds the cat, so it's less hungry.\n"
+    }
+  ],
+  "keywords": [
+    {
+      "span": "1.1-1.5",
+      "markdown": "Defines an immutable `local` binding. It is a syntax error to try to change the value of this binding.\n\n```luwu\nconst x = 2\nx += 1 -- syntax error\n\nconst function foo()\n    do_something()\nend\n```\n"
+    },
+    {
+      "span": "3.7-3.11",
+      "markdown": "```luwu\nconst total: number\n```"
+    },
+    {
+      "span": "3.15-3.16",
+      "markdown": "A `do` expression runs its block and evaluates to the value its `give` gives.\n"
+    },
+    {
+      "span": "5.5-5.7",
+      "markdown": "Create loop statements to iterate over containers (or a set number of times).\n\n```luwu\n-- iterate over an array\nconst cats: { string } = { \"Taz\", \"Nyla\", \"Nanuk\", \"Crazy\", \"Mr. Purrsalot\" }\nfor index, cat in cats do\n    print(cat)\nend\n\n-- iterate over a map\nconst animals: { [string]: Animal } = get_animals()\nfor animal_name, animal in animals do\n    print(`name: {animal_name}`)\nend\n\n-- iterate 10 times\nfor i = 1, 10 do\n    print(i)\nend\n\n-- iterate through an array backwards\nfor i = #cats, 1, -1 do\n    print(i, cat)\nend\n```\n"
+    },
+    {
+      "span": "5.49-5.52",
+      "markdown": "Separates the clauses of an `if` condition; the branch runs only when every clause passes.\n"
+    },
+    {
+      "span": "5.60-5.64",
+      "markdown": "```luwu\nconst price: number?\n```"
+    },
+    {
+      "span": "8.5-8.8",
+      "markdown": "Exits the enclosing `do` expression with this value.\n"
+    },
+    {
+      "span": "10.7-10.8",
+      "markdown": "Choose between two expressions based on a condition; `if` *expressions* evaluate to a value rather than branching control flow.\n\n```luwu\nconst name = if typeof(value) == \"string\" then value else tostring(value)\n\nconst level =\n    if score > 100 then\n        \"Expert\"\n    elseif score > 50 then\n        \"Intermediate\"\n    else\n        \"Beginner\"\n```\n\nUnlike `if` statements, `if` expressions contain exactly one expression per branch, evaluate to at least one value, require an `else` branch, and do not terminate with `end`.\n"
+    }
+  ],
+  "refinements": [
+    {
+      "span": "8.16-8.22",
+      "markdown": "```luwu\nfunction name_of(thing: unknown): string?\n```\n\n----------\nThe name of anything that has one.\n"
+    },
+    {
+      "span": "9.14-9.23",
+      "markdown": "```luwu\nfunction class.implements(o: unknown, t: trait): boolean\n```  \n*Refines* `o` into an object of `t`\n\n----------\nReturns `true` if `o` is an object of a class that implements trait `t`, whether the class lists\n`t` after `implements` or gets it through another trait that `needs` it.\n\nIf `o` is not an object, returns `false`. Raises a runtime error if `t` is a class rather than a trait\n(use `class.isinstance` for classes).\n\nIn the type system, this refines `o` to the trait:\n\n```luwu\nlocal function describe(value: unknown): string?\n    if class.implements(value, Named) then\n        return value.name\n    end\n    return nil\nend\n```\n"
+    },
+    {
+      "span": "10.16-10.20",
+      "markdown": "```luwu\nlocal thing: Named\n```\n*This object implements* [`Named`](refinements.luwu#L1)\n\n----------\nThe name of anything that has one.\n\n\n----------\n\n```luwu\n\ntrait Named\n    expect name: string\nend\n```"
+    },
+    {
+      "span": "10.22-10.25",
+      "markdown": "```luwu\nstring\n```  \n*Field of* [`Named`](refinements.luwu#L1)"
+    },
+    {
+      "span": "15.26-15.32",
+      "markdown": "```luwu\nliteral<string>\n```\n\n----------\nA literal of `string`: the value as written, like `\"-f\"` or `true`, rather than any `string`. Literals exist for strings and booleans.\n\nOn a parameter, callers have to pass a literal, and the function body sees `string`; on a local, the local has the literal's own type. Write `literal<S>` with a generic `S` to infer `S` as the literal (`sym(\"foo\")` gives `Symbol<\"foo\">`).\n\nPassed to a type function (`Validate<literal<string>>`), the type function checks each argument as written and can reject it with `types.error(message)`. A type alias can name either form for use in parameters."
+    }
+  ],
+  "traits": [
+    {
+      "span": "2.7-2.12",
+      "markdown": "```luwu\ntrait Health\n    expect max_health: number\n    health: number\n    function damage<Self>(self, amount: number): Self\nend\n```\n*Jump to* [`Health`](traits.luwu#L2)\n\n----------\nSomething that takes damage and can run out of health.\n"
+    },
+    {
+      "span": "3.5-3.10",
+      "markdown": "Marks a member of a trait that every implementing class must declare itself.\n\n```luwu\ntrait Tool\n    expect private model: Model\n    expect public function equipped?(self) -- `?`: classes may leave this one out\n    expect function __init(self, props: Props) -- a constructor taking these arguments\nend\n```\n"
+    },
+    {
+      "span": "7.14-7.19",
+      "markdown": "```luwu\npublic function damage<Self>(self: Self, amount: number): Self\n```\n\n----------\nTakes `amount` off [Health](traits.luwu#L2%2C1), never going below zero, like [math.max](https://luau.org/library#math-library) would.\n"
+    },
+    {
+      "span": "14.7-14.12",
+      "markdown": "```luwu\nclass Player(name: string) implements Health\n    const name: string\n    max_health: number\n    health: number  -- from Health\n    function damage(self, amount: number): Player  -- from Health\nend\n```\n*Jump to* [`Player`](traits.luwu#L14)  \n*References* [`Health`](traits.luwu#L2)\n\n----------\nA player in the arena.\n"
+    },
+    {
+      "span": "14.41-14.50",
+      "markdown": "Traits this class implements. To check if an object of a class implements a trait, use `class.implements(obj, Trait)`.\n"
+    },
+    {
+      "span": "18.7-18.9",
+      "markdown": "```luwu\nconst ada: Player\n```\n*Object of* [`Player`](traits.luwu#L14)  \n*Implements* [`Health`](traits.luwu#L2)\n\n----------\nA player in the arena.\n\n\n----------\n\n```luwu\n\nclass Player implements Health\n    const name: string\n    max_health: number\n    health: number  -- from Health\n    function damage(self, amount: number): Player  -- from Health\nend\n```"
+    },
+    {
+      "span": "18.27-18.32",
+      "markdown": "```luwu\nfunction Player:damage(amount: number): Player\n```  \n*Method of* [`Player`](traits.luwu#L14)\n\n----------\nTakes `amount` off [Health](traits.luwu#L2%2C1), never going below zero, like [math.max](https://luau.org/library#math-library) would.\n"
+    },
+    {
+      "span": "19.11-19.16",
+      "markdown": "```luwu\nnumber\n```  \n*Field of* [`Player`](traits.luwu#L14)"
+    }
+  ]
+}

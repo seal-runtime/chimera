@@ -1,0 +1,173 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+--[=[
+    Asks luwu-lsp for its hovers over each sample in `samples/` and writes them to `hovers.json`, which the Better
+    Hovers page shows. Run it again after luwu-lsp's hovers change:
+
+    ```bash
+    seal ./examples/luwu/hovers/capture.luwu [path/to/luwu-lsp]
+    ```
+
+    The server gets seal's globals and docs, as it does in an editor.
+]=]
+
+const fs = require("@std/fs")
+const env = require("@std/env")
+const json = require("@std/json")
+const process = require("@std/process")
+
+--- Where a sample is hovered: a token on a line, its `nth` match when it shows up more than once.
+type Target = { line: number, token: string, nth: number? }
+
+const TARGETS: { [string]: { Target }? } = {
+    classes = {
+        { line = 2, token = "Cat" },
+        { line = 2, token = "public" },
+        { line = 2, token = "name" },
+        { line = 2, token = "private" },
+        { line = 2, token = "hunger" },
+        { line = 4, token = "feed" },
+        { line = 4, token = "amount" },
+        { line = 10, token = "nyla" },
+        { line = 10, token = "Cat" },
+        { line = 11, token = "feed" },
+    },
+    traits = {
+        { line = 2, token = "Health" },
+        { line = 3, token = "expect" },
+        { line = 7, token = "damage" },
+        { line = 14, token = "Player" },
+        { line = 14, token = "implements" },
+        { line = 18, token = "ada" },
+        { line = 18, token = "damage" },
+        { line = 19, token = "health" },
+    },
+    keywords = {
+        { line = 1, token = "const" },
+        { line = 3, token = "total" },
+        { line = 3, token = "do" },
+        { line = 5, token = "for" },
+        { line = 5, token = "when" },
+        { line = 5, token = "price" },
+        { line = 8, token = "give" },
+        { line = 10, token = "if" },
+    },
+    refinements = {
+        { line = 8, token = "name_of" },
+        { line = 9, token = "implements" },
+        { line = 10, token = "thing" },
+        { line = 10, token = "name" },
+        { line = 15, token = "literal" },
+    },
+}
+
+const here = `{env.cwd()}/examples/luwu/hovers`
+const server = env.args[1] or `{env.cwd()}/../luwu-lsp/build/luwu-lsp`
+const typedefs = `{env.cwd()}/.seal/typedefs`
+
+const child = process.spawn({
+    program = server,
+    args = { "lsp", "--stdio", `--definitions:@seal={typedefs}/globals.d.luau`, `--docs={typedefs}/docs.json` },
+}) :: process.PipedChild
+
+--- What this script reads of the server's messages: answers, and its own requests.
+type Message = {
+    id: number?,
+    method: string?,
+    params: { items: { unknown }? }?,
+    result: { contents: { value: string } }?,
+}
+
+const function send(message: { [string]: unknown })
+    const body = json.encode(message :: json.JsonData)
+    child.stdin:write(`Content-Length: {#body}\r\n\r\n{body}`)
+end
+
+--- The server's next message, or `nil` once it goes quiet for ten seconds.
+const function receive(): Message?
+    const header = child.stdout:read_to("\r\n\r\n", false, 10) or return nil
+    const length = tonumber(string.match(header, "Content%-Length: (%d+)")) or return nil
+    -- seal's read_exact gives nil for long bodies even once they arrive, so this reads them in parts.
+    const parts: { string } = {}
+    local missing = length
+    while missing > 0 do
+        const part = child.stdout:read(missing, 10) or return nil
+        table.insert(parts, part)
+        missing -= #part
+    end
+    return json.decode(table.concat(parts)) :: Message
+end
+
+--- Sends a request and waits for its answer, answering the server's own requests meanwhile.
+const function request(id: number, method: string, params: { [string]: unknown }): Message?
+    send({ jsonrpc = "2.0", id = id, method = method, params = params })
+    while true do
+        const message = receive() or return nil
+        if
+            message.method == "workspace/configuration"
+            when const asked = message.params
+        then
+            send({
+                jsonrpc = "2.0",
+                id = message.id,
+                result = { for _ in asked.items or {} give json.null() },
+            })
+        elseif message.method and message.id then
+            send({ jsonrpc = "2.0", id = message.id, result = json.null() })
+        elseif message.id == id then
+            return message
+        end
+    end
+end
+
+const root = `file://{here}/samples`
+request(1, "initialize", {
+    processId = json.null(),
+    rootUri = root,
+    capabilities = { textDocument = { hover = { contentFormat = { "markdown" } } } },
+    workspaceFolders = { { uri = root, name = "samples" } },
+})
+send({ jsonrpc = "2.0", method = "initialized", params = {} })
+
+local next_id = 1
+const captured: { [string]: { { span: string, markdown: string } }? } = {}
+for sample, targets in TARGETS do
+    const uri = `{root}/{sample}.luwu`
+    const source = fs.readfile(`{here}/samples/{sample}.luwu`)
+    const lines = fs.readlines(`{here}/samples/{sample}.luwu`)
+    const by_number = { for _, line in lines give line }
+    send({
+        jsonrpc = "2.0",
+        method = "textDocument/didOpen",
+        params = { textDocument = { uri = uri, languageId = "luwu", version = 1, text = source } },
+    })
+    captured[sample] = {
+        for _, .{ line, token, nth } in targets
+        give do
+            local column = 0
+            for _ = 1, nth or 1 do
+                column = string.find(by_number[line] or "", token, column + 1, true)
+                    or error(`{sample}.luwu:{line} has no '{token}'`)
+            end
+            next_id += 1
+            const answer = request(next_id, "textDocument/hover", {
+                textDocument = { uri = uri },
+                position = { line = line - 1, character = column - 1 + #token // 2 },
+            })
+            const result = answer and answer.result
+            const markdown = if type(result) == "table" then result.contents.value else ""
+            if markdown == "" then
+                error(`luwu-lsp has no hover for '{token}' on {sample}.luwu:{line}`)
+            end
+            give {
+                span = `{line}.{column}-{line}.{column + #token - 1}`,
+                markdown = (string.gsub(markdown, `file://{here}/samples/`, "")),
+            }
+    }
+end
+child:kill()
+
+json.writefile(`{here}/hovers.json`, captured)
+print(`wrote {here}/hovers.json`)

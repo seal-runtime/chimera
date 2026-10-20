@@ -1,0 +1,11 @@
+--- A cat that can be fed.
+class Cat(public const name: string, private hunger = 3)
+    --- Feeds the cat, so it's less hungry.
+    public function feed(self, amount: number = 1): Cat
+        self.hunger = math.max(self.hunger - amount, 0)
+        return self
+    end
+end
+
+const nyla = Cat("Nyla")
+nyla:feed(2)

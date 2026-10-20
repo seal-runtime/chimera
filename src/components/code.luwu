@@ -3,11 +3,11 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Text } = require("@core/markup")
+const .{ Element, Component, Text, Fragment, Tag } = require("@core/markup")
 const .{ Script } = require("@elements/head")
 const .{ Color } = require("@style/color")
 const .{ Token, token } = require("@style/token")
-type .{ Markup, Metadata, Writer, AttributeValue } = markup
+type .{ Markup, Metadata, Writer, AttributeValue, Content } = markup
 
 --[=[
     A language a [CodeBlock] or [Code] can highlight. `"luwu"`, `"luau"` and `"lua"` are highlighted when the
@@ -409,13 +409,319 @@ const CLIENT_HIGHLIGHTING = table.concat({
 })
 
 --[=[
+    A stretch of source code from `start` to `finish`, both inclusive. Each end is a `vector` holding a line (`x`) and
+    a column (`y`), both counted from 1. [Squiggle]s and [Hover]s mark the code under their spans.
+
+    ## Usage
+
+    ```luwu
+    SourceSpan.on_line(2, 7, 10) -- line 2, columns 7 to 10
+    SourceSpan.from_string("2.7-2.10") -- as `luwu-analyze --formatter=gnu` prints it
+    SourceSpan.between(1, 5, 3, 3)
+    SourceSpan(vector.create(1, 5, 0), vector.create(3, 3, 0))
+    ```
+]=]
+export class SourceSpan(const start: vector, const finish: vector)
+    --- The span from `line.column` to `last_line.last_column`.
+    function between(line: number, column: number, last_line: number, last_column: number): SourceSpan
+        return SourceSpan(vector.create(line, column, 0), vector.create(last_line, last_column, 0))
+    end
+
+    --- Columns `column` to `last_column` of one `line`.
+    function on_line(line: number, column: number, last_column: number): SourceSpan
+        return SourceSpan.between(line, column, line, last_column)
+    end
+
+    --- The one character at `line.column`.
+    function at(line: number, column: number): SourceSpan
+        return SourceSpan.between(line, column, line, column)
+    end
+
+    --[=[
+        Reads a span written `line.column-line.column`, the way `luwu-analyze --formatter=gnu` prints them. Returns
+        `nil` for text that isn't one.
+
+        ## Usage
+
+        ```luwu
+        SourceSpan.parse("3.7-3.17")
+        ```
+    ]=]
+    function parse(text: string): SourceSpan?
+        const line, column, last_line, last_column = string.match(text, "^(%d+)%.(%d+)%-(%d+)%.(%d+)$")
+        if
+            line
+            and column
+            and last_line
+            and last_column
+        then
+            return SourceSpan.between(
+                tonumber(line) or 1,
+                tonumber(column) or 1,
+                tonumber(last_line) or 1,
+                tonumber(last_column) or 1
+            )
+        end
+        return nil
+    end
+
+    --- Like [SourceSpan.parse], but errors for text that isn't a span.
+    function from_string(text: string): SourceSpan
+        return SourceSpan.parse(text)
+            or error(`span '{text}' should look like "3.7-3.17" (line.column-line.column)`, 2)
+    end
+
+    --- The span as `line.column-line.column`, which [SourceSpan.from_string] reads back.
+    function to_string(self): string
+        return `{self.start.x}.{self.start.y}-{self.finish.x}.{self.finish.y}`
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        return `SourceSpan({self:to_string()})`
+    end
+
+    function __tostring(self): string
+        return self:to_string()
+    end
+end
+
+--- Escapes a message's backslashes, tabs and newlines, so it fits on one tab-separated line of `data-squiggles`.
+const function encode_message(message: string): string
+    return (string.gsub(message, "[\\\t\n]", { ["\\"] = "\\\\", ["\t"] = "\\t", ["\n"] = "\\n" }))
+end
+
+const function decode_message(encoded: string): string
+    return (string.gsub(encoded, "\\(.)", { ["\\"] = "\\", t = "\t", n = "\n" }))
+end
+
+--[=[
+    A wavy underline under parts of a [SourceCode], like an editor's diagnostics: an error, a lint warning, a hint.
+    The `message` shows when the reader hovers a span.
+
+    Use [Squiggle.error], [Squiggle.warning] and [Squiggle.info] for the editor colors the theme sets, or any
+    [Color] for your own kind.
+
+    ## Usage
+
+    ```luwu
+    CodeBlock("local name = \"Ada\"\nprint(nmae)")
+        :line_numbers()
+        :squiggle(
+            Squiggle.error(SourceSpan.on_line(2, 7, 10), "Typo 'nmae': Did you mean 'name'?"),
+            Squiggle({ SourceSpan.on_line(1, 7, 10) }, Color.named("gray"), "'name' is only used once")
+        )
+    ```
+]=]
+export class Squiggle(const spans: { SourceSpan }, const color: Color | Token, const message: string? = nil)
+    --- A red squiggle under an error.
+    function error(span: SourceSpan, message: string?): Squiggle
+        return Squiggle({ span }, token("syntax_error"), message)
+    end
+
+    --- A yellow squiggle under a lint warning.
+    function warning(span: SourceSpan, message: string?): Squiggle
+        return Squiggle({ span }, token("syntax_warning"), message)
+    end
+
+    --- A blue squiggle under information, like a hint.
+    function info(span: SourceSpan, message: string?): Squiggle
+        return Squiggle({ span }, token("syntax_info"), message)
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        const spans = { for _, span in self.spans give span:to_string() }
+        return `Squiggle({table.concat(spans, ", ")}, {self.color:to_css()}, {self.message or "no message"})`
+    end
+
+    function __tostring(self): string
+        return self:display()
+    end
+end
+
+--[=[
+    Content that shows when the reader points at parts of a [SourceCode], like an editor's hover. A dotted underline
+    marks each span, so readers know to try. Tapping a span shows it on touch screens.
+
+    The content is any [Content]: text, elements, or components of your own. The page shows it in a
+    box styled by the theme's `.chimera-hover` rule, which [Document:style_every][document.Document.style_every] can
+    override.
+
+    [document = require("@document/document")]
+
+    ## Usage
+
+    ```luwu
+    CodeBlock("const nyla = Cat(\"Nyla\")\nnyla:feed(2)")
+        :hover(
+            Hover(SourceSpan.on_line(1, 7, 10), CodeBlock("const nyla: Cat")),
+            Hover({ SourceSpan.on_line(2, 6, 9) }, {
+                CodeBlock("function Cat:feed(amount: number?): Cat"),
+                Paragraph("Feeds the cat, so it's less hungry."),
+            })
+        )
+    ```
+]=]
+export class Hover(spans: SourceSpan | { SourceSpan }, content: Content?)
+    spans: { SourceSpan } = if class.isinstance(spans, SourceSpan) then { spans } else spans
+    content: Fragment = Fragment(content)
+
+    function display(self, depth: number?, options: unknown?): string
+        const spans = { for _, span in self.spans give span:to_string() }
+        return `Hover({table.concat(spans, ", ")}, {#self.content.children} nodes)`
+    end
+
+    function __tostring(self): string
+        return self:display()
+    end
+end
+
+--[=[
+    Reads the `data-squiggles` entries of a block into [Squiggle]s. Each line is one span, its CSS color and its
+    message, separated by tabs.
+]=]
+const function read_squiggles(entries: string): { Squiggle }
+    return {
+        for entry in string.gmatch(entries, "[^\n]+")
+        give do
+            const span, color, message = string.match(entry, "^([^\t]*)\t([^\t]*)\t?(.*)$")
+            const css = color or ""
+            give Squiggle(
+                { SourceSpan.from_string(span or entry) },
+                Color.parse_hex(css) or Token(css),
+                if message and message ~= "" then decode_message(message) else nil
+            )
+    }
+end
+
+--- The squiggle and the hover over one character of the source, by their index in the code's lists.
+type Marking = { squiggle: number?, hover: number? }
+
+--[=[
+    The [Marking] of each byte of `source`, keyed by offset. Where spans overlap, the shorter one wins, so a hover on
+    one name stays reachable under a squiggle over the whole line.
+]=]
+const function markings_of(
+    source: string,
+    squiggles: { Squiggle },
+    hovers: { Hover }
+): { [number]: Marking? }
+    const starts = { 1 }
+    for position in string.gmatch(source, "\n()") do
+        table.insert(starts, position)
+    end
+    const function offset(point: vector): number
+        return (starts[point.x] or #source + 1) + point.y - 1
+    end
+    type Range = { first: number, last: number, squiggle: number?, hover: number? }
+    const ranges: { Range } = {}
+    for index, squiggle in squiggles do
+        for _, span in squiggle.spans do
+            table.insert(ranges, { first = offset(span.start), last = offset(span.finish), squiggle = index })
+        end
+    end
+    for index, hover in hovers do
+        for _, span in hover.spans do
+            table.insert(ranges, { first = offset(span.start), last = offset(span.finish), hover = index })
+        end
+    end
+    table.sort(ranges, function(a: Range, b: Range)
+        return a.last - a.first > b.last - b.first
+    end)
+    const markings: { [number]: Marking? } = {}
+    for _, range in ranges do
+        for position = range.first, range.last do
+            const marking: Marking = markings[position] or {}
+            markings[position] = marking
+            if range.squiggle then
+                marking.squiggle = range.squiggle
+            else
+                marking.hover = range.hover
+            end
+        end
+    end
+    return markings
+end
+
+const function quote(text: string): string
+    return (string.gsub(Text.escape(text), "\"", "&quot;"))
+end
+
+--- The `<span>` that opens a [Marking]: a squiggle's class, color and message, and a hover's class and index.
+const function marking_open(marking: Marking, squiggles: { Squiggle }): string
+    const classes: { string } = {}
+    const attributes: { string } = {}
+    if const squiggle = squiggles[marking.squiggle or 0] then
+        table.insert(classes, "chimera-squiggle")
+        table.insert(attributes, ` style="--chimera-squiggle-color: {quote(squiggle.color:to_css())}"`)
+        if squiggle.message then
+            table.insert(attributes, ` data-message="{quote(squiggle.message)}"`)
+        end
+    end
+    if marking.hover then
+        table.insert(classes, 1, "chimera-hoverable")
+        table.insert(attributes, ` data-hover="{marking.hover}"`)
+    end
+    return `<span class="{table.concat(classes, " ")}"{table.concat(attributes)}>`
+end
+
+--[=[
+    Wraps marked characters of highlighted `html` in spans, one per run of characters with the same [Marking].
+    Highlight tags inside a run close and reopen it, so the spans nest.
+]=]
+const function mark_code(html: string, markings: { [number]: Marking? }, squiggles: { Squiggle }): string
+    const out: { string } = {}
+    const opens: { [string]: string? } = {}
+    const function opening(position: number): string?
+        const marking = markings[position] or return nil
+        const key = `{marking.squiggle or 0}:{marking.hover or 0}`
+        const tag = opens[key] or marking_open(marking, squiggles)
+        opens[key] = tag
+        return tag
+    end
+    local position = 1
+    local open: string? = nil
+    local at = 1
+    while at <= #html do
+        if string.sub(html, at, at) == "<" then
+            const close = string.find(html, ">", at, true) or #html
+            if open then
+                table.insert(out, "</span>" .. string.sub(html, at, close) .. open)
+            else
+                table.insert(out, string.sub(html, at, close))
+            end
+            at = close + 1
+            continue
+        end
+        if not open then
+            open = opening(position)
+            if open then
+                table.insert(out, open)
+            end
+        end
+        const width = if string.sub(html, at, at) == "&" then (string.find(html, ";", at, true) or at) - at + 1 else 1
+        table.insert(out, string.sub(html, at, at + width - 1))
+        at += width
+        position += 1
+        if open and opening(position) ~= open then
+            table.insert(out, "</span>")
+            open = nil
+        end
+    end
+    if open then
+        table.insert(out, "</span>")
+    end
+    return table.concat(out)
+end
+
+--[=[
     An element that shows source code in a [Language]: what [Code] and [CodeBlock] share. It holds the `source`,
     reads its language from the `data-language` attribute, and turns the source into highlighted HTML. Luwu, Luau and
     Lua are highlighted when the page is built. Pages load highlight.js for the other languages.
 
     ## Usage
 
-    Implement `tag`, a constructor and `render`; write [SourceCode:highlighted] where the code goes.
+    Implement `tag`, a constructor and `render`; call [SourceCode:render_source] where the code goes. It writes the
+    highlighted code with its [Squiggle]s and [Hover]s.
 
     ```luwu
     class FileSnippet implements SourceCode
@@ -433,7 +739,9 @@ const CLIENT_HIGHLIGHTING = table.concat({
         function render(self, out: Writer)
             self:render_open(out)
             out:write(`<figcaption>{Text.escape(tostring(self:get_attr("data-file")))}</figcaption>`)
-            out:write(`<pre><code class="language-{self:language()}">{self:highlighted()}</code></pre></figure>`)
+            out:write(`<pre><code class="language-{self:language()}">`)
+            self:render_source(out)
+            out:write("</code></pre></figure>")
         end
     end
 
@@ -442,6 +750,8 @@ const CLIENT_HIGHLIGHTING = table.concat({
 ]=]
 export trait SourceCode needs Component
     source = ""
+    --- Added with [SourceCode:hover].
+    hovers: { Hover } = {}
 
     --[=[
         The code's [Language], from its `data-language` attribute; `"plaintext"` when it has none.
@@ -514,10 +824,124 @@ export trait SourceCode needs Component
         return Text.escape(self.source)
     end
 
-    --- Takes parsed code as the source: the text inside the node, or the source of parsed [SourceCode].
+    --[=[
+        Underlines parts of the code with [Squiggle]s, like an editor marks errors and warnings. Call it again to add
+        more.
+
+        Squiggles show in Luwu, Luau, Lua and plaintext code, and in [SourceCode:plain] code. highlight.js
+        replaces them in other languages.
+
+        ## Usage
+
+        ```luwu
+        CodeBlock("local name = \"Ada\"\nprint(nmae)")
+            :line_numbers()
+            :squiggle(Squiggle.error(SourceSpan.on_line(2, 7, 10), "Typo 'nmae': Did you mean 'name'?"))
+        ```
+    ]=]
+    function squiggle(self, ...: Squiggle): Self
+        const entries = {
+            for _, squiggle in { ... }
+            for _, span in squiggle.spans
+            give do
+                const message = if squiggle.message then encode_message(squiggle.message) else ""
+                give `{span:to_string()}\t{squiggle.color:to_css()}\t{message}`
+        }
+        const existing = self:get_attr("data-squiggles")
+        if type(existing) == "string" then
+            table.insert(entries, 1, existing)
+        end
+        return self:attr("data-squiggles", table.concat(entries, "\n"))
+    end
+
+    --- The code's [Squiggle]s, one per span.
+    function squiggles(self): { Squiggle }
+        const entries = self:get_attr("data-squiggles")
+        return if type(entries) == "string" then read_squiggles(entries) else {}
+    end
+
+    --[=[
+        Shows [Hover]s when the reader points at parts of the code, like an editor's hovers. A dotted underline marks
+        each one. Call it again to add more.
+
+        A hover under a [Squiggle] shows the squiggle's message above its own content. Like squiggles, hovers show
+        in Luwu, Luau, Lua and plaintext code.
+
+        ## Usage
+
+        ```luwu
+        Paragraph({
+            "Call ",
+            Code("nyla:feed(2)"):hover(Hover(SourceSpan.on_line(1, 6, 9), "Feeds the cat, so it's less hungry.")),
+            " after dinner.",
+        })
+        ```
+    ]=]
+    function hover(self, ...: Hover): Self
+        for _, hover in { ... } do
+            table.insert(self.hovers, hover)
+        end
+        return self
+    end
+
+    --[=[
+        Writes [SourceCode:highlighted] with its [Squiggle]s and [Hover]s marked, then a `<template>` holding each
+        hover's content. Call it from `render`, inside the tag that holds the code.
+
+        ## Usage
+
+        ```luwu
+        function render(self, out: Writer)
+            self:render_open(out)
+            out:write("<code>")
+            self:render_source(out)
+            out:write("</code></samp>")
+        end
+        ```
+    ]=]
+    function render_source(self, out: Writer)
+        const squiggles = self:squiggles()
+        out:write(
+            if #squiggles > 0 or #self.hovers > 0
+            then mark_code(self:highlighted(), markings_of(self.source, squiggles, self.hovers), squiggles)
+            else self:highlighted()
+        )
+        const pretty = out.pretty
+        out.pretty = false
+        for index, hover in self.hovers do
+            const spans = { for _, span in hover.spans give span:to_string() }
+            out:write(`<template data-hover="{index}" data-spans="{table.concat(spans, " ")}">`)
+            hover.content:render(out)
+            out:write("</template>")
+        end
+        out.pretty = pretty
+    end
+
+    --- The content of each [Hover], so pages include the styles and scripts it needs.
+    function child_nodes(self): { read Markup }
+        return { for _, hover in self.hovers give hover.content }
+    end
+
+    --[=[
+        Takes parsed code as the source: the text inside the node, or the source of parsed [SourceCode]. A
+        `<template>` from [SourceCode:render_source] becomes a [Hover] again.
+    ]=]
     function adopt(self, node: Markup): boolean
         if class.implements(node, SourceCode) then
             self.source ..= node.source
+            for _, hover in node.hovers do
+                table.insert(self.hovers, hover)
+            end
+            return true
+        end
+        if
+            class.isinstance(node, Tag)
+            when node:current_tag() == "template"
+            when const spans = node:get_attr("data-spans")
+            when type(spans) == "string"
+        then
+            const parsed = { for span in string.gmatch(spans, "%S+") give SourceSpan.from_string(span) }
+            table.insert(self.hovers, Hover(parsed, node.children))
             return true
         end
         const parts: { string } = {}
@@ -528,6 +952,7 @@ export trait SourceCode needs Component
 
     function clear(self): Self
         self.source = ""
+        table.clear(self.hovers)
         return self
     end
 
@@ -588,172 +1013,9 @@ export class Code implements SourceCode
             self:add_style_class("language-" .. self:language())
         end
         self:render_open(out)
-        out:write(self:highlighted())
+        self:render_source(out)
         out:write("</code>")
     end
-end
-
-const SPAN_PATTERN = "^(%d+)%.(%d+)%-(%d+)%.(%d+)$"
-
---- Escapes a message's backslashes, tabs and newlines, so it fits on one tab-separated line of `data-squiggles`.
-const function encode_message(message: string): string
-    return (string.gsub(message, "[\\\t\n]", { ["\\"] = "\\\\", ["\t"] = "\\t", ["\n"] = "\\n" }))
-end
-
-const function decode_message(encoded: string): string
-    return (string.gsub(encoded, "\\(.)", { ["\\"] = "\\", t = "\t", n = "\n" }))
-end
-
---[=[
-    A wavy underline under parts of a [CodeBlock], like an editor's diagnostics: an error, a lint warning, a hint. Each
-    span is `line.column-line.column`, both ends inclusive, as `luwu-analyze --formatter=gnu` prints them. The
-    `message` shows when the reader hovers a span.
-
-    Use [Squiggle.error], [Squiggle.warning] and [Squiggle.info] for the editor colors the theme sets, or any
-    [Color] for your own kind.
-
-    ## Usage
-
-    ```luwu
-    CodeBlock("local name = \"Ada\"\nprint(nmae)")
-        :line_numbers()
-        :squiggle(
-            Squiggle.error("2.7-2.10", "Typo 'nmae': Did you mean 'name'?"),
-            Squiggle({ "1.7-1.10" }, Color.named("gray"), "'name' is only used once")
-        )
-    ```
-]=]
-export class Squiggle(const spans: { string }, const color: Color | Token, const message: string? = nil)
-    --- A red squiggle under an error.
-    function error(span: string, message: string?): Squiggle
-        return Squiggle({ span }, token("syntax_error"), message)
-    end
-
-    --- A yellow squiggle under a lint warning.
-    function warning(span: string, message: string?): Squiggle
-        return Squiggle({ span }, token("syntax_warning"), message)
-    end
-
-    --- A blue squiggle under information, like a hint.
-    function info(span: string, message: string?): Squiggle
-        return Squiggle({ span }, token("syntax_info"), message)
-    end
-
-    function display(self, depth: number?, options: unknown?): string
-        return `Squiggle({table.concat(self.spans, ", ")}, {self.color:to_css()}, {self.message or "no message"})`
-    end
-
-    function __tostring(self): string
-        return self:display()
-    end
-end
-
---- One squiggle span as a [CodeBlock] renders it: byte offsets into its source, both inclusive.
-type Mark = { first: number, last: number, color: string, message: string? }
-
---[=[
-    Reads the `data-squiggles` entries of a block into [Squiggle]s. Each line is one span, its CSS color and its
-    message, separated by tabs.
-]=]
-const function read_squiggles(entries: string): { Squiggle }
-    return {
-        for entry in string.gmatch(entries, "[^\n]+")
-        give do
-            const span, color, message = string.match(entry, "^([^\t]*)\t([^\t]*)\t?(.*)$")
-            const css = color or ""
-            give Squiggle(
-                { span or entry },
-                Color.parse_hex(css) or Token(css),
-                if message and message ~= "" then decode_message(message) else nil
-            )
-    }
-end
-
---- Turns the squiggles' spans into [Mark]s over `source`, sorted by where they start.
-const function marks_of(squiggles: { Squiggle }, source: string): { Mark }
-    const starts = { 1 }
-    for position in string.gmatch(source, "\n()") do
-        table.insert(starts, position)
-    end
-    const function offset(line: string, column: string): number
-        return (starts[tonumber(line) or 1] or #source + 1) + (tonumber(column) or 1) - 1
-    end
-    const marks: { Mark } = {}
-    for _, squiggle in squiggles do
-        for _, span in squiggle.spans do
-            const first_line, first_column, last_line, last_column = string.match(span, SPAN_PATTERN)
-            if first_line and first_column and last_line and last_column then
-                table.insert(marks, {
-                    first = offset(first_line, first_column),
-                    last = offset(last_line, last_column),
-                    color = squiggle.color:to_css(),
-                    message = squiggle.message,
-                })
-            end
-        end
-    end
-    table.sort(marks, function(a: Mark, b: Mark)
-        return a.first < b.first
-    end)
-    return marks
-end
-
-const function quote(text: string): string
-    return (string.gsub(Text.escape(text), "\"", "&quot;"))
-end
-
-const function mark_open(mark: Mark): string
-    const message = if mark.message then ` data-message="{quote(mark.message)}"` else ""
-    return `<span class="chimera-squiggle" style="--chimera-squiggle-color: {quote(mark.color)}"{message}>`
-end
-
-
---[=[
-    Wraps each mark's characters in highlighted `html` in a squiggle span. Highlight tags inside a mark close and
-    reopen it, so the spans nest.
-]=]
-const function mark_squiggles(html: string, marks: { Mark }): string
-    const out: { string } = {}
-    local position = 1
-    local index = 1
-    local open: Mark? = nil
-    local at = 1
-    while at <= #html do
-        if string.sub(html, at, at) == "<" then
-            const close = string.find(html, ">", at, true) or #html
-            if open then
-                table.insert(out, "</span>" .. string.sub(html, at, close) .. mark_open(open))
-            else
-                table.insert(out, string.sub(html, at, close))
-            end
-            at = close + 1
-            continue
-        end
-        while marks[index] and marks[index].last < position do
-            index += 1
-        end
-        if
-            not open
-            when const next_mark = marks[index]
-            when next_mark.first <= position
-        then
-            open = next_mark
-            table.insert(out, mark_open(next_mark))
-        end
-        const width = if string.sub(html, at, at) == "&" then (string.find(html, ";", at, true) or at) - at + 1 else 1
-        table.insert(out, string.sub(html, at, at + width - 1))
-        at += width
-        if open and position >= open.last then
-            table.insert(out, "</span>")
-            open = nil
-            index += 1
-        end
-        position += 1
-    end
-    if open then
-        table.insert(out, "</span>")
-    end
-    return table.concat(out)
 end
 
 --[=[
@@ -824,45 +1086,6 @@ export class CodeBlock implements SourceCode
         return self:attr("data-line-numbers", on)
     end
 
-    --[=[
-        Underlines parts of the code with [Squiggle]s, like an editor marks errors and warnings. Call it again to add
-        more.
-
-        Squiggles show in Luwu, Luau, Lua and plaintext blocks, and in [SourceCode:plain] ones. highlight.js
-        replaces them in other languages.
-
-        ## Usage
-
-        ```luwu
-        CodeBlock("local name = \"Ada\"\nprint(nmae)")
-            :line_numbers()
-            :squiggle(Squiggle.error("2.7-2.10", "Typo 'nmae': Did you mean 'name'?"))
-        ```
-    ]=]
-    function squiggle(self, ...: Squiggle): CodeBlock
-        const entries = {}
-        for _, squiggle in { ... } do
-            const message = if squiggle.message then encode_message(squiggle.message) else ""
-            for _, span in squiggle.spans do
-                if not string.match(span, SPAN_PATTERN) then
-                    error(`squiggle span '{span}' should look like "3.7-3.17" (line.column-line.column)`, 2)
-                end
-                table.insert(entries, `{span}\t{squiggle.color:to_css()}\t{message}`)
-            end
-        end
-        const existing = self:get_attr("data-squiggles")
-        if type(existing) == "string" then
-            table.insert(entries, 1, existing)
-        end
-        return self:attr("data-squiggles", table.concat(entries, "\n"))
-    end
-
-    --- The block's [Squiggle]s, one per span.
-    function squiggles(self): { Squiggle }
-        const entries = self:get_attr("data-squiggles")
-        return if type(entries) == "string" then read_squiggles(entries) else {}
-    end
-
     --- Skips the copy button and the line number gutter, which come back from their attributes.
     function adopt(self, node: Markup): boolean
         if
@@ -903,12 +1126,7 @@ export class CodeBlock implements SourceCode
             const marker = if self:highlighted_here() then " data-highlighted=\"yes\"" else ""
             out:write("<code class=\"hljs language-" .. language .. "\"" .. marker .. ">")
         end
-        const squiggles = self:squiggles()
-        out:write(
-            if #squiggles > 0
-            then mark_squiggles(self:highlighted(), marks_of(squiggles, self.source))
-            else self:highlighted()
-        )
+        self:render_source(out)
         out:write("</code></pre>")
     end
 end

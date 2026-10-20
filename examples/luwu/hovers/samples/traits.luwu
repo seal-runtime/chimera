@@ -1,0 +1,19 @@
+--- Something that takes damage and can run out of health.
+trait Health
+    expect max_health: number
+    health = 100
+
+    --- Takes `amount` off [Health], never going below zero, like [math.max] would.
+    function damage(self, amount: number): Self
+        self.health = math.max(self.health - amount, 0)
+        return self
+    end
+end
+
+--- A player in the arena.
+class Player(public const name: string) implements Health
+    public max_health = 150
+end
+
+const ada = Player("Ada"):damage(30)
+print(ada.health)

@@ -8,7 +8,7 @@ const .{
     Parser,
     Document,
     elements.{ Div, Paragraph },
-    components.{ CodeBlock, Code, Squiggle },
+    components.{ CodeBlock, Code, SourceSpan, Squiggle, Hover, Card },
     style.{ Palette, Color },
     themes.{ catppuccin },
 } = chimera
@@ -182,8 +182,8 @@ end]====]):to_html()
     ["squiggles wrap error ranges across highlight spans and parse back"] = function()
         const block = CodeBlock("local name = \"Ada\"\nprint(nmae)")
             :squiggle(
-                Squiggle.error("2.7-2.10", "Typo 'nmae': \"name\"?"),
-                Squiggle({ "1.7-1.10" }, Color.hex("#808080"), "used once")
+                Squiggle.error(SourceSpan.on_line(2, 7, 10), "Typo 'nmae': \"name\"?"),
+                Squiggle({ SourceSpan.from_string("1.7-1.10") }, Color.hex("#808080"), "used once")
             )
         const html = block:to_html()
         contains(
@@ -193,7 +193,7 @@ end]====]):to_html()
         )
         contains(html, `style="--chimera-squiggle-color: #808080" data-message="used once">name</span>`)
         const whole_line = CodeBlock("local x = 1")
-            :squiggle(Squiggle.warning("1.1-1.11"))
+            :squiggle(Squiggle.warning(SourceSpan.on_line(1, 1, 11)))
             :to_html()
         contains(whole_line, `<span class="hljs-keyword"><span class="chimera-squiggle" style=`)
         const back = Parser():parse(html)[1]
@@ -206,17 +206,66 @@ end]====]):to_html()
             equal(squiggles[1].message, "Typo 'nmae': \"name\"?")
         end
         const multiline = CodeBlock("x")
-            :squiggle(Squiggle.error("1.1-1.1", "first line\n\tsecond \\ line"))
+            :squiggle(Squiggle.error(SourceSpan.at(1, 1), "first line\n\tsecond \\ line"))
             :to_html()
         const reparsed = Parser():parse(multiline)[1]
         if class.isinstance(reparsed, CodeBlock) then
             equal(reparsed:squiggles()[1].message, "first line\n\tsecond \\ line")
         end
+    end,
+
+    ["source spans read and print line.column ranges"] = function()
+        const span = SourceSpan.from_string("2.7-3.10")
+        equal(span.start, vector.create(2, 7, 0))
+        equal(span.finish, vector.create(3, 10, 0))
+        equal(tostring(span), "2.7-3.10")
+        equal(SourceSpan.on_line(4, 1, 5):to_string(), "4.1-4.5")
+        equal(SourceSpan.at(1, 3):to_string(), "1.3-1.3")
+        equal(SourceSpan.parse("2:7"), nil)
         const ok, problem = pcall(function()
-            return CodeBlock("x"):squiggle(Squiggle.info("2:7"))
+            return SourceSpan.from_string("2:7")
         end)
         equal(ok, false)
         contains(tostring(problem), "should look like")
+    end,
+
+    ["hovers underline their spans and carry their content in templates"] = function()
+        const block = CodeBlock("const nyla = Cat(\"Nyla\")\nnyla:feed(2)")
+            :hover(
+                Hover(SourceSpan.on_line(1, 7, 10), "const nyla: Cat"),
+                Hover({ SourceSpan.on_line(2, 6, 9) }, { Paragraph("Feeds the cat."), Card("Note") })
+            )
+        const html = block:to_html()
+        contains(html, `<span class="chimera-hoverable" data-hover="1">nyla</span>`)
+        contains(html, `<span class="chimera-hoverable" data-hover="2">feed</span>`)
+        contains(html, `<template data-hover="1" data-spans="1.7-1.10">const nyla: Cat</template>`)
+        contains(html, `<template data-hover="2" data-spans="2.6-2.9"><p>Feeds the cat.</p>`)
+        const back = Parser():parse(html)[1]
+        equal(back:to_html(), html)
+        if class.isinstance(back, CodeBlock) then
+            equal(#back.hovers, 2)
+            equal(back.hovers[2].spans[1]:to_string(), "2.6-2.9")
+        end
+        equal(#block:child_nodes(), 2)
+    end,
+
+    ["a hover under a squiggle keeps both, and the shorter span wins"] = function()
+        const html = CodeBlock("print(nmae)")
+            :squiggle(Squiggle.error(SourceSpan.on_line(1, 1, 11), "Unknown global 'nmae'"))
+            :hover(Hover(SourceSpan.on_line(1, 7, 10), "nmae: unknown"))
+            :to_html()
+        contains(html, `<span class="chimera-hoverable chimera-squiggle" style=`)
+        contains(html, ` data-message="Unknown global 'nmae'" data-hover="1">nmae</span>`)
+        excludes(html, `data-hover="1">print`)
+    end,
+
+    ["inline code takes hovers too"] = function()
+        const code = Code("nyla:feed(2)"):hover(Hover(SourceSpan.on_line(1, 6, 9), "Feeds the cat."))
+        const html = Paragraph({ "Call ", code }):to_html()
+        contains(html, `<span class="chimera-hoverable" data-hover="1">feed</span>`)
+        contains(html, `<template data-hover="1" data-spans="1.6-1.9">Feeds the cat.</template></code>`)
+        const back = Parser():parse(html)[1]
+        equal(back:to_html(), html)
     end,
 
     ["copyable blocks get a copy button that parsing skips"] = function()
