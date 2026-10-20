@@ -47,9 +47,8 @@ return Page("Compatibility", {
 
     h2("Where Luau and Luwu diverge"),
     Paragraph({
-        "Because our community disagrees with upstream Luau's 2026-present decisions and internally made RFCs, ",
-        "Luau and Luwu have started to diverge, especially in regards to classes and inheritance, integers, ",
-        "and destructuring:",
+        "Since the fork, Luau and Luwu have diverged. The main differences today are in classes and ",
+        "inheritance, integers, and destructuring:",
     }),
     UnorderedList({
         ListItem({

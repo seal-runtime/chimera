@@ -141,19 +141,25 @@ return Page("Luwu", {
         "comprehensions, the ", Code("none"), " primitive, externally managed buffers, and more.",
     }),
     Paragraph({
-        "Because our community disagrees with upstream Luau's 2026-present decisions and internally made RFCs, ",
-        "Luau and Luwu have started to diverge, especially in regards to classes and inheritance, integers, ",
-        "and destructuring.",
+        "Since the fork, Luau and Luwu have diverged. The main differences today are in classes and ",
+        "inheritance, integers, and destructuring.",
     }),
     see_more(compatibility),
     Paragraph("The sections below give a short tour of each feature, with a link to its own page."),
 
     h2("Types and editor support"),
     Paragraph({
-        "Luwu maintains luwu-lsp, its language server, in-house alongside the language. Every change is developed ",
-        "against luwu-lsp and the Luwu extension right away to ensure a good developer experience, and all of our ",
-        "diagnostics are meant to produce readable hover information and error messages: multiline where it ",
-        "helps, with correct line breaks and formatting.",
+        "We maintain luwu-lsp and the Luwu VSCode/Code-OSS extension alongside the language, and since we develop ",
+        "directly with our language server, we test new editor features, type checking improvements and DX right ",
+        "away.",
+    }),
+    Paragraph({
+        "Since Luau is primarily developed against Roblox's Studio script editor, its diagnostics are optimized ",
+        "for single-line display. We develop against VSCode and the Luwu extension (with hopefully more editors ",
+        "coming soon!), so Luwu's output is optimized for multiline hovers from the language server, in ",
+        "VSCode/Code-OSS and other editors that commonly show hovers and diagnostics on several lines. ",
+        "It's written more for people than for tooling, although we've also added more context to make Luwu's ",
+        "type errors more useful in tooling as well.",
     }),
 
     h3("Type Checking"),
