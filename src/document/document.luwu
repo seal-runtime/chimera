@@ -109,6 +109,12 @@ const RUNTIME_JS = [====[(function () {
       area.remove();
       copied();
     },
+    menu: function (button) {
+      var menu = button.parentElement;
+      var open = !menu.hasAttribute("data-open");
+      menu.toggleAttribute("data-open", open);
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+    },
     tab: function (button) {
       var tabs = button.parentElement.parentElement;
       var buttons = button.parentElement.querySelectorAll("[role=tab]");
@@ -123,6 +129,32 @@ const RUNTIME_JS = [====[(function () {
       hide_hover();
     },
   };
+  // On narrow screens, a button floats in once the reader scrolls down.
+  // It goes back to the page's contents, or the top.
+  var to_top = null;
+  function sync_to_top() {
+    if (!to_top) {
+      to_top = document.createElement("button");
+      to_top.type = "button";
+      to_top.className = "chimera-to-top";
+      to_top.setAttribute("aria-label", "Back to top");
+      to_top.textContent = "↑";
+      to_top.addEventListener("click", function () {
+        var toc = document.querySelector(".chimera-toc");
+        if (toc && toc.getBoundingClientRect().top + scrollY > innerHeight) toc = null;
+        if (toc) {
+          var details = toc.querySelector("details");
+          if (details) details.open = true;
+          toc.scrollIntoView({ block: "start" });
+        } else {
+          scrollTo({ top: 0 });
+        }
+      });
+      document.body.appendChild(to_top);
+    }
+    to_top.toggleAttribute("data-visible", scrollY > innerHeight * 0.75);
+  }
+  addEventListener("scroll", function () { if (document.body) sync_to_top(); }, { passive: true });
   // Squiggle messages show in a box by the pointer, like an editor's hover.
   var hover = null;
   var hovered = null;
@@ -168,6 +200,8 @@ const RUNTIME_JS = [====[(function () {
   document.addEventListener("scroll", hide_hover, true);
   document.addEventListener("click", function (event) {
     close_menus(event.target);
+    var link = event.target.closest && event.target.closest(".chimera-menu[data-open] a");
+    if (link) link.closest(".chimera-menu").removeAttribute("data-open");
     var mark = mark_at(event.target);
     if (mark) {
       hovered = null;

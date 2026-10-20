@@ -3,6 +3,8 @@
 expressive html static site builder written in luwu for seal (0.9.x)/luwu versions.
 See seal branch luwu-classes.
 
+**Docs and example site:** https://seal-runtime.github.io/chimera/ (built with chimera, including an introduction to Luwu).
+
 this repo is 99% written by Claude. But it is a pretty good example of using
 OOP Luwu with classes and traits.
 

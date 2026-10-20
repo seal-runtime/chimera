@@ -443,6 +443,70 @@
     .chimera-menu .chimera-theme-switcher {
       margin-left: auto;
     }
+    .chimera-menu-toggle {
+      align-items: center;
+      background: none;
+      border-radius: 6px;
+      color: var(--chimera-text);
+      display: none;
+      padding: 0.35rem;
+    }
+    .chimera-menu-toggle:hover {
+      background: var(--chimera-surface);
+      filter: none;
+      transform: none;
+    }
+    @media (max-width: 700px) {
+      .chimera-menu {
+        flex-wrap: wrap;
+        gap: 0.6rem 1rem;
+      }
+      .chimera-menu-toggle {
+        display: inline-flex;
+        margin-left: auto;
+        order: 2;
+      }
+      .chimera-menu:has(.chimera-theme-switcher) .chimera-menu-toggle {
+        margin-left: 0;
+      }
+      .chimera-menu .chimera-brand {
+        order: 0;
+      }
+      .chimera-menu .chimera-theme-switcher {
+        order: 1;
+      }
+      .chimera-menu > :not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle) {
+        display: none;
+        flex-basis: 100%;
+        order: 3;
+      }
+      .chimera-menu[data-open] > :not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle) {
+        display: block;
+      }
+    }
+    .chimera-to-top {
+      display: none;
+    }
+    @media (max-width: 800px) {
+      .chimera-to-top[data-visible] {
+        align-items: center;
+        background: var(--chimera-surface);
+        border: 1px solid var(--chimera-border);
+        border-radius: 999px;
+        bottom: max(1rem, env(safe-area-inset-bottom));
+        box-shadow: var(--chimera-shadow);
+        color: var(--chimera-text);
+        display: flex;
+        font-size: 1.2rem;
+        height: 2.75rem;
+        justify-content: center;
+        padding: 0;
+        position: fixed;
+        right: max(1rem, env(safe-area-inset-right));
+        width: 2.75rem;
+        z-index: 40;
+      }
+    }
     .chimera-dropdown, .chimera-theme-switcher {
       background: none;
       border: none;
@@ -563,6 +627,7 @@
     .chimera-code-block {
       container-type: inline-size;
       margin: 1.25em 0;
+      overflow-x: visible;
       position: relative;
     }
     .chimera-copy {
@@ -597,8 +662,18 @@
     .chimera-code-block code, .chimera-line-numbers {
       font-size: clamp(0.8rem, calc(100cqw / (var(--chimera-code-columns, 80) * 0.62)), 0.875rem);
     }
+    .chimera-code-block > code {
+      display: block;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-color: var(--chimera-border) transparent;
+      scrollbar-width: thin;
+    }
     .chimera-code-block[data-line-numbers] {
       display: flex;
+    }
+    .chimera-code-block[data-line-numbers] > code {
+      flex: 1;
     }
     .chimera-line-numbers {
       background: var(--chimera-surface);
@@ -1059,6 +1134,12 @@
       area.remove();
       copied();
     },
+    menu: function (button) {
+      var menu = button.parentElement;
+      var open = !menu.hasAttribute("data-open");
+      menu.toggleAttribute("data-open", open);
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+    },
     tab: function (button) {
       var tabs = button.parentElement.parentElement;
       var buttons = button.parentElement.querySelectorAll("[role=tab]");
@@ -1073,6 +1154,32 @@
       hide_hover();
     },
   };
+  // On narrow screens, a button floats in once the reader scrolls down.
+  // It goes back to the page's contents, or the top.
+  var to_top = null;
+  function sync_to_top() {
+    if (!to_top) {
+      to_top = document.createElement("button");
+      to_top.type = "button";
+      to_top.className = "chimera-to-top";
+      to_top.setAttribute("aria-label", "Back to top");
+      to_top.textContent = "↑";
+      to_top.addEventListener("click", function () {
+        var toc = document.querySelector(".chimera-toc");
+        if (toc && toc.getBoundingClientRect().top + scrollY > innerHeight) toc = null;
+        if (toc) {
+          var details = toc.querySelector("details");
+          if (details) details.open = true;
+          toc.scrollIntoView({ block: "start" });
+        } else {
+          scrollTo({ top: 0 });
+        }
+      });
+      document.body.appendChild(to_top);
+    }
+    to_top.toggleAttribute("data-visible", scrollY > innerHeight * 0.75);
+  }
+  addEventListener("scroll", function () { if (document.body) sync_to_top(); }, { passive: true });
   // Squiggle messages show in a box by the pointer, like an editor's hover.
   var hover = null;
   var hovered = null;
@@ -1118,6 +1225,8 @@
   document.addEventListener("scroll", hide_hover, true);
   document.addEventListener("click", function (event) {
     close_menus(event.target);
+    var link = event.target.closest && event.target.closest(".chimera-menu[data-open] a");
+    if (link) link.closest(".chimera-menu").removeAttribute("data-open");
     var mark = mark_at(event.target);
     if (mark) {
       hovered = null;
@@ -1140,17 +1249,10 @@
 </head>
 <body>
   <header>
-    <nav data-element="Menu" class="chimera-menu">
-      <a data-element="PageLink" data-page="index.html" href="../index.html" class="chimera-brand">chimera</a>
-      <a data-element="PageLink" data-page="index.html" href="../index.html">Home</a>
-      <a data-element="PageLink" data-page="guide.html" href="../guide.html">Guide</a>
-      <a data-element="PageLink" data-page="luwu/index.html" href="index.html">Luwu</a>
-      <details data-element="Dropdown" class="chimera-dropdown">
-        <summary>More</summary>
-        <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a></div>
-      </details>
-      <details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary aria-label="Change theme" title="Change theme"><svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></summary><div class="chimera-theme-options" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-latte" onclick="chimera.setTheme('catppuccin-latte')"><span class="chimera-theme-swatch"><span style="background: #eff1f5"></span><span style="background: #8839ef"></span><span style="background: #fe640b"></span></span>Catppuccin Latte</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-mocha" onclick="chimera.setTheme('catppuccin-mocha')"><span class="chimera-theme-swatch"><span style="background: #1e1e2e"></span><span style="background: #cba6f7"></span><span style="background: #fab387"></span></span>Catppuccin Mocha</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-macchiato" onclick="chimera.setTheme('catppuccin-macchiato')"><span class="chimera-theme-swatch"><span style="background: #24273a"></span><span style="background: #c6a0f6"></span><span style="background: #f5a97f"></span></span>Catppuccin Macchiato</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-frappe" onclick="chimera.setTheme('catppuccin-frappe')"><span class="chimera-theme-swatch"><span style="background: #303446"></span><span style="background: #ca9ee6"></span><span style="background: #ef9f76"></span></span>Catppuccin Frappé</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="light" onclick="chimera.setTheme('light')"><span class="chimera-theme-swatch"><span style="background: #ffffff"></span><span style="background: #3b5bdb"></span><span style="background: #e8590c"></span></span>Light</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="dark" onclick="chimera.setTheme('dark')"><span class="chimera-theme-swatch"><span style="background: #121214"></span><span style="background: #7b9cff"></span><span style="background: #ffa94d"></span></span>Dark</button></div></details>
-    </nav>
+    <nav data-element="Menu" class="chimera-menu"><button type="button" class="chimera-menu-toggle" aria-label="Menu" aria-expanded="false" onclick="chimera.menu(this)"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><a data-element="PageLink" data-page="index.html" href="../index.html" class="chimera-brand">chimera</a><a data-element="PageLink" data-page="index.html" href="../index.html">Home</a><a data-element="PageLink" data-page="guide.html" href="../guide.html">Guide</a><a data-element="PageLink" data-page="luwu/index.html" href="index.html">Luwu</a><details data-element="Dropdown" class="chimera-dropdown">
+      <summary>More</summary>
+      <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a></div>
+    </details><details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary aria-label="Change theme" title="Change theme"><svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></summary><div class="chimera-theme-options" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-latte" onclick="chimera.setTheme('catppuccin-latte')"><span class="chimera-theme-swatch"><span style="background: #eff1f5"></span><span style="background: #8839ef"></span><span style="background: #fe640b"></span></span>Catppuccin Latte</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-mocha" onclick="chimera.setTheme('catppuccin-mocha')"><span class="chimera-theme-swatch"><span style="background: #1e1e2e"></span><span style="background: #cba6f7"></span><span style="background: #fab387"></span></span>Catppuccin Mocha</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-macchiato" onclick="chimera.setTheme('catppuccin-macchiato')"><span class="chimera-theme-swatch"><span style="background: #24273a"></span><span style="background: #c6a0f6"></span><span style="background: #f5a97f"></span></span>Catppuccin Macchiato</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-frappe" onclick="chimera.setTheme('catppuccin-frappe')"><span class="chimera-theme-swatch"><span style="background: #303446"></span><span style="background: #ca9ee6"></span><span style="background: #ef9f76"></span></span>Catppuccin Frappé</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="light" onclick="chimera.setTheme('light')"><span class="chimera-theme-swatch"><span style="background: #ffffff"></span><span style="background: #3b5bdb"></span><span style="background: #e8590c"></span></span>Light</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="dark" onclick="chimera.setTheme('dark')"><span class="chimera-theme-swatch"><span style="background: #121214"></span><span style="background: #7b9cff"></span><span style="background: #ffa94d"></span></span>Dark</button></div></details></nav>
   </header>
   <nav data-element="Breadcrumbs" aria-label="Breadcrumb" class="chimera-breadcrumbs"><ol><li><a href="index.html">Luwu</a></li><li><span aria-current="page">Function Default Arguments</span></li></ol></nav>
   <main>

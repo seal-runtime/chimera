@@ -12,8 +12,12 @@ const .{ UnorderedList, ListItem } = require("@elements/lists")
 const .{ Summary } = require("@elements/disclosure")
 type .{ Content, Markup, Writer, Element, Child } = markup
 
+const MENU_ICON = [=[<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">]=]
+    .. [=[<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>]=]
+
 --[=[
-    A `"nav"` element that shows a horizontal navigation bar, styled by the theme.
+    A `"nav"` element that shows a horizontal navigation bar, styled by the theme. On narrow screens its links fold
+    behind a menu button, while a brand link and a [ThemeSwitcher] stay in the bar.
 
     ```luwu
     Menu {
@@ -32,6 +36,24 @@ export class Menu implements Component, Container
         self
             :add_style_class("chimera-menu")
             :add(content)
+    end
+
+    --- Skips the menu button, which every render adds back.
+    function adopt(self, node: Markup): boolean
+        if class.implements(node, Element) when node:has_style_class("chimera-menu-toggle") then
+            return true
+        end
+        return Container.adopt(self, node)
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write("<button type=\"button\" class=\"chimera-menu-toggle\" aria-label=\"Menu\" aria-expanded=\"false\"")
+        out:write(` onclick="chimera.menu(this)">{MENU_ICON}</button>`)
+        for _, child in self.children do
+            child:render(out)
+        end
+        out:write("</nav>")
     end
 end
 

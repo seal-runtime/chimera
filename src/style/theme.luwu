@@ -215,6 +215,7 @@ export trait Theme
     ]=]
     function base_styles(self): { Rule }
         const border = `1px solid {token("border")}`
+        const folded_items = ":not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle)"
         return {
             Rule("*, *::before, *::after", { box_sizing = "border-box" }),
             Rule("html", { scroll_behavior = "smooth" }),
@@ -379,6 +380,60 @@ export trait Theme
                 text_decoration = "none",
             }),
             Rule(".chimera-menu .chimera-theme-switcher", { margin_left = "auto" }),
+            Rule(".chimera-menu-toggle", {
+                display = "none",
+                align_items = "center",
+                padding = "0.35rem",
+                color = token("text"),
+                background = "none",
+                border_radius = "6px",
+            }),
+            Rule(".chimera-menu-toggle:hover", {
+                filter = "none",
+                transform = "none",
+                background = token("surface"),
+            }),
+            Rule("@media (max-width: 700px)", {}, {
+                Rule(".chimera-menu", {
+                    flex_wrap = "wrap",
+                    gap = "0.6rem 1rem",
+                }),
+                Rule(".chimera-menu-toggle", {
+                    display = "inline-flex",
+                    order = 2,
+                    margin_left = "auto",
+                }),
+                Rule(".chimera-menu:has(.chimera-theme-switcher) .chimera-menu-toggle", { margin_left = "0" }),
+                Rule(".chimera-menu .chimera-brand", { order = 0 }),
+                Rule(".chimera-menu .chimera-theme-switcher", { order = 1 }),
+                Rule(`.chimera-menu > {folded_items}`, {
+                    display = "none",
+                    order = 3,
+                    flex_basis = "100%",
+                }),
+                Rule(`.chimera-menu[data-open] > {folded_items}`, { display = "block" }),
+            }),
+            Rule(".chimera-to-top", { display = "none" }),
+            Rule("@media (max-width: 800px)", {}, {
+                Rule(".chimera-to-top[data-visible]", {
+                    position = "fixed",
+                    right = "max(1rem, env(safe-area-inset-right))",
+                    bottom = "max(1rem, env(safe-area-inset-bottom))",
+                    z_index = "40",
+                    display = "flex",
+                    align_items = "center",
+                    justify_content = "center",
+                    width = "2.75rem",
+                    height = "2.75rem",
+                    padding = "0",
+                    font_size = "1.2rem",
+                    color = token("text"),
+                    background = token("surface"),
+                    border = border,
+                    border_radius = "999px",
+                    box_shadow = token("shadow"),
+                }),
+            }),
             Rule(".chimera-dropdown, .chimera-theme-switcher", {
                 position = "relative",
                 margin = "0",
@@ -486,6 +541,7 @@ export trait Theme
             }),
             Rule(".chimera-code-block", {
                 position = "relative",
+                overflow_x = "visible",
                 margin = "1.25em 0",
                 ["container-type"] = "inline-size",
             }),
@@ -517,7 +573,15 @@ export trait Theme
             Rule(".chimera-code-block code, .chimera-line-numbers", {
                 font_size = "clamp(0.8rem, calc(100cqw / (var(--chimera-code-columns, 80) * 0.62)), 0.875rem)",
             }),
+            Rule(".chimera-code-block > code", {
+                display = "block",
+                min_width = "0",
+                overflow_x = "auto",
+                ["scrollbar-color"] = `{token("border")} transparent`,
+                ["scrollbar-width"] = "thin",
+            }),
             Rule(".chimera-code-block[data-line-numbers]", { display = "flex" }),
+            Rule(".chimera-code-block[data-line-numbers] > code", { flex = "1" }),
             Rule(".chimera-line-numbers", {
                 position = "sticky",
                 left = 0,

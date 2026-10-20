@@ -269,7 +269,12 @@ const tests: { [string]: () -> () } = {
     end,
 
     ["components mark themselves for parsing"] = function()
-        contains(Menu { Link("Home", "/") }:to_html(), `<nav data-element="Menu" class="chimera-menu">`)
+        const menu = Menu { Link("Home", "/") }:to_html()
+        contains(
+            menu,
+            `<nav data-element="Menu" class="chimera-menu"><button type="button" class="chimera-menu-toggle"`
+        )
+        equal(Parser():parse(menu)[1]:to_html(), menu)
         contains(Card("T", "body"):to_html(), `<div data-element="Card" class="chimera-card"><h3>T</h3>body</div>`)
     end,
 
