@@ -79,7 +79,6 @@ return Page("Function Default Arguments", {
             next_id += 1
             return next_id
         end
-
         const function create_user(name: string, id = make_id())
             return { name = name, id = id }
         end

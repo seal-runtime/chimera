@@ -1438,14 +1438,12 @@ cat:<span class="hljs-title function_ invoke__"><span class="chimera-hoverable" 
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">tag</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">string</span>
         <span class="hljs-keyword">return</span> <span class="hljs-string">"figure"</span>
     <span class="hljs-keyword">end</span>
-
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">__init</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, file: <span class="hljs-type">string</span>?, source: <span class="hljs-type">string</span>?, language: <span class="hljs-title class_">Language</span>?<span class="chimera-bracket-1">)</span>
         <span class="hljs-literal">self</span>.source = source <span class="hljs-keyword">or</span> <span class="hljs-string">""</span>
         <span class="hljs-literal">self</span>
             :<span class="hljs-title function_ invoke__">attr</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"data-file"</span>, file<span class="chimera-bracket-1">)</span>
             :<span class="hljs-title function_ invoke__">attr</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"data-language"</span>, language <span class="hljs-keyword">or</span> <span class="hljs-string">"luwu"</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">end</span>
-
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">render</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, out: <span class="hljs-title class_">Writer</span><span class="chimera-bracket-1">)</span>
         <span class="hljs-literal">self</span>:<span class="hljs-title function_ invoke__">render_open</span><span class="chimera-bracket-1">(</span>out<span class="chimera-bracket-1">)</span>
         out:<span class="hljs-title function_ invoke__">write</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`&lt;figcaption&gt;</span><span class="hljs-subst">{<span class="hljs-title class_">Text</span>.<span class="hljs-title function_ invoke__">escape</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">tostring</span><span class="chimera-bracket-2">(</span><span class="hljs-literal">self</span>:<span class="hljs-title function_ invoke__">get_attr</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"data-file"</span><span class="chimera-bracket-3">)</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>}</span><span class="hljs-string">&lt;/figcaption&gt;`</span><span class="chimera-bracket-1">)</span>

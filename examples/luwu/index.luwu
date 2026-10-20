@@ -7,7 +7,9 @@ const .{
     components.{ Code, CodeBlock },
     site.{ Page, PageLink, TableOfContents },
 } = require("@chimera")
+const str = require("@std/str")
 const luwu = require("./sample")
+const .{ sample, terminal } = require("./terminal")
 const .{ h1, h2, h3 } = Heading
 
 const compatibility = require("./compatibility")
@@ -25,6 +27,41 @@ const library_extensions = require("./library_extensions")
 const external_memory = require("./external_memory")
 const conveniences = require("./conveniences")
 const experimental = require("./experimental")
+
+const health = sample("health")
+--- Where the whole Health example lives, on the Classes and Traits page.
+const FULL_HEALTH_EXAMPLE = "luwu/classes-and-traits.html#protecting-invariants"
+
+--[=[
+    `source` cut down to its class header and the methods in `keep`. The other methods become one `-- ...` comment
+    saying what they are, and the setup above the class is left out.
+]=]
+const function excerpt(source: string, keep: { [string]: boolean? }, note: string): string
+    const lines: { string } = {}
+    local started = false
+    local skipping = false
+    local noted = false
+    for _, line in str.splitlines(source) do
+        started = started or str.startswith(line, "class ")
+        if not started then
+            continue
+        end
+        if const name = string.match(line, "^    %a+ function ([%w_]+)%(") when not keep[name] then
+            skipping = true
+            if not noted then
+                table.insert(lines, `    -- ... {note}`)
+                noted = true
+            end
+        end
+        if not skipping then
+            table.insert(lines, line)
+        end
+        if skipping and line == "    end" then
+            skipping = false
+        end
+    end
+    return table.concat(lines, "\n")
+end
 
 --- A "See more" link to a feature's page.
 const function see_more(page: Page): Paragraph
@@ -147,29 +184,32 @@ return Page("Luwu", {
     h2("Objects and data"),
 
     h3("Classes and Traits"),
-    Paragraph("A class describes a kind of object: the data it holds and what it can do."),
-    Paragraph("Classes give plain values rules. A number can't stop itself from going below zero. A class can."),
-    luwu([====[
-        class Health(current: number, max: number)
-            function __sub(self, damage: number): Health
-                return Health(math.max(self.current - damage, 0), self.max)
-            end
-
-            function __tostring(self): string
-                return `{self.current}/{self.max}`
-            end
-        end
-
-        local health = Health(30, 100)
-        health -= 50
-        print(`{health}`)
-    ]====]),
     Paragraph({
-        "This prints ", Code("0/100"), ". Taking damage is just ", Code("-"), ". ",
-        "Health never goes below zero.",
+        "A class represents a domain specific concept for your program, such as ", Code("Player"), " and ",
+        Code("Health"), " classes in a game. In Luwu, you can use classes to abstract related functionality into ",
+        "components that make sense and use traits to share functionality that multiple classes need to use.",
     }),
-    Paragraph("Traits share behavior between classes. They're Luwu's take on inheritance, minus the confusing parts."),
-    see_more(classes),
+    Paragraph({
+        "Classes are also great for representing data that needs to rely upon certain properties always valid, ",
+        "such as health being clamped between 0 and ", Code("max_health"), ", age not being negative, positions not ",
+        "being NaN, etc. This ", PageLink(FULL_HEALTH_EXAMPLE, { Code("Health"), " example" }),
+        " represents the concept of health points and protects ",
+        "the fact that health must always be valid, and has a nice healthbar display for when you print it out ",
+        "to a terminal:",
+    }),
+    CodeBlock(excerpt(
+        health.source,
+        { full = true, clamped = true, __add = true, __sub = true },
+        "comparisons (__eq, __lt, __le) and a healthbar __tostring"
+    )),
+    Paragraph({
+        "The healthbar's colors come from seal's ", Code("@std/io/colors", "plaintext"), " library. Save the ",
+        PageLink(FULL_HEALTH_EXAMPLE, "full example"), " as ", Code("health.luwu", "plaintext"), " and run it with ",
+        Link("seal", "https://github.com/seal-runtime/seal/pull/295"):new_tab(), ":",
+    }),
+    CodeBlock("seal ./health.luwu", "bash"):copyable(),
+    terminal(health.output),
+    Paragraph({ PageLink(FULL_HEALTH_EXAMPLE, "See the full example on the Classes and Traits page →") }),
 
     h3("Destructuring"),
     Paragraph("Destructuring pulls several fields out of a table in one line. You write each name once."),

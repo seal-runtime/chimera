@@ -3,19 +3,26 @@
 --!lint ConstLocal
 
 const .{
-    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    elements.{ Heading, Paragraph, UnorderedList, ListItem, Link },
     components.{ Code, CodeBlock },
     site.{ Page, PageLink, TableOfContents },
 } = require("@chimera")
 const luwu = require("./sample")
+const .{ sample, terminal } = require("./terminal")
 const performance = require("@self/performance")
 const .{ h1, h2, h3 } = Heading
 
+const health = sample("health")
+
 return Page("Classes and Traits", {
     h1("Classes and Traits"),
-    Paragraph("A class describes a kind of object. It lists the data each object holds and what each object can do."),
-    Paragraph("An object is one value made from a class. Each object has its own data."),
-    Paragraph("A trait describes behavior that many classes share."),
+    Paragraph({
+        "A class represents a concept from your program's domain. It groups that concept's data (its fields) with ",
+        "its behavior (its methods) and encapsulates the data to protect the class's invariants, the rules that ",
+        "must always hold.",
+    }),
+    Paragraph("Each instance of a class, called an object, holds its own values for those fields."),
+    Paragraph("A trait is behavior that many classes share, written once and implemented by each of them."),
     Paragraph({
         "Classes and objects are primitives in Luwu, like numbers and strings. ",
         Code("type()"), " of a class is ", Code("\"class\""), ". ",
@@ -115,7 +122,6 @@ print(account.balance)]====], "luau"),
             function bark(self)
                 print(`{self.name} barked!`)
             end
-
             function birthday(self)
                 self.age += 1
             end
@@ -169,7 +175,6 @@ print(account.balance)]====], "luau"),
             function from_fahrenheit(fahrenheit: number): Temperature
                 return Temperature((fahrenheit - 32) * 5 / 9)
             end
-
             function describe(self): string
                 return `{self.celsius}°C`
             end
@@ -237,7 +242,6 @@ print(account.balance)]====], "luau"),
                     self.balance += amount
                 end
             end
-
             public function get_balance(self): number
                 return self.balance
             end
@@ -250,32 +254,33 @@ print(account.balance)]====], "luau"),
     ]====]),
     Paragraph("Only the class's own methods can change the balance. Every deposit goes through the same check."),
 
-    h3("Giving values rules"),
-    Paragraph("A plain number can't stop itself from going below zero. A class can wrap it and enforce the rules."),
-    Paragraph("Here, health can never drop below zero or rise above its max:"),
-    luwu([====[
-        class Health(current: number, max: number)
-            function damage(self, amount: number): Health
-                return Health(math.max(self.current - amount, 0), self.max)
-            end
-
-            function heal(self, amount: number): Health
-                return Health(math.min(self.current + amount, self.max), self.max)
-            end
-
-            function is_alive(self): boolean
-                return self.current > 0
-            end
-        end
-
-        local health = Health(30, 100)
-        health = health:heal(500)
-        print(health.current)
-        health = health:damage(999)
-        print(health.current, health:is_alive())
-    ]====]),
-    Paragraph("Code using Health can't break those rules by accident. The rules live in one place."),
-    Paragraph("Other classes can then hold a Health instead of a bare number."),
+    h3("Protecting invariants"),
+    Paragraph({
+        "Some data is only valid when certain properties always hold: health stays between 0 and its maximum, ",
+        "an age is never negative, a position is never NaN. Those properties are the class's invariants, and ",
+        "encapsulation is how a class protects them. When the fields are private and every change goes through ",
+        "the class's own methods, no code outside it can leave the data in an invalid state.",
+    }),
+    Paragraph({
+        "This ", Code("Health"), " class represents a player's health points. Its constructor and ", Code("current"),
+        " are private, every change goes through ", Code("clamped"), ", and its metamethods let you use ",
+        Code("+"), ", ", Code("-"), ", ", Code("=="), " and ", Code("<"), " on it directly. Printing it draws a ",
+        "healthbar:",
+    }),
+    CodeBlock(health.source):copyable(),
+    Paragraph({
+        "The healthbar's colors come from seal's ", Code("@std/io/colors", "plaintext"), " library. Save the ",
+        "example as ", Code("health.luwu", "plaintext"), " and run it with ",
+        Link("seal", "https://github.com/seal-runtime/seal/pull/295"):new_tab(), ":",
+    }),
+    CodeBlock("seal ./health.luwu", "bash"):copyable(),
+    terminal(health.output),
+    Paragraph({
+        "Overhealing by 500 stops at 100/100 because every result passes through ", Code("math.clamp"),
+        ". From outside the class, ", Code("hp.current = -20"),
+        " is a type error and a runtime error, and ", Code("Health(-5, 100)"), " fails because the constructor ",
+        "is private.",
+    }),
 
     h3("Operators on objects"),
     Paragraph({
@@ -287,11 +292,9 @@ print(account.balance)]====], "luau"),
             function __add(self, other: Vector2): Vector2
                 return Vector2(self.x + other.x, self.y + other.y)
             end
-
             function __eq(self, other: Vector2): boolean
                 return self.x == other.x and self.y == other.y
             end
-
             function __tostring(self): string
                 return `({self.x}, {self.y})`
             end

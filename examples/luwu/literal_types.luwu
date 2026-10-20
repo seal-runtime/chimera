@@ -69,7 +69,6 @@ return Page("Literal Types and Validators", {
             end
             return value
         end
-
         const function paint(color: HexColor<literal<string>>)
             print(`Painting with {color}`)
         end
@@ -100,7 +99,6 @@ return Page("Literal Types and Validators", {
         const function set_volume(volume: Percentage)
             print(`Volume: {volume}`)
         end
-
         const function set_brightness(brightness: Percentage)
             print(`Brightness: {brightness}`)
         end

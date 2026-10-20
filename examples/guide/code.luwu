@@ -123,14 +123,12 @@ return Page("Code", {
     function tag(): string
         return "figure"
     end
-
     function __init(self, file: string?, source: string?, language: Language?)
         self.source = source or ""
         self
             :attr("data-file", file)
             :attr("data-language", language or "luwu")
     end
-
     function render(self, out: Writer)
         self:render_open(out)
         out:write(`<figcaption>{Text.escape(tostring(self:get_attr("data-file")))}</figcaption>`)

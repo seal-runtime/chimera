@@ -1,0 +1,50 @@
+const colors = require("@std/io/colors")
+
+const EMPTY = vector.create(243, 139, 168)
+const FULL = vector.create(166, 227, 161)
+
+class Health private (
+    private current: number,
+    public const max_health: number
+)
+    public function full(max_health: number): Health
+        return Health(max_health, max_health)
+    end
+    private function clamped(current: number, max_health: number): Health
+        if current ~= current then
+            error("health can't be NaN", 3)
+        end
+        return Health(math.clamp(current, 0, max_health), max_health)
+    end
+    public function __add(self, amount: number): Health
+        return Health.clamped(self.current + amount, self.max_health)
+    end
+    public function __sub(self, amount: number): Health
+        return Health.clamped(self.current - amount, self.max_health)
+    end
+    public function __eq(self, other: Health): boolean
+        return self.current == other.current
+    end
+    public function __lt(self, other: Health): boolean
+        return self.current < other.current
+    end
+    public function __le(self, other: Health): boolean
+        return self.current <= other.current
+    end
+    public function __tostring(self): string
+        const ratio = self.current / self.max_health
+        const filled = math.round(ratio * 20)
+        const bar = colors.rgb(vector.lerp(EMPTY, FULL, ratio), string.rep("█", filled))
+            .. colors.style.dim(string.rep("░", 20 - filled))
+        return `{bar} {self.current}/{self.max_health}`
+    end
+end
+
+local hp = Health.full(100)
+print(hp)
+hp -= 65
+print(hp)
+hp += 500
+print(hp, hp == Health.full(100))
+hp -= 90
+print(hp, hp < Health.full(20))

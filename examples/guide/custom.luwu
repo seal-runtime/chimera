@@ -22,11 +22,9 @@ class Callout implements Component, Container
     function tag(): string
         return "aside"
     end
-
     function __init(self, title: string?, content: Content?)
         self:add(Strong(title), content)
     end
-
     function default_styles(self): { Rule }
         const callout = self:style_selector()
         return {

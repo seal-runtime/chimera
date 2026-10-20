@@ -50,11 +50,9 @@ return Page("Experimental Features", {
                     end
                 end
             end
-
             function __pop(self): string?
                 return table.remove(self.items)
             end
-
             function __len(self): number
                 return #self.items
             end

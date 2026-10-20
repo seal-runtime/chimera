@@ -83,7 +83,6 @@ return Page("Layout", {
     function tag(): string
         return "div"
     end
-
     function __init(self, content: Content?)
         self
             :add(content)

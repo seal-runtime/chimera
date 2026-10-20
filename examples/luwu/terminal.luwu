@@ -1,0 +1,45 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const env = require("@std/env")
+const process = require("@std/process")
+const .{
+    elements.{ Span, Preformatted },
+    style.{ Token, Color, token },
+} = require("@chimera")
+
+--- A sample program in `samples/`: its source, and what it prints when the seal building this site runs it.
+export type Sample = { source: string, output: string }
+
+--- Reads `samples/<name>.luwu` and runs it, so the docs show its real output.
+export function sample(name: string): Sample
+    const path = `examples/luwu/samples/{name}.luwu`
+    return {
+        source = (string.gsub(fs.readfile(path), "%s+$", "")),
+        output = process.run({ program = env.executable_path, args = { path } }):unwrap(),
+    }
+end
+
+--- The theme color for each plain ANSI code seal's colors library prints.
+const ANSI_COLORS: { [string]: Token? } = {
+    ["2"] = token("muted"),
+    ["33"] = token("syntax_warning"),
+}
+
+--- A program's terminal output with its colors, from the text it printed, ANSI codes included.
+export function terminal(output: string): Preformatted
+    const parts: { Span | string } = {}
+    local color: (Color | Token)? = nil
+    for text, code in string.gmatch(output .. "\27[0m", "(.-)\27%[([%d;]*)m") do
+        if text ~= "" then
+            table.insert(parts, if color then Span(text):style({ color = color }) else text)
+        end
+        const r, g, b = string.match(code or "", "^38;2;(%d+);(%d+);(%d+)$")
+        color = if r and g and b
+            then Color(tonumber(r) or 0, tonumber(g) or 0, tonumber(b) or 0)
+            else ANSI_COLORS[code or ""]
+    end
+    return Preformatted(parts)
+end

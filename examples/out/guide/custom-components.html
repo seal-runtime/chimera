@@ -1387,11 +1387,9 @@
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">tag</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">string</span>
         <span class="hljs-keyword">return</span> <span class="hljs-string">"aside"</span>
     <span class="hljs-keyword">end</span>
-
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">__init</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, title: <span class="hljs-type">string</span>?, content: <span class="hljs-title class_">Content</span>?<span class="chimera-bracket-1">)</span>
         <span class="hljs-literal">self</span>:<span class="hljs-title function_ invoke__">add</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Strong</span><span class="chimera-bracket-2">(</span>title<span class="chimera-bracket-2">)</span>, content<span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">end</span>
-
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">default_styles</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="chimera-bracket-1">{</span> <span class="hljs-title class_">Rule</span> <span class="chimera-bracket-1">}</span>
         <span class="hljs-keyword">const</span> callout = <span class="hljs-literal">self</span>:<span class="hljs-title function_ invoke__">style_selector</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
         <span class="hljs-keyword">return</span> <span class="chimera-bracket-1">{</span>
