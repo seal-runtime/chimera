@@ -1,0 +1,109 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2 } = Heading
+
+return Page("Function Default Arguments", {
+    h1("Function Default Arguments"),
+    Paragraph("A parameter can have a default value. Callers can then leave it out."),
+    Paragraph("In Luau, you'd fill in missing arguments by hand:"),
+    luwu([====[
+        local function greet(name: string, greeting: string?)
+            local actual = greeting or "Hello"
+            print(`{actual}, {name}!`)
+        end
+
+        greet("Ada")
+    ]====]),
+    Paragraph("In Luwu, the default goes in the signature:"),
+    luwu([====[
+        const function greet(name: string, greeting = "Hello")
+            print(`{greeting}, {name}!`)
+        end
+
+        greet("Ada")
+        greet("Grace", "Welcome")
+    ]====]),
+    Paragraph({ "Inside the function, ", Code("greeting"), " is always a string. It can never be nil." }),
+    Paragraph("Your editor shows the default when you call the function."),
+    TableOfContents(),
+
+    h2("Passing nil"),
+    Paragraph({
+        "Passing nil is the same as leaving the argument out. ",
+        "That lets you skip one argument and pass the next.",
+    }),
+    luwu([====[
+        const function spawn(kind: string, count = 1, level = 1)
+            print(`{count} x {kind} at level {level}`)
+        end
+
+        spawn("slime")
+        spawn("slime", nil, 5)
+    ]====]),
+    Paragraph({
+        "That's also better than ", Code("x or default"), ". ",
+        "The or trick replaces ", Code("false"), " too, by mistake.",
+    }),
+    luwu([====[
+        const function configure(verbose = true)
+            print(verbose)
+        end
+
+        configure(false)
+    ]====]),
+
+    h2("Defaults run on every call"),
+    Paragraph("A default is evaluated each time the function needs it. Every call gets its own fresh value."),
+    luwu([====[
+        const function new_inventory(items: { string } = {})
+            return items
+        end
+
+        const first = new_inventory()
+        const second = new_inventory()
+        table.insert(first, "sword")
+        print(#first, #second)
+    ]====]),
+    Paragraph("A default can be any expression, including a function call:"),
+    luwu([====[
+        local next_id = 0
+        const function make_id(): number
+            next_id += 1
+            return next_id
+        end
+
+        const function create_user(name: string, id = make_id())
+            return { name = name, id = id }
+        end
+
+        print(create_user("Ada").id, create_user("Grace").id, create_user("Alan", 99).id)
+    ]====]),
+
+    h2("Classes"),
+    Paragraph("A class's primary constructor takes defaults too:"),
+    luwu([====[
+        class Enemy(name: string, hp = 100, speed = 1.0)
+            function describe(self): string
+                return `{self.name}: {self.hp} hp, speed {self.speed}`
+            end
+        end
+
+        print(Enemy("Slime", 20):describe())
+        print(Enemy("Dragon", 5000, 0.5):describe())
+    ]====]),
+
+    h2("Things to know"),
+    UnorderedList({
+        ListItem("A default can't refer to the other parameters. It sees the variables around the function."),
+        ListItem("Parameters without defaults may come after ones with defaults."),
+        ListItem({ "To callers, ", Code("function f(x = 1)"), " takes an optional number." }),
+    }),
+}, "function-default-arguments.html")

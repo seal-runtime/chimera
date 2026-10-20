@@ -1,0 +1,80 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Component } = require("@core/markup")
+const .{ Layout } = require("@elements/layout")
+const properties = require("@style/properties")
+type .{ Content } = markup
+type .{ Length } = properties
+
+--[=[
+    A `"div"` that lays its children out left to right, wrapping when they run out of room, with the theme's
+    spacing between them. The [Layout] methods adjust it.
+
+    ## Usage
+
+    ```luwu
+    Row({ Button("Save"), Button("Cancel") }):justify("end")
+    ```
+]=]
+export class Row implements Component, Layout
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, content: Content?)
+        self
+            :add(content)
+            :row()
+    end
+end
+
+--[=[
+    A `"div"` that stacks its children top to bottom, with the theme's spacing between them. The [Layout] methods
+    adjust it.
+
+    ## Usage
+
+    ```luwu
+    Column({ h3("Contact"), email_link, phone_link }):gap("0.5rem")
+    ```
+]=]
+export class Column implements Component, Layout
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, content: Content?)
+        self
+            :add(content)
+            :column()
+    end
+end
+
+--[=[
+    A `"div"` that lays its children out in as many columns as fit, each at least `min_width` wide (`"12rem"` by
+    default), with the theme's spacing between them.
+
+    ## Usage
+
+    ```luwu
+    Grid({ Card("Typed"), Card("Themeable"), Card("Roundtrips") }, "15rem")
+    ```
+]=]
+export class Grid implements Component, Layout
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, content: Content?, min_width: Length?)
+        self
+            :add(content)
+            :grid(min_width)
+    end
+end
+
+for _, cls in { Row, Column, Grid } do
+    Component.register(cls)
+end

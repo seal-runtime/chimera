@@ -1,0 +1,85 @@
+--!strict
+--!optimize 2
+
+--[=[
+    The traits a custom element implements: [Component] to sit anywhere content goes, plus [Container] to hold
+    children of its own. Containers can also implement `Layout` to arrange those children in a row, a column or a
+    grid.
+
+    ```luwu
+    const chimera = require("@libraries/chimera")
+    const .{ Component, Container } = chimera
+    type .{ Content } = chimera
+
+    class Callout implements Component, Container
+        function tag(): string
+            return "aside"
+        end
+
+        function __init(self, content: Content?)
+            self
+                :add_style_class("callout")
+                :add(content)
+        end
+    end
+
+    Component.register(Callout)
+    ```
+]=]
+export .{
+    Component,
+    Container,
+} = require("@self/src/core/markup")
+
+--- The trait that arranges a container's children in a row, a column or a grid: [elements_layout.Layout].
+---
+--- [elements_layout = require("@self/src/elements/layout")]
+export .{
+    Layout,
+} = require("@self/src/elements/layout")
+
+--- The trait shared by [code.Code] and [code.CodeBlock], for elements that show highlighted source code.
+---
+--- [code = require("@self/src/components/code")]
+export .{
+    SourceCode,
+} = require("@self/src/components/code")
+
+--- Every built-in HTML element: [elements.Div], [elements.Paragraph], [elements.Heading], [elements.Table], ...
+export elements = require("@self/src/elements")
+
+--- Ready-made components: rows, columns and grids, menus, dropdowns, toggles, cards, a theme switcher, a site
+--- footer, and highlighted code.
+export components = require("@self/src/components")
+
+--- CSS and theming: [style.Style], [style.Rule], [style.Color], [style.Theme], [style.Palette], [style.token].
+export style = require("@self/src/style")
+
+--- Ready-made themes: [themes.Light], [themes.Dark], and the [themes.catppuccin] flavors.
+export themes = require("@self/src/themes")
+
+--- A whole page with its themes: [document_module.Document]. A [site.Site] builds one per page.
+---
+--- [document_module = require("@self/src/document/document")]
+export .{
+    Document,
+} = require("@self/src/document/document")
+
+--- Multi-page sites: [site.Site], its [site.Page]s, [site.PageLink]s between them and [site.TableOfContents].
+export site = require("@self/src/site")
+
+--- Turns HTML back into chimera objects: [parser_module.Parser].
+---
+--- [parser_module = require("@self/src/parse/parser")]
+export .{
+    Parser,
+} = require("@self/src/parse/parser")
+
+--- Low-level building blocks: every trait, the [core.Writer], and nodes that aren't tags ([core.Text], [core.Raw],
+--- ...).
+export core = require("@self/src/core/markup")
+
+const core_types = require("@self/src/core/markup")
+export type .{
+    Content,
+} = core_types

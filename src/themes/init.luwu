@@ -1,0 +1,55 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ Color } = require("@style/color")
+const .{ Theme, Palette } = require("@style/theme")
+
+--- A plain light theme, and the theme a [Document][document.Document] uses until given another.
+---
+--- [document = require("@document/document")]
+export class Light() implements Theme
+    const name = "light"
+    const mode = "Light"
+end
+
+--- A neutral dark theme.
+export class Dark() implements Theme
+    const name = "dark"
+    const mode = "Dark"
+
+    function palette(self): Palette
+        return Palette {
+            background = Color.hex("#121214"),
+            surface = Color.hex("#1e1e22"),
+            text = Color.hex("#ececf1"),
+            muted = Color.hex("#9a9aa5"),
+            primary = Color.hex("#7b9cff"),
+            primary_text = Color.hex("#0b0b0d"),
+            accent = Color.hex("#ffa94d"),
+            border = Color.hex("#33333a"),
+            shadow = "0 1px 3px rgba(0, 0, 0, 0.6)",
+            syntax_keyword = Color.hex("#ff7b72"),
+            syntax_string = Color.hex("#a5d6ff"),
+            syntax_number = Color.hex("#79c0ff"),
+            syntax_comment = Color.hex("#8b949e"),
+            syntax_function = Color.hex("#d2a8ff"),
+            syntax_type = Color.hex("#ffa657"),
+            syntax_builtin = Color.hex("#79c0ff"),
+            syntax_constant = Color.hex("#79c0ff"),
+            syntax_bracket_1 = Color.hex("#e6c547"),
+            syntax_bracket_2 = Color.hex("#3fbfae"),
+            syntax_bracket_3 = Color.hex("#e37cc1"),
+            syntax_error = Color.hex("#ff6b6b"),
+            syntax_warning = Color.hex("#e3b341"),
+            syntax_info = Color.hex("#58a6ff"),
+        }
+    end
+end
+
+for _, cls in { Light, Dark } do
+    Theme.register(cls)
+end
+
+--- The Catppuccin flavors as themes ([catppuccin.Mocha], [catppuccin.Latte], ...) and as full color palettes.
+export catppuccin = require("@self/catppuccin")

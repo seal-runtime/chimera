@@ -1,0 +1,171 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2 } = Heading
+
+return Page("Destructuring", {
+    h1("Destructuring"),
+    Paragraph("Destructuring pulls several fields out of a table in one line."),
+    Paragraph("In Luau, you write each name twice:"),
+    luwu([====[
+        const player = { name = "Ada", level = 12, class = "Mage" }
+
+        local name = player.name
+        local level = player.level
+        print(name, level)
+    ]====]),
+    Paragraph("In Luwu, you list the names once:"),
+    luwu([====[
+        const player = { name = "Ada", level = 12, class = "Mage" }
+
+        const .{ name, level } = player
+        print(name, level)
+    ]====]),
+    Paragraph({
+        Code(".{ name, level }"), " reads ", Code("player.name"), " and ", Code("player.level"), ". ",
+        "The table is evaluated once.",
+    }),
+    TableOfContents(),
+
+    h2("Renaming with as"),
+    Paragraph({ "Use ", Code("as"), " to give a field a different local name. The field's name comes first." }),
+    luwu([====[
+        const response = { status = 200, body = "ok" }
+
+        const .{ status as code, body as text } = response
+        print(code, text)
+    ]====]),
+
+    h2("Nested tables"),
+    Paragraph("Patterns nest. Add a dot and braces after a name to reach inside it."),
+    luwu([====[
+        const user = {
+            name = "Ada",
+            address = { city = "London", country = "UK" },
+        }
+
+        const .{ name, address.{ city } } = user
+        print(name, city, address.country)
+    ]====]),
+    Paragraph({
+        Code("address.{ city }"), " binds both ", Code("address"), " and ", Code("city"), ". To skip ",
+        Code("address"), ", rename it into a pattern:",
+    }),
+    luwu([====[
+        const user = { address = { city = "London", country = "UK" } }
+
+        const .{ address as .{ city, country } } = user
+        print(city, country)
+    ]====]),
+
+    h2("Keeping the whole value"),
+    Paragraph("Put a name before the braces to keep the whole table too."),
+    luwu([====[
+        const function load_config()
+            return { width = 1280, height = 720, title = "Game" }
+        end
+
+        const config.{ width, height } = load_config()
+        print(width * height, config.title)
+    ]====]),
+
+    h2("Imports"),
+    Paragraph("Destructuring shines at the top of a file. Take just what you need from a module."),
+    luwu([====[
+        const .{ readfile, writefile } = require("@std/fs")
+        const fs.{ path } = require("@std/fs")
+
+        print(typeof(readfile), typeof(writefile), typeof(path.join), typeof(fs))
+    ]====]),
+    Paragraph({
+        "Types come along too. ", Code("type .{ ... } = module"), " pulls exported types out of a module:",
+    }),
+    luwu([====[
+        const process = require("@std/process")
+        type .{ RunResult } = process
+
+        const function succeeded(result: RunResult): boolean
+            return result.ok
+        end
+
+        print(typeof(succeeded))
+    ]====]),
+
+    h2("Loops"),
+    Paragraph("Destructure each item right in a for loop's header."),
+    luwu([====[
+        const books = {
+            { title = "Dune", year = 1965 },
+            { title = "Hyperion", year = 1989 },
+        }
+
+        for _, .{ title, year } in books do
+            print(`{title} came out in {year}`)
+        end
+    ]====]),
+
+    h2("In if local"),
+    Paragraph("A destructuring binding in an if local passes when every name it binds is truthy."),
+    luwu([====[
+        const function lookup(id: number): { name: string?, email: string? }
+            return if id == 1 then { name = "Ada", email = "ada@example.com" } else {}
+        end
+
+        if const .{ name, email } = lookup(1) then
+            print(`Mail {name} at {email}`)
+        end
+    ]====]),
+
+    h2("Building tables with .{ }"),
+    Paragraph("The same braces work the other way around. A bare name becomes a field of the same name."),
+    luwu([====[
+        const name = "Ada"
+        const email = "ada@example.com"
+
+        const user = .{ name, email, verified = true }
+        print(user.name, user.email, user.verified)
+    ]====]),
+    Paragraph("It's handy for returning several values by name:"),
+    luwu([====[
+        const function stats(numbers: { number })
+            local min, max, sum = math.huge, -math.huge, 0
+            for _, n in numbers do
+                min = math.min(min, n)
+                max = math.max(max, n)
+                sum += n
+            end
+            const average = sum / #numbers
+            return .{ min, max, average }
+        end
+
+        const .{ min, max, average } = stats({ 4, 8, 15, 16, 23, 42 })
+        print(min, max, average)
+    ]====]),
+    Paragraph("It also builds plain old data (POD) classes:"),
+    luwu([====[
+        class Color
+            r = 0
+            g = 0
+            b = 0
+        end
+
+        const r, g, b = 255, 128, 0
+        const orange = Color.{ r, g, b }
+        print(orange.r, orange.g, orange.b)
+    ]====]),
+
+    h2("Things to know"),
+    UnorderedList({
+        ListItem("Destructuring reads fields by name. A missing field on a plain table gives nil."),
+        ListItem("On a class object, a missing field is an error, like any other read."),
+        ListItem("Function parameters can't be destructured. Destructure inside the function instead."),
+        ListItem({ "You can't assign to a pattern. ", Code(".{ a, b } = t"), " without const or local is an error." }),
+    }),
+}, "destructuring.html")

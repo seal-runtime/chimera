@@ -1,0 +1,279 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const .{ equal, contains, excludes, truthy } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    Parser,
+    core.{ Writer },
+    elements.{ Header, Paragraph, Heading, Link },
+    components.{ Menu, SiteFooter },
+    themes.{ catppuccin },
+    site.{ Site, Page, PageLink, TableOfContents },
+} = chimera
+const .{ h1, h2, h3 } = Heading
+
+--- A small documentation site: a home page, a guide, and a docs section with two chapters.
+const function sample()
+    const home = Page("Home", Paragraph("Welcome."), "index.html")
+    const guide = Page("Guide", {
+        h1("Guide"),
+        TableOfContents("page", 3, "On this page"),
+        h2("Install"),
+        h3("With seal"),
+        h2("Themes & colors"),
+        h2("Install"),
+    })
+    const install = Page("Install", h1("Install"))
+    const docs = Page("Docs", { h1("Docs"), TableOfContents() }, "docs/index.html")
+        :add_page(install, Page("Theming", h1("Theming")))
+    const site = Site("chimera")
+        :default_dark_theme(catppuccin.Mocha)
+        :default_light_theme(catppuccin.Latte)
+        :describe("Static sites")
+        :header(Header { Menu { PageLink(home), PageLink(guide), PageLink(docs) } })
+        :add_page(home, guide, docs)
+    return .{ site, home, guide, docs, install }
+end
+
+const tests: { [string]: () -> () } = {
+    ["pages nest in their parent's folder"] = function()
+        const .{ site, docs, install } = sample()
+        equal(install:path(), "docs/install.html")
+        equal(docs:folder(), "docs/")
+        equal(Page("Getting Started!"):path(), "getting-started.html")
+        equal(
+            Page("Guide")
+                :add_page(Page("Setup"))
+                :pages()[1]:path(),
+            "guide/setup.html"
+        )
+        equal(#site:pages(), 3)
+        equal(#site:all_pages(), 5)
+        equal(site:find_page("docs/theming.html") ~= nil, true)
+    end,
+
+    ["writers link between folders"] = function()
+        const out = Writer()
+        out.location = "docs/install.html"
+        equal(out:href_to("index.html"), "../index.html")
+        equal(out:href_to("docs/theming.html"), "theming.html")
+        equal(out:href_to("docs/index.html"), "index.html")
+        out.location = "index.html"
+        equal(out:href_to("docs/install.html"), "docs/install.html")
+    end,
+
+    ["the shared header links correctly from every page"] = function()
+        const .{ site, install, home } = sample()
+        const nested = site
+            :document(install)
+            :to_html()
+        contains(nested, `<a data-element="PageLink" data-page="index.html" href="../index.html">Home</a>`)
+        contains(nested, `data-page="docs/index.html" href="index.html">Docs</a>`)
+        contains(
+            site
+                :document(home)
+                :to_html(),
+            `href="index.html" aria-current="page">Home</a>`
+        )
+    end,
+
+    ["pages share the site's themes and metadata"] = function()
+        const .{ site, guide } = sample()
+        const html = site
+            :document(guide)
+            :to_html()
+        contains(html, "<title>Guide · chimera</title>")
+        contains(html, `<meta name="description" content="Static sites">`)
+        contains(html, `data-theme-light="catppuccin-latte" data-theme-dark="catppuccin-mocha"`)
+        const home = Page("chimera")
+        contains(
+            Site("chimera")
+                :add_page(home)
+                :document(home)
+                :to_html(),
+            "<title>chimera</title>"
+        )
+    end,
+
+    ["a table of contents lists the page's headings"] = function()
+        const .{ site, guide } = sample()
+        const html = site
+            :document(guide)
+            :to_html()
+        contains(html, `<p class="chimera-toc-title">On this page</p>`)
+        contains(html, `<li><a href="#install">Install</a><ul><li><a href="#with-seal">With seal</a></li></ul></li>`)
+        contains(html, `<li><a href="#themes-colors">Themes &amp; colors</a></li><li><a href="#install-2">`)
+        contains(html, `<h2 id="install">Install</h2>`)
+        contains(html, `<h3 id="with-seal">With seal</h3>`)
+        excludes(html, `href="#guide"`)
+    end,
+
+    ["a table of contents lists the pages under its page"] = function()
+        const .{ site, docs } = sample()
+        const html = site
+            :document(docs)
+            :to_html()
+        contains(html, `<ul><li><a href="install.html">Install</a></li>`)
+        contains(html, `<li><a href="theming.html">Theming</a></li></ul>`)
+    end,
+
+    ["a site table of contents marks the current page"] = function()
+        const .{ site, install } = sample()
+        site:sidebar(TableOfContents("site"))
+        const html = site
+            :document(install)
+            :to_html()
+        contains(html, `<div data-element="SiteLayout" class="chimera-site-layout"><aside>`)
+        contains(html, `<li><a href="index.html">Docs</a><ul><li><a href="install.html" aria-current="page">`)
+        contains(html, `<li><a href="../index.html">Home</a></li>`)
+    end,
+
+    ["headings and subpages get their own collapsible columns"] = function()
+        const .{ site, docs, guide } = sample()
+        docs:add(h2("Overview"))
+        const html = site
+            :document(docs)
+            :to_html()
+        contains(html, `<details open><summary>Contents</summary><div class="chimera-toc-columns">`)
+        contains(html, `<section><p class="chimera-toc-title">On this page</p><ul><li><a href="#overview">`)
+        contains(html, `<section><p class="chimera-toc-title">Subpages</p><ul><li><a href="install.html">`)
+        contains(
+            site
+                :document(guide)
+                :to_html(),
+            `<summary>On this page</summary>`
+        )
+        excludes(
+            site
+                :document(guide)
+                :to_html(),
+            "Subpages"
+        )
+    end,
+
+    ["nested pages show the way back up"] = function()
+        const .{ site, install, home } = sample()
+        const html = site
+            :document(install)
+            :to_html()
+        contains(html, `<nav data-element="Breadcrumbs" aria-label="Breadcrumb" class="chimera-breadcrumbs"><ol>`)
+        contains(html, `<li><a href="index.html">Docs</a></li><li><span aria-current="page">Install</span></li></ol>`)
+        excludes(
+            site
+                :document(home)
+                :to_html(),
+            "chimera-breadcrumbs\"><ol>"
+        )
+        excludes(
+            site
+                :breadcrumbs(false)
+                :document(install)
+                :to_html(),
+            "<ol>"
+        )
+    end,
+
+    ["footers fill in columns, copyright and legal links"] = function()
+        const html = SiteFooter()
+            :copyright("Ada", "All rights reserved.", 2026)
+            :link_column("Docs", { Link("Guide", "/guide") })
+            :legal({ Link("Privacy", "/privacy") })
+            :to_html()
+        contains(html, `<footer data-element="SiteFooter" class="chimera-footer"><div data-element="Grid"`)
+        contains(html, `class="chimera-grid chimera-footer-columns"`)
+        contains(html, `<p class="chimera-footer-title">Docs</p><ul><li><a href="/guide">Guide</a></li></ul>`)
+        contains(html, `<p class="chimera-footer-copyright">© 2026 Ada. All rights reserved.</p>`)
+        equal(
+            SiteFooter()
+                :column()
+                :to_html(),
+            `<footer data-element="SiteFooter" class="chimera-footer chimera-column"></footer>`
+        )
+        contains(html, `class="chimera-row chimera-footer-legal" style="gap: 1.25rem"><a href="/privacy">Privacy</a>`)
+    end,
+
+    ["sites get a header and footer by default"] = function()
+        const home = Page("Home", nil, "index.html")
+        const site = Site("Ada's notes"):add_page(home, Page("About"))
+        const html = site
+            :document(home)
+            :to_html()
+        contains(html, `<a data-element="PageLink" data-page="index.html" href="index.html" aria-current="page"`)
+        contains(html, `class="chimera-brand">Ada's notes</a>`)
+        contains(html, `data-page="about.html" href="about.html">About</a>`)
+        contains(html, `<details data-element="ThemeSwitcher"`)
+        contains(html, `<p class="chimera-footer-copyright">© `)
+        contains(html, ` Ada's notes.</p>`)
+        const bare = site
+            :header(none)
+            :footer(none)
+            :document(home)
+            :to_html()
+        excludes(bare, "<header>")
+        excludes(bare, `data-element="SiteFooter"`)
+    end,
+
+    ["one theme needs no switcher"] = function()
+        const home = Page("Home", nil, "index.html")
+        const site = Site("x")
+            :default_dark_theme(catppuccin.Mocha)
+            :add_page(home)
+        excludes(
+            site
+                :document(home)
+                :to_html(),
+            `data-element="ThemeSwitcher"`
+        )
+    end,
+
+    ["content lists skip none"] = function()
+        const signed_in = false
+        const html = Paragraph({ if signed_in then "Account" else none, "Help" }):to_html()
+        equal(html, "<p>Help</p>")
+    end,
+
+    ["headings keep ids only where a table of contents needs them"] = function()
+        const .{ site, home } = sample()
+        home:add(h2("Plain"))
+        contains(
+            site
+                :document(home)
+                :to_html(),
+            "<h2>Plain</h2>"
+        )
+    end,
+
+    ["site pages roundtrip through the parser"] = function()
+        const .{ site, install } = sample()
+        const html = site
+            :document(install)
+            :to_html()
+        const parsed = Parser():parse_document(html)
+        parsed.location = "docs/install.html"
+        parsed.site_pages = site:document(install).site_pages
+        equal(parsed:to_html(), html)
+    end,
+
+    ["build writes every page and refuses clashing paths"] = function()
+        const .{ site } = sample()
+        const out_dir = fs.path.join(fs.path.cwd(), ".test-site")
+        const written = site:build(out_dir)
+        equal(#written, 5)
+        truthy(fs.path.exists(fs.path.join(out_dir, "docs", "install.html")), "expected docs/install.html")
+        fs.removetree(out_dir)
+        const clash = Site("x"):add_page(Page("A", nil, "same.html"), Page("B", nil, "same.html"))
+        const ok, message = pcall(function()
+            return clash:build(out_dir)
+        end)
+        equal(ok, false)
+        contains(tostring(message), "pages 'A' and 'B' both write same.html")
+        if fs.path.exists(out_dir) then
+            fs.removetree(out_dir)
+        end
+    end,
+}
+
+return tests

@@ -1,0 +1,17 @@
+{
+  "languageMode": "strict",
+  "aliases": {
+    "extra": "./.seal/extra/",
+    "std": "./.seal/typedefs/std/",
+    "interop": "./.seal/typedefs/interop/",
+    "chimera": "./",
+    "core": "./src/core/",
+    "style": "./src/style/",
+    "site": "./src/site/",
+    "themes": "./src/themes/",
+    "elements": "./src/elements/",
+    "document": "./src/document/",
+    "components": "./src/components/",
+    "parse": "./src/parse/"
+  }
+}

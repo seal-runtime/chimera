@@ -1,0 +1,917 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Component, Text } = require("@core/markup")
+const .{ Script } = require("@elements/head")
+const .{ Color } = require("@style/color")
+const .{ Token, token } = require("@style/token")
+type .{ Markup, Metadata, Writer, AttributeValue } = markup
+
+--[=[
+    A language a [CodeBlock] or [Code] can highlight. `"luwu"`, `"luau"` and `"lua"` are highlighted when the
+    page is built. The others are highlighted in the browser by highlight.js. The page loads it only for them.
+    `"plaintext"` isn't highlighted.
+]=]
+export type Language =
+    | "luwu"
+    | "luau"
+    | "lua"
+    | "plaintext"
+    | "bash"
+    | "shell"
+    | "c"
+    | "cpp"
+    | "csharp"
+    | "css"
+    | "diff"
+    | "go"
+    | "html"
+    | "ini"
+    | "java"
+    | "javascript"
+    | "json"
+    | "kotlin"
+    | "markdown"
+    | "python"
+    | "ruby"
+    | "rust"
+    | "sql"
+    | "swift"
+    | "toml"
+    | "typescript"
+    | "xml"
+    | "yaml"
+
+const LANGUAGES: { [string]: Language } = {
+    luwu = "luwu",
+    luau = "luau",
+    lua = "lua",
+    plaintext = "plaintext",
+    bash = "bash",
+    shell = "shell",
+    c = "c",
+    cpp = "cpp",
+    csharp = "csharp",
+    css = "css",
+    diff = "diff",
+    go = "go",
+    html = "html",
+    ini = "ini",
+    java = "java",
+    javascript = "javascript",
+    json = "json",
+    kotlin = "kotlin",
+    markdown = "markdown",
+    python = "python",
+    ruby = "ruby",
+    rust = "rust",
+    sql = "sql",
+    swift = "swift",
+    toml = "toml",
+    typescript = "typescript",
+    xml = "xml",
+    yaml = "yaml",
+}
+
+const HIGHLIGHT_JS = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
+
+const KEYWORDS: { [string]: boolean } = {
+    ["and"] = true,
+    ["break"] = true,
+    ["do"] = true,
+    ["else"] = true,
+    ["elseif"] = true,
+    ["end"] = true,
+    ["for"] = true,
+    ["function"] = true,
+    ["if"] = true,
+    ["in"] = true,
+    ["local"] = true,
+    ["not"] = true,
+    ["or"] = true,
+    ["repeat"] = true,
+    ["return"] = true,
+    ["then"] = true,
+    ["until"] = true,
+    ["while"] = true,
+    ["continue"] = true,
+    ["export"] = true,
+    ["type"] = true,
+    ["typeof"] = true,
+    ["const"] = true,
+    ["class"] = true,
+    ["trait"] = true,
+    ["public"] = true,
+    ["private"] = true,
+    ["expect"] = true,
+    ["final"] = true,
+    ["implements"] = true,
+    ["needs"] = true,
+    ["give"] = true,
+    ["when"] = true,
+    ["as"] = true,
+    ["match"] = true,
+    ["case"] = true,
+    ["is"] = true,
+    ["read"] = true,
+    ["write"] = true,
+}
+
+const LITERALS: { [string]: boolean } = {
+    ["true"] = true,
+    ["false"] = true,
+    ["nil"] = true,
+    ["none"] = true,
+    ["self"] = true,
+}
+
+--- Standard libraries, colored as built-ins where they're indexed (`string.format`, `table.insert`).
+const LIBRARIES: { [string]: boolean } = {
+    bit32 = true,
+    buffer = true,
+    coroutine = true,
+    debug = true,
+    integer = true,
+    math = true,
+    os = true,
+    string = true,
+    table = true,
+    task = true,
+    utf8 = true,
+    vector = true,
+}
+
+const function span(kind: string, text: string): string
+    return "<span class=\"hljs-" .. kind .. "\">" .. Text.escape(text) .. "</span>"
+end
+
+--- The end of the long bracket (`[[`, `[==[`) opening at `start`, or the end of `source` when it's unclosed.
+const function long_bracket_end(source: string, start: number): number?
+    const level = string.match(source, "^%[(=*)%[", start) or return nil
+    const _, close = string.find(source, "]" .. level .. "]", start, true)
+    return close or #source
+end
+
+const function quoted_end(source: string, start: number): number
+    const quote = string.sub(source, start, start)
+    local index = start + 1
+    local depth = 0
+    while index <= #source do
+        const char = string.sub(source, index, index)
+        if char == "\\" then
+            index += 2
+            continue
+        elseif quote == "`" and char == "{" then
+            depth += 1
+        elseif quote == "`" and char == "}" and depth > 0 then
+            depth -= 1
+        elseif depth > 0 and (char == "\"" or char == "'" or char == "`") then
+            index = quoted_end(source, index) + 1
+            continue
+        elseif char == quote then
+            return index
+        elseif char == "\n" and quote ~= "`" then
+            return index - 1
+        end
+        index += 1
+    end
+    return #source
+end
+
+--- Where the `{` interpolation at `open` in a backtick string closes, skipping strings and nested braces inside it.
+const function interpolation_end(text: string, open: number): number
+    local depth = 0
+    local index = open
+    while index <= #text do
+        const char = string.sub(text, index, index)
+        if char == "\"" or char == "'" or char == "`" then
+            index = quoted_end(text, index)
+        elseif char == "{" then
+            depth += 1
+        elseif char == "}" then
+            depth -= 1
+            if depth == 0 then
+                return index
+            end
+        end
+        index += 1
+    end
+    return #text
+end
+
+--- A backtick string as HTML: its text as a string, each `{...}` highlighted as code by `highlight_code`.
+const function highlight_template(text: string, highlight_code: (string) -> string): string
+    const out: { string } = {}
+    local text_start = 1
+    local index = 2
+    while index < #text do
+        const char = string.sub(text, index, index)
+        if char == "\\" then
+            index += 2
+            continue
+        elseif char == "{" then
+            if index > text_start then
+                table.insert(out, span("string", string.sub(text, text_start, index - 1)))
+            end
+            const close = interpolation_end(text, index)
+            table.insert(out, "<span class=\"hljs-subst\">{")
+            table.insert(out, highlight_code(string.sub(text, index + 1, close - 1)))
+            table.insert(out, "}</span>")
+            text_start = close + 1
+            index = close + 1
+            continue
+        end
+        index += 1
+    end
+    if text_start <= #text then
+        table.insert(out, span("string", string.sub(text, text_start)))
+    end
+    return table.concat(out)
+end
+
+--[=[
+    The token starting at `index`: where it ends, its highlight.js class (empty for plain text, `"template"` for a
+    backtick string), and whether it's the `function` keyword. After `function`, the next name is a function's name.
+    `in_type` marks a type annotation, where names are types.
+]=]
+const function token_at(
+    source: string,
+    index: number,
+    after_function: boolean,
+    in_type: boolean
+): (number, string, boolean)
+    const char = string.sub(source, index, index)
+    if string.sub(source, index, index + 1) == "--" then
+        const line_end = (string.find(source, "\n", index, true) or #source + 1) - 1
+        return long_bracket_end(source, index + 2) or line_end, "comment", false
+    elseif char == "`" then
+        return quoted_end(source, index), "template", false
+    elseif char == "\"" or char == "'" then
+        return quoted_end(source, index), "string", false
+    elseif char == "[" then
+        if const close = long_bracket_end(source, index) then
+            return close, "string", false
+        end
+        return index, "", false
+    elseif string.find(char, "%d") or (char == "." and string.find(source, "^%.%d", index)) then
+        const _, finish = string.find(source, "^0[xX][%x_]+", index)
+        if finish then
+            return finish, "number", false
+        end
+        const _, decimal_end = string.find(source, "^[%d_]*%.?[%d_]*[eE]?[%+%-]?[%d_]*", index)
+        return decimal_end or index, "number", false
+    elseif not string.find(char, "[%a_]") then
+        return index, "", false
+    end
+    const word = string.match(source, "^[%a_][%w_]*", index) or char
+    const finish = index + #word - 1
+    const previous = string.sub(source, index - 1, index - 1)
+    const member = previous == "." or (previous == ":" and string.sub(source, index - 2, index - 2) ~= ":")
+    if KEYWORDS[word] and not member then
+        return finish, "keyword", word == "function"
+    elseif LITERALS[word] and not member then
+        return finish, "literal", false
+    elseif after_function then
+        return finish, "title function_", member
+    elseif in_type and string.find(source, "^%s*:[^:]", finish + 1) then
+        return finish, "", false
+    elseif in_type then
+        return finish, if string.find(word, "^%u") then "title class_" else "type", false
+    elseif LIBRARIES[word] and not member and string.find(source, "^[%.:]", finish + 1) then
+        return finish, "built_in", false
+    elseif string.find(word, "^%u") then
+        return finish, "title class_", false
+    elseif string.find(source, "^%s*[%(\"'`{]", finish + 1) then
+        return finish, "title function_ invoke__", false
+    end
+    return finish, "", false
+end
+
+--- Highlights Luwu, Luau or Lua source as HTML with highlight.js's class names.
+const function highlight_luwu(source: string): string
+    const out: { string } = {}
+    local plain_start = 1
+    local index = 1
+    local after_function = false
+    -- Annotation state: the next name is a type; the last token was a type; a `type X =` line's body.
+    local in_type = false
+    local after_type = false
+    local alias_line = false
+    local alias_body = false
+    local type_depth = 0
+    local bracket_depth = 0
+    -- Braces of table types: names inside are types unless they're field names.
+    local type_braces = 0
+    local previous = ""
+    while index <= #source do
+        const finish, kind, names_function = token_at(source, index, after_function, in_type or alias_body)
+        const text = string.sub(source, index, finish)
+        const opens = text == "(" or text == "{" or text == "["
+        const closes = text == ")" or text == "}" or text == "]"
+        if kind ~= "" or opens or closes then
+            -- The `.` of a destructuring `.{` belongs to the bracket.
+            const dot = text == "{"
+                and index - 1 >= plain_start
+                and string.sub(source, index - 1, index - 1) == "."
+                and string.sub(source, index - 2, index - 2) ~= "."
+            const plain_end = if dot then index - 2 else index - 1
+            if plain_end >= plain_start then
+                table.insert(out, Text.escape(string.sub(source, plain_start, plain_end)))
+            end
+            if kind == "template" then
+                table.insert(out, highlight_template(text, highlight_luwu))
+            elseif opens or closes then
+                if closes then
+                    bracket_depth = math.max(bracket_depth - 1, 0)
+                end
+                const bracket = if dot then "." .. text else text
+                table.insert(out, `<span class="chimera-bracket-{bracket_depth % 3 + 1}">{bracket}</span>`)
+                if opens then
+                    bracket_depth += 1
+                end
+            else
+                table.insert(out, span(kind, text))
+            end
+            plain_start = finish + 1
+        end
+        if text == "\n" then
+            alias_line = false
+            alias_body = alias_body and string.find(source, "^%s*[|&]", finish + 1) ~= nil
+        elseif not string.find(text, "^%s+$") then
+            after_function = names_function
+            const was_type = kind == "type" or (kind == "title class_" and (in_type or alias_body))
+            const closes_type_brace = text == "}" and type_braces > 0
+            if text == "type" and kind == "keyword" then
+                alias_line = true
+            elseif text == "=" and alias_line then
+                alias_body = true
+            end
+            if text == ":" then
+                -- `self:method(` is a call, not an annotation.
+                in_type = previous == ":" or not string.find(source, "^[%a_][%w_]*%s*[%(\"'`{]", finish + 1)
+            elseif text == ">" and previous == "-" then
+                in_type = true
+            elseif (text == "<" or text == "(") and (after_type or in_type) then
+                type_depth += 1
+                in_type = true
+            elseif (text == ">" or text == ")") and type_depth > 0 then
+                type_depth -= 1
+                in_type = false
+            elseif text == "," and (type_depth > 0 or type_braces > 0) then
+                in_type = true
+            elseif text == "{" and (in_type or after_type or alias_body) then
+                type_braces += 1
+                in_type = true
+            elseif text == "}" and type_braces > 0 then
+                type_braces -= 1
+                in_type = false
+            elseif (text == "[" or text == "read" or text == "write") and type_braces > 0 then
+                in_type = true
+            elseif (text == "|" or text == "&") and (after_type or in_type) then
+                in_type = true
+            elseif text == "?" and after_type then
+                in_type = false
+            else
+                in_type = false
+            end
+            after_type = was_type or closes_type_brace or (text == "?" and after_type)
+            previous = text
+        end
+        index = finish + 1
+    end
+    if plain_start <= #source then
+        table.insert(out, Text.escape(string.sub(source, plain_start)))
+    end
+    return table.concat(out)
+end
+
+--- All the text inside a parsed node.
+const function text_of(node: Markup, into: { string })
+    if class.isinstance(node, Text) then
+        table.insert(into, node.content)
+        return
+    end
+    for _, child in node:child_nodes() do
+        text_of(child, into)
+    end
+end
+
+const function language_of(value: AttributeValue?): Language?
+    return if type(value) == "string" then LANGUAGES[value] else nil
+end
+
+const CLIENT_HIGHLIGHTING = table.concat({
+    "document.addEventListener(\"DOMContentLoaded\", function () {",
+    " document.querySelectorAll(\"code[class*='language-']:not([data-highlighted])\")",
+    ".forEach(function (code) { hljs.highlightElement(code); }); });",
+})
+
+--[=[
+    An element that shows source code in a [Language]: what [Code] and [CodeBlock] share. It holds the `source`,
+    reads its language from the `data-language` attribute, and turns the source into highlighted HTML. Luwu, Luau and
+    Lua are highlighted when the page is built. Pages load highlight.js for the other languages.
+
+    ## Usage
+
+    Implement `tag`, a constructor and `render`; write [SourceCode:highlighted] where the code goes.
+
+    ```luwu
+    class FileSnippet implements SourceCode
+        function tag(): string
+            return "figure"
+        end
+
+        function __init(self, file: string?, source: string?, language: Language?)
+            self.source = source or ""
+            self
+                :attr("data-file", file)
+                :attr("data-language", language or "luwu")
+        end
+
+        function render(self, out: Writer)
+            self:render_open(out)
+            out:write(`<figcaption>{Text.escape(tostring(self:get_attr("data-file")))}</figcaption>`)
+            out:write(`<pre><code class="language-{self:language()}">{self:highlighted()}</code></pre></figure>`)
+        end
+    end
+
+    Component.register(FileSnippet)
+    ```
+]=]
+export trait SourceCode needs Component
+    source = ""
+
+    --[=[
+        The code's [Language], from its `data-language` attribute; `"plaintext"` when it has none.
+
+        ## Usage
+
+        ```luwu
+        Code("cargo build", "bash"):language()
+        ```
+    ]=]
+    function language(self): Language
+        return language_of(self:get_attr("data-language")) or "plaintext"
+    end
+
+    --[=[
+        Shows the code without syntax colors, in the text color. Its language is still recorded, and it still parses
+        back. `plain(false)` colors it again.
+
+        ## Usage
+
+        ```luwu
+        Paragraph({ "Run ", Code("seal ./site.luwu", "bash"):plain(), " to build." })
+        CodeBlock("name = \"chimera\"", "toml"):plain()
+        ```
+
+        ```html
+        <code data-language="bash" data-plain class="chimera-code">seal ./site.luwu</code>
+        ```
+    ]=]
+    function plain(self, on: boolean = true): Self
+        return self:attr("data-plain", on)
+    end
+
+    --- Whether the code shows without syntax colors. See [SourceCode:plain].
+    function is_plain(self): boolean
+        return self:get_attr("data-plain") ~= nil
+    end
+
+    --[=[
+        Whether the page is built with the code already highlighted. True for Luwu, Luau and Lua, unless the code is
+        [SourceCode:plain].
+
+        ## Usage
+
+        ```luwu
+        CodeBlock("print(1)"):highlighted_here()
+        ```
+    ]=]
+    function highlighted_here(self): boolean
+        if self:is_plain() then
+            return false
+        end
+        const language = self:language()
+        return language == "luwu" or language == "luau" or language == "lua"
+    end
+
+    --[=[
+        The source as HTML: highlighted when [SourceCode:highlighted_here], escaped for highlight.js otherwise.
+
+        ## Usage
+
+        ```luwu
+        out:write(`<code>{self:highlighted()}</code>`)
+        ```
+    ]=]
+    function highlighted(self): string
+        if self:highlighted_here() then
+            return highlight_luwu(self.source)
+        end
+        return Text.escape(self.source)
+    end
+
+    --- Takes parsed code as the source: the text inside the node, or the source of parsed [SourceCode].
+    function adopt(self, node: Markup): boolean
+        if class.implements(node, SourceCode) then
+            self.source ..= node.source
+            return true
+        end
+        const parts: { string } = {}
+        text_of(node, parts)
+        self.source ..= table.concat(parts)
+        return true
+    end
+
+    function clear(self): Self
+        self.source = ""
+        return self
+    end
+
+    function head_elements(self): { Metadata }?
+        const language = self:language()
+        if
+            self:highlighted_here()
+            or self:is_plain()
+            or language == "plaintext"
+        then
+            return nil
+        end
+        return {
+            Script(nil, HIGHLIGHT_JS):defer(),
+            Script(CLIENT_HIGHLIGHTING),
+        }
+    end
+end
+
+--[=[
+    A `"code"` element for a short piece of code inside text, highlighted for its [Language] (Luwu by default). For
+    several lines of code, use [CodeBlock].
+
+    Every `<code>` tag parses back as one. A parsed tag without a language shows its text as written.
+
+    ## Usage
+
+    ```luwu
+    Paragraph({ "Call ", Code("doc:to_html(true)"), " to render a page." })
+    Paragraph({ "Run ", Code("seal ./site.luwu", "bash"), "." })
+    ```
+
+    ```html
+    <code data-language="luwu" class="chimera-code" data-highlighted="yes">doc:<span class="hljs-title function_
+    invoke__">to_html</span>(<span class="hljs-literal">true</span>)</code>
+    ```
+]=]
+export class Code implements SourceCode
+    function tag(): string
+        return "code"
+    end
+
+    function __init(self, source: string?, language: Language?)
+        self.source = source or ""
+        self
+            :attr("data-language", language or "luwu")
+            :add_style_class("chimera-code")
+    end
+
+    function is_inline(self): boolean
+        return true
+    end
+
+    function render(self, out: Writer)
+        if self:highlighted_here() then
+            self:attr("data-highlighted", "yes")
+        elseif not self:is_plain() and self:language() ~= "plaintext" then
+            self:add_style_class("language-" .. self:language())
+        end
+        self:render_open(out)
+        out:write(self:highlighted())
+        out:write("</code>")
+    end
+end
+
+const SPAN_PATTERN = "^(%d+)%.(%d+)%-(%d+)%.(%d+)$"
+
+--- Escapes a message's backslashes, tabs and newlines, so it fits on one tab-separated line of `data-squiggles`.
+const function encode_message(message: string): string
+    return (string.gsub(message, "[\\\t\n]", { ["\\"] = "\\\\", ["\t"] = "\\t", ["\n"] = "\\n" }))
+end
+
+const function decode_message(encoded: string): string
+    return (string.gsub(encoded, "\\(.)", { ["\\"] = "\\", t = "\t", n = "\n" }))
+end
+
+--[=[
+    A wavy underline under parts of a [CodeBlock], like an editor's diagnostics: an error, a lint warning, a hint. Each
+    span is `line.column-line.column`, both ends inclusive, as `luwu-analyze --formatter=gnu` prints them. The
+    `message` shows when the reader hovers a span.
+
+    Use [Squiggle.error], [Squiggle.warning] and [Squiggle.info] for the editor colors the theme sets, or any
+    [Color] for your own kind.
+
+    ## Usage
+
+    ```luwu
+    CodeBlock("local name = \"Ada\"\nprint(nmae)")
+        :line_numbers()
+        :squiggle(
+            Squiggle.error("2.7-2.10", "Typo 'nmae': Did you mean 'name'?"),
+            Squiggle({ "1.7-1.10" }, Color.named("gray"), "'name' is only used once")
+        )
+    ```
+]=]
+export class Squiggle(const spans: { string }, const color: Color | Token, const message: string? = nil)
+    --- A red squiggle under an error.
+    function error(span: string, message: string?): Squiggle
+        return Squiggle({ span }, token("syntax_error"), message)
+    end
+
+    --- A yellow squiggle under a lint warning.
+    function warning(span: string, message: string?): Squiggle
+        return Squiggle({ span }, token("syntax_warning"), message)
+    end
+
+    --- A blue squiggle under information, like a hint.
+    function info(span: string, message: string?): Squiggle
+        return Squiggle({ span }, token("syntax_info"), message)
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        return `Squiggle({table.concat(self.spans, ", ")}, {self.color:to_css()}, {self.message or "no message"})`
+    end
+
+    function __tostring(self): string
+        return self:display()
+    end
+end
+
+--- One squiggle span as a [CodeBlock] renders it: byte offsets into its source, both inclusive.
+type Mark = { first: number, last: number, color: string, message: string? }
+
+--[=[
+    Reads the `data-squiggles` entries of a block into [Squiggle]s. Each line is one span, its CSS color and its
+    message, separated by tabs.
+]=]
+const function read_squiggles(entries: string): { Squiggle }
+    return {
+        for entry in string.gmatch(entries, "[^\n]+")
+        give do
+            const span, color, message = string.match(entry, "^([^\t]*)\t([^\t]*)\t?(.*)$")
+            const css = color or ""
+            give Squiggle(
+                { span or entry },
+                Color.parse_hex(css) or Token(css),
+                if message and message ~= "" then decode_message(message) else nil
+            )
+    }
+end
+
+--- Turns the squiggles' spans into [Mark]s over `source`, sorted by where they start.
+const function marks_of(squiggles: { Squiggle }, source: string): { Mark }
+    const starts = { 1 }
+    for position in string.gmatch(source, "\n()") do
+        table.insert(starts, position)
+    end
+    const function offset(line: string, column: string): number
+        return (starts[tonumber(line) or 1] or #source + 1) + (tonumber(column) or 1) - 1
+    end
+    const marks: { Mark } = {}
+    for _, squiggle in squiggles do
+        for _, span in squiggle.spans do
+            const first_line, first_column, last_line, last_column = string.match(span, SPAN_PATTERN)
+            if first_line and first_column and last_line and last_column then
+                table.insert(marks, {
+                    first = offset(first_line, first_column),
+                    last = offset(last_line, last_column),
+                    color = squiggle.color:to_css(),
+                    message = squiggle.message,
+                })
+            end
+        end
+    end
+    table.sort(marks, function(a: Mark, b: Mark)
+        return a.first < b.first
+    end)
+    return marks
+end
+
+const function quote(text: string): string
+    return (string.gsub(Text.escape(text), "\"", "&quot;"))
+end
+
+const function mark_open(mark: Mark): string
+    const message = if mark.message then ` data-message="{quote(mark.message)}"` else ""
+    return `<span class="chimera-squiggle" style="--chimera-squiggle-color: {quote(mark.color)}"{message}>`
+end
+
+
+--[=[
+    Wraps each mark's characters in highlighted `html` in a squiggle span. Highlight tags inside a mark close and
+    reopen it, so the spans nest.
+]=]
+const function mark_squiggles(html: string, marks: { Mark }): string
+    const out: { string } = {}
+    local position = 1
+    local index = 1
+    local open: Mark? = nil
+    local at = 1
+    while at <= #html do
+        if string.sub(html, at, at) == "<" then
+            const close = string.find(html, ">", at, true) or #html
+            if open then
+                table.insert(out, "</span>" .. string.sub(html, at, close) .. mark_open(open))
+            else
+                table.insert(out, string.sub(html, at, close))
+            end
+            at = close + 1
+            continue
+        end
+        while marks[index] and marks[index].last < position do
+            index += 1
+        end
+        if
+            not open
+            when const next_mark = marks[index]
+            when next_mark.first <= position
+        then
+            open = next_mark
+            table.insert(out, mark_open(next_mark))
+        end
+        const width = if string.sub(html, at, at) == "&" then (string.find(html, ";", at, true) or at) - at + 1 else 1
+        table.insert(out, string.sub(html, at, at + width - 1))
+        at += width
+        if open and position >= open.last then
+            table.insert(out, "</span>")
+            open = nil
+            index += 1
+        end
+        position += 1
+    end
+    if open then
+        table.insert(out, "</span>")
+    end
+    return table.concat(out)
+end
+
+--[=[
+    A `"pre"` element that shows a block of source code, highlighted for its [Language] (Luwu by default). For code
+    inside a sentence, use [Code].
+
+    ## Usage
+
+    ```luwu
+    CodeBlock("print(\"hi\")")
+    CodeBlock("cargo build --release", "bash") -- highlighted in the browser
+    ```
+
+    ```html
+    <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 11">
+    <code class="hljs language-luwu" data-highlighted="yes">
+    <span class="hljs-title function_ invoke__">print</span>(<span class="hljs-string">"hi"</span>)</code></pre>
+    ```
+]=]
+export class CodeBlock implements SourceCode
+    function tag(): string
+        return "pre"
+    end
+
+    function __init(self, source: string?, language: Language?)
+        self.source = source or ""
+        self
+            :attr("data-language", language or "luwu")
+            :add_style_class("chimera-code-block")
+    end
+
+    --[=[
+        Adds a button to the block's top right corner that copies its code. `copyable(false)` removes it.
+
+        ## Usage
+
+        ```luwu
+        CodeBlock("seal setup", "bash"):copyable()
+        ```
+
+        ```html
+        <pre data-element="CodeBlock" data-language="bash" data-copyable class="chimera-code-block"
+        style="--chimera-code-columns: 10"><button type="button" class="chimera-copy" aria-label="Copy code"
+        onclick="chimera.copy(this)">Copy</button><code class="hljs language-bash">seal setup</code></pre>
+        ```
+    ]=]
+    function copyable(self, on: boolean = true): CodeBlock
+        return self:attr("data-copyable", on)
+    end
+
+    --[=[
+        Numbers the block's lines in a gutter on its left, for text that refers to lines by number.
+        `line_numbers(false)` removes them. Selecting or copying the code never picks up the numbers.
+
+        ## Usage
+
+        ```luwu
+        CodeBlock("local x = 1\nprint(y)"):line_numbers()
+        ```
+
+        ```html
+        <pre data-element="CodeBlock" data-language="luwu" data-line-numbers class="chimera-code-block"
+        style="--chimera-code-columns: 8"><span class="chimera-line-numbers" aria-hidden="true"><span></span>
+        <span></span></span><code class="hljs language-luwu" data-highlighted="yes">...</code></pre>
+        ```
+    ]=]
+    function line_numbers(self, on: boolean = true): CodeBlock
+        return self:attr("data-line-numbers", on)
+    end
+
+    --[=[
+        Underlines parts of the code with [Squiggle]s, like an editor marks errors and warnings. Call it again to add
+        more.
+
+        Squiggles show in Luwu, Luau, Lua and plaintext blocks, and in [SourceCode:plain] ones. highlight.js
+        replaces them in other languages.
+
+        ## Usage
+
+        ```luwu
+        CodeBlock("local name = \"Ada\"\nprint(nmae)")
+            :line_numbers()
+            :squiggle(Squiggle.error("2.7-2.10", "Typo 'nmae': Did you mean 'name'?"))
+        ```
+    ]=]
+    function squiggle(self, ...: Squiggle): CodeBlock
+        const entries = {}
+        for _, squiggle in { ... } do
+            const message = if squiggle.message then encode_message(squiggle.message) else ""
+            for _, span in squiggle.spans do
+                if not string.match(span, SPAN_PATTERN) then
+                    error(`squiggle span '{span}' should look like "3.7-3.17" (line.column-line.column)`, 2)
+                end
+                table.insert(entries, `{span}\t{squiggle.color:to_css()}\t{message}`)
+            end
+        end
+        const existing = self:get_attr("data-squiggles")
+        if type(existing) == "string" then
+            table.insert(entries, 1, existing)
+        end
+        return self:attr("data-squiggles", table.concat(entries, "\n"))
+    end
+
+    --- The block's [Squiggle]s, one per span.
+    function squiggles(self): { Squiggle }
+        const entries = self:get_attr("data-squiggles")
+        return if type(entries) == "string" then read_squiggles(entries) else {}
+    end
+
+    --- Skips the copy button and the line number gutter, which come back from their attributes.
+    function adopt(self, node: Markup): boolean
+        if
+            class.implements(node, Element)
+            when node:current_tag() == "button" or node:has_style_class("chimera-line-numbers")
+        then
+            return true
+        end
+        return SourceCode.adopt(self, node)
+    end
+
+    --- The length of the longest line, in characters. The theme shrinks the font a little to fit it.
+    function columns(self): number
+        local longest = 0
+        for line in string.gmatch(self.source, "[^\n]+") do
+            longest = math.max(longest, utf8.len(line) or #line)
+        end
+        return longest
+    end
+
+    function render(self, out: Writer)
+        const language = self:language()
+        self:style({ ["--chimera-code-columns"] = self:columns() })
+        self:render_open(out)
+        if self:get_attr("data-copyable") then
+            out:write(`<button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">`)
+            out:write("Copy</button>")
+        end
+        if self:get_attr("data-line-numbers") then
+            const _, breaks = string.gsub(string.gsub(self.source, "\n$", ""), "\n", "")
+            out:write("<span class=\"chimera-line-numbers\" aria-hidden=\"true\">")
+            out:write(string.rep("<span></span>", breaks + 1))
+            out:write("</span>")
+        end
+        if self:is_plain() then
+            out:write("<code>")
+        else
+            const marker = if self:highlighted_here() then " data-highlighted=\"yes\"" else ""
+            out:write("<code class=\"hljs language-" .. language .. "\"" .. marker .. ">")
+        end
+        const squiggles = self:squiggles()
+        out:write(
+            if #squiggles > 0
+            then mark_squiggles(self:highlighted(), marks_of(squiggles, self.source))
+            else self:highlighted()
+        )
+        out:write("</code></pre>")
+    end
+end
+
+Component.register(CodeBlock)
+Element.register_class(Code)

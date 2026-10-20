@@ -1,0 +1,135 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+--- The name of a design token a [Palette][theme.Palette] sets.
+---
+--- [theme = require("@style/theme")]
+export type TokenName =
+    | "background"
+    | "surface"
+    | "text"
+    | "muted"
+    | "primary"
+    | "primary_text"
+    | "accent"
+    | "border"
+    | "radius"
+    | "spacing"
+    | "font"
+    | "mono_font"
+    | "shadow"
+    | "syntax_keyword"
+    | "syntax_string"
+    | "syntax_number"
+    | "syntax_comment"
+    | "syntax_function"
+    | "syntax_type"
+    | "syntax_builtin"
+    | "syntax_constant"
+    | "syntax_bracket_1"
+    | "syntax_bracket_2"
+    | "syntax_bracket_3"
+    | "syntax_error"
+    | "syntax_warning"
+    | "syntax_info"
+
+--[=[
+    A theme token as a CSS value: the custom property a [Theme][theme.Theme] sets. Styles using tokens follow theme
+    switches. Make one with [token].
+
+    ## Usage
+
+    ```luwu
+    Rule(".note", {
+        color = token("muted"),
+        border_radius = token("radius"):times(1.5),
+        border_left = `4px solid {token("accent")}`,
+    })
+    ```
+
+    [theme = require("@style/theme")]
+]=]
+export class Token(const css: string)
+    --[=[
+        The token scaled by `factor`, as a `calc()`.
+
+        ## Usage
+
+        ```luwu
+        token("radius")
+            :times(1.5)
+            :to_css()
+        ```
+
+        ```css
+        calc(var(--chimera-radius) * 1.5)
+        ```
+    ]=]
+    function times(self, factor: number): Token
+        return Token("calc(" .. self.css .. " * " .. tostring(factor) .. ")")
+    end
+
+    --[=[
+        A color between this token and `other`: `percent` of this one, the rest of `other`. For toned-down
+        versions of theme colors that still follow theme switches.
+
+        ## Usage
+
+        ```luwu
+        token("syntax_keyword"):mix(token("muted"), 45):to_css()
+        ```
+
+        ```css
+        color-mix(in srgb, var(--chimera-syntax-keyword) 45%, var(--chimera-muted))
+        ```
+    ]=]
+    function mix(self, other: Token, percent: number): Token
+        return Token("color-mix(in srgb, " .. self.css .. " " .. tostring(percent) .. "%, " .. other.css .. ")")
+    end
+
+    --[=[
+        The CSS text of the value.
+
+        ## Usage
+
+        ```luwu
+        token("primary_text"):to_css()
+        ```
+
+        ```css
+        var(--chimera-primary-text)
+        ```
+    ]=]
+    function to_css(self): string
+        return self.css
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        return `Token({self.css})`
+    end
+
+    function __tostring(self): string
+        return self.css
+    end
+
+    function __eq(self, other: Token): boolean
+        return self.css == other.css
+    end
+end
+
+--[=[
+    The [Token] for a design token's CSS custom property.
+
+    ## Usage
+
+    ```luwu
+    Div("Note"):style({
+        color = token("muted"),
+        border_left = `4px solid {token("accent")}`,
+    })
+    ```
+]=]
+export function token(name: TokenName): Token
+    return Token("var(--chimera-" .. string.gsub(name, "_", "-") .. ")")
+end

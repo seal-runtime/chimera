@@ -1,0 +1,105 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2, h3 } = Heading
+
+return Page("Experimental Features", {
+    h1("Experimental Features"),
+    Paragraph("These features work in Luwu today. Their design isn't final yet."),
+    Paragraph("Their syntax may change. Prefer the stable features on the other pages for code you'll keep."),
+    Paragraph("Your editor reports them as disabled until you turn on their debug flags."),
+    TableOfContents(),
+
+    h2("Push and pop operators"),
+    Paragraph({ Code("<+"), " adds values to a container. ", Code("<-"), " takes the last value back out." }),
+    Paragraph({
+        "They're a standard way to add to and take from any container. ",
+        "They work the way ", Code("#"), " works on anything that defines ", Code("__len"), ".",
+    }),
+    Paragraph("On a plain list, they add to and remove from the end:"),
+    luwu([====[
+        local queue = {}
+        queue <+ "first"
+        queue <+ "second", "third"
+        print(#queue)
+
+        const last = <-queue
+        print(last, #queue)
+    ]====]),
+    Paragraph("Nil values are skipped. A push never leaves a hole."),
+    Paragraph({
+        "A class joins in by defining ", Code("__push"), " and ", Code("__pop"),
+        ". Then the same operators work on it, with its own rules.",
+    }),
+    Paragraph("This inventory holds at most two items. Code that fills it doesn't need to know that:"),
+    luwu([====[
+        class Inventory(capacity: number)
+            items: { string } = {}
+
+            function __push(self, ...: string)
+                for _, item in { ... } do
+                    if #self.items < self.capacity then
+                        table.insert(self.items, item)
+                    end
+                end
+            end
+
+            function __pop(self): string?
+                return table.remove(self.items)
+            end
+
+            function __len(self): number
+                return #self.items
+            end
+        end
+
+        const list = {}
+        list <+ "sword", "shield", "potion"
+
+        const bag = Inventory(2)
+        bag <+ "sword", "shield", "potion"
+
+        print(#list, #bag)
+        print(<-list, <-bag)
+    ]====]),
+    Paragraph("The pop syntax isn't decided yet. It may change."),
+
+    h2("match expressions"),
+    Paragraph({ "A ", Code("match"), " expression picks a value based on what another value looks like." }),
+    Paragraph({ "Each ", Code("case"), " is checked in order. The ", Code("else"), " arm is required." }),
+    luwu([====[
+        const function describe(count: number): string
+            return match count
+                case 0 then "none"
+                case 1 | 2 | 3 then "a few"
+                else "many"
+        end
+
+        print(describe(0), describe(2), describe(50))
+    ]====]),
+
+    h3("Matching objects"),
+    Paragraph({ Code("case is Class"), " matches objects of a class. Add a pattern to pull out their fields." }),
+    Paragraph({ "A case can add ", Code("when"), " conditions, like if local." }),
+    luwu([====[
+        class Circle(radius: number) end
+        class Rect(width: number, height: number) end
+
+        const function describe(shape: Circle | Rect): string
+            return match shape
+                case is Circle.{ radius } then `circle with radius {radius}`
+                case is Rect.{ width, height } when width == height then `square of {width}`
+                case is Rect.{ width, height } then `{width} by {height} rectangle`
+                else "unknown shape"
+        end
+
+        print(describe(Circle(2)), describe(Rect(3, 3)), describe(Rect(2, 5)))
+    ]====]),
+}, "experimental-features.html")

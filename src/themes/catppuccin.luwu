@@ -1,0 +1,208 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ Color } = require("@style/color")
+const .{ Theme, Palette } = require("@style/theme")
+
+--[=[
+    A Catppuccin flavor: a [Theme] built from Catppuccin's 26 named colors (https://catppuccin.com/palette).
+    The colors default to Mocha's; each flavor overrides them, and its palette follows.
+
+    ## Usage
+
+    Use a flavor as a theme, or read its colors:
+
+    ```luwu
+    page
+        :default_dark_theme(catppuccin.Mocha)
+        :default_light_theme(catppuccin.Latte)
+    Div("Note"):style({ border_left = `3px solid {catppuccin.Mocha().peach}` })
+    ```
+
+    Make your own flavor by overriding the colors that change:
+
+    ```luwu
+    class Midnight() implements catppuccin.Flavor
+        const name = "midnight"
+        const mode = "Dark"
+        base = Color.hex("#0b0b12")
+        mantle = Color.hex("#08080d")
+    end
+    ```
+]=]
+export trait Flavor needs Theme
+    rosewater = Color.hex("#f5e0dc")
+    flamingo = Color.hex("#f2cdcd")
+    pink = Color.hex("#f5c2e7")
+    mauve = Color.hex("#cba6f7")
+    red = Color.hex("#f38ba8")
+    maroon = Color.hex("#eba0ac")
+    peach = Color.hex("#fab387")
+    yellow = Color.hex("#f9e2af")
+    green = Color.hex("#a6e3a1")
+    teal = Color.hex("#94e2d5")
+    sky = Color.hex("#89dceb")
+    sapphire = Color.hex("#74c7ec")
+    blue = Color.hex("#89b4fa")
+    lavender = Color.hex("#b4befe")
+    text = Color.hex("#cdd6f4")
+    subtext1 = Color.hex("#bac2de")
+    subtext0 = Color.hex("#a6adc8")
+    overlay2 = Color.hex("#9399b2")
+    overlay1 = Color.hex("#7f849c")
+    overlay0 = Color.hex("#6c7086")
+    surface2 = Color.hex("#585b70")
+    surface1 = Color.hex("#45475a")
+    surface0 = Color.hex("#313244")
+    base = Color.hex("#1e1e2e")
+    mantle = Color.hex("#181825")
+    crust = Color.hex("#11111b")
+    --- The box shadow every element uses, as CSS.
+    shadow = "0 1px 3px rgb(17 17 27 / 0.6)"
+
+    --[=[
+        Maps the flavor's colors onto chimera's tokens: mauve is the primary color and peach the accent. Code is
+        highlighted the way Catppuccin's own syntax themes do: mauve keywords, green strings, blue functions.
+    ]=]
+    function palette(self): Palette
+        return Palette {
+            background = self.base,
+            surface = self.mantle,
+            text = self.text,
+            muted = self.subtext0,
+            primary = self.mauve,
+            primary_text = self.base,
+            accent = self.peach,
+            border = self.surface0,
+            shadow = self.shadow,
+            syntax_keyword = self.mauve,
+            syntax_string = self.green,
+            syntax_number = self.peach,
+            syntax_comment = self.overlay2,
+            syntax_function = self.blue,
+            syntax_type = self.yellow,
+            syntax_builtin = self.red,
+            syntax_constant = self.peach,
+            syntax_bracket_1 = self.maroon,
+            syntax_bracket_2 = self.teal,
+            syntax_bracket_3 = self.lavender,
+            syntax_error = self.red,
+            syntax_warning = self.yellow,
+            syntax_info = self.blue,
+        }
+    end
+end
+
+--- The Catppuccin Latte theme, the light flavor.
+export class Latte() implements Flavor
+    const name = "catppuccin-latte"
+    const mode = "Light"
+    rosewater = Color.hex("#dc8a78")
+    flamingo = Color.hex("#dd7878")
+    pink = Color.hex("#ea76cb")
+    mauve = Color.hex("#8839ef")
+    red = Color.hex("#d20f39")
+    maroon = Color.hex("#e64553")
+    peach = Color.hex("#fe640b")
+    yellow = Color.hex("#df8e1d")
+    green = Color.hex("#40a02b")
+    teal = Color.hex("#179299")
+    sky = Color.hex("#04a5e5")
+    sapphire = Color.hex("#209fb5")
+    blue = Color.hex("#1e66f5")
+    lavender = Color.hex("#7287fd")
+    text = Color.hex("#4c4f69")
+    subtext1 = Color.hex("#5c5f77")
+    subtext0 = Color.hex("#6c6f85")
+    overlay2 = Color.hex("#7c7f93")
+    overlay1 = Color.hex("#8c8fa1")
+    overlay0 = Color.hex("#9ca0b0")
+    surface2 = Color.hex("#acb0be")
+    surface1 = Color.hex("#bcc0cc")
+    surface0 = Color.hex("#ccd0da")
+    base = Color.hex("#eff1f5")
+    mantle = Color.hex("#e6e9ef")
+    crust = Color.hex("#dce0e8")
+    shadow = "0 1px 3px rgb(76 79 105 / 0.15)"
+end
+
+--- The Catppuccin Frappé theme, the lightest dark flavor.
+export class Frappe() implements Flavor
+    const name = "catppuccin-frappe"
+    const mode = "Dark"
+    rosewater = Color.hex("#f2d5cf")
+    flamingo = Color.hex("#eebebe")
+    pink = Color.hex("#f4b8e4")
+    mauve = Color.hex("#ca9ee6")
+    red = Color.hex("#e78284")
+    maroon = Color.hex("#ea999c")
+    peach = Color.hex("#ef9f76")
+    yellow = Color.hex("#e5c890")
+    green = Color.hex("#a6d189")
+    teal = Color.hex("#81c8be")
+    sky = Color.hex("#99d1db")
+    sapphire = Color.hex("#85c1dc")
+    blue = Color.hex("#8caaee")
+    lavender = Color.hex("#babbf1")
+    text = Color.hex("#c6d0f5")
+    subtext1 = Color.hex("#b5bfe2")
+    subtext0 = Color.hex("#a5adce")
+    overlay2 = Color.hex("#949cbb")
+    overlay1 = Color.hex("#838ba7")
+    overlay0 = Color.hex("#737994")
+    surface2 = Color.hex("#626880")
+    surface1 = Color.hex("#51576d")
+    surface0 = Color.hex("#414559")
+    base = Color.hex("#303446")
+    mantle = Color.hex("#292c3c")
+    crust = Color.hex("#232634")
+    shadow = "0 1px 3px rgb(35 38 52 / 0.5)"
+
+    function label(self): string
+        return "Catppuccin Frappé"
+    end
+end
+
+--- The Catppuccin Macchiato theme, between Frappé and Mocha.
+export class Macchiato() implements Flavor
+    const name = "catppuccin-macchiato"
+    const mode = "Dark"
+    rosewater = Color.hex("#f4dbd6")
+    flamingo = Color.hex("#f0c6c6")
+    pink = Color.hex("#f5bde6")
+    mauve = Color.hex("#c6a0f6")
+    red = Color.hex("#ed8796")
+    maroon = Color.hex("#ee99a0")
+    peach = Color.hex("#f5a97f")
+    yellow = Color.hex("#eed49f")
+    green = Color.hex("#a6da95")
+    teal = Color.hex("#8bd5ca")
+    sky = Color.hex("#91d7e3")
+    sapphire = Color.hex("#7dc4e4")
+    blue = Color.hex("#8aadf4")
+    lavender = Color.hex("#b7bdf8")
+    text = Color.hex("#cad3f5")
+    subtext1 = Color.hex("#b8c0e0")
+    subtext0 = Color.hex("#a5adcb")
+    overlay2 = Color.hex("#939ab7")
+    overlay1 = Color.hex("#8087a2")
+    overlay0 = Color.hex("#6e738d")
+    surface2 = Color.hex("#5b6078")
+    surface1 = Color.hex("#494d64")
+    surface0 = Color.hex("#363a4f")
+    base = Color.hex("#24273a")
+    mantle = Color.hex("#1e2030")
+    crust = Color.hex("#181926")
+    shadow = "0 1px 3px rgb(24 25 38 / 0.5)"
+end
+
+--- The Catppuccin Mocha theme, the darkest flavor.
+export class Mocha() implements Flavor
+    const name = "catppuccin-mocha"
+    const mode = "Dark"
+end
+
+for _, cls in { Latte, Frappe, Macchiato, Mocha } do
+    Theme.register(cls)
+end

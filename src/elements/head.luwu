@@ -1,0 +1,454 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Component, Metadata, Text } = require("@core/markup")
+const style_module = require("@style/style")
+const Rule = style_module.Rule
+type .{ Markup, Writer } = markup
+type .{ StyleInput } = style_module
+
+const ESCAPES: { [string]: string } = {
+    ["&"] = "&amp;",
+    ["<"] = "&lt;",
+    [">"] = "&gt;",
+}
+
+--- A `"title"` element that names the page in the browser tab.
+export class Title implements Metadata
+    function tag(): string
+        return "title"
+    end
+    text = ""
+
+    function __init(self, text: string?)
+        self.text = text or ""
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Text) then
+            self.text ..= node.content
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Title
+        self.text = ""
+        return self
+    end
+
+    function outline(self): string
+        return `Title({self.text})`
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write((string.gsub(self.text, "[&<>]", ESCAPES)))
+        out:write("</title>")
+    end
+end
+
+--[=[
+    A `"meta"` element that describes the page to browsers and search engines. The constructor makes the common
+    `name`/`content` form.
+
+    ```luwu
+    Meta("description", "A site built with chimera")
+    Meta.charset("utf-8")
+    ```
+]=]
+export class Meta implements Metadata
+    function tag(): string
+        return "meta"
+    end
+
+    function __init(self, name: string?, content: string?)
+        self
+            :attr("name", name)
+            :attr("content", content)
+    end
+
+    --[=[
+        A meta tag declaring the page's character encoding. [Document][document.Document]s start with `utf-8`.
+
+        ## Usage
+
+        ```luwu
+        Meta.charset("utf-8"):to_html()
+        ```
+
+        ```html
+        <meta charset="utf-8">
+        ```
+
+        [document = require("@document/document")]
+    ]=]
+    function charset(charset: string): Meta
+        return Meta():attr("charset", charset)
+    end
+
+    --[=[
+        A meta tag telling phones how to size the page; defaults to fitting the device's width.
+
+        ## Usage
+
+        ```luwu
+        Meta.viewport():to_html()
+        ```
+
+        ```html
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        ```
+    ]=]
+    function viewport(content: string?): Meta
+        return Meta("viewport", content or "width=device-width, initial-scale=1")
+    end
+
+    --[=[
+        A `property` meta tag, the form Open Graph link previews read.
+
+        ## Usage
+
+        ```luwu
+        Meta.property("og:title", "chimera"):to_html()
+        ```
+
+        ```html
+        <meta property="og:title" content="chimera">
+        ```
+    ]=]
+    function property(property: string, content: string): Meta
+        return Meta()
+            :attr("property", property)
+            :attr("content", content)
+    end
+end
+
+--[=[
+    A `"link"` element that links the page to an external resource, like a stylesheet or an icon.
+
+    ```luwu
+    ResourceLink.stylesheet("/fonts.css")
+    ResourceLink("icon", "/favicon.svg")
+    ```
+]=]
+export class ResourceLink implements Metadata
+    function tag(): string
+        return "link"
+    end
+
+    function __init(self, rel: string?, href: string?)
+        self
+            :attr("rel", rel)
+            :attr("href", href)
+    end
+
+    --[=[
+        A link to an external CSS file.
+
+        ## Usage
+
+        ```luwu
+        ResourceLink.stylesheet("/site.css"):to_html()
+        ```
+
+        ```html
+        <link rel="stylesheet" href="/site.css">
+        ```
+    ]=]
+    function stylesheet(href: string): ResourceLink
+        return ResourceLink("stylesheet", href)
+    end
+end
+
+--[=[
+    A `"script"` element that runs JavaScript, inline or loaded from `src`. Can go in the head or the body.
+
+    ```luwu
+    Script("console.log('hi')")
+    Script(nil, "/app.js"):module()
+    ```
+]=]
+export class Script implements Component, Metadata
+    function tag(): string
+        return "script"
+    end
+    code = ""
+
+    function __init(self, code: string?, src: string?)
+        self.code = code or ""
+        self:attr("src", src)
+    end
+
+    --[=[
+        Loads the script as a JavaScript module. Modules can use `import`.
+
+        ## Usage
+
+        ```luwu
+        Script(nil, "/app.js")
+            :module()
+            :to_html()
+        ```
+
+        ```html
+        <script src="/app.js" type="module"></script>
+        ```
+    ]=]
+    function module(self): Script
+        return self:attr("type", "module")
+    end
+
+    --[=[
+        Runs the script after the page has loaded instead of when it's reached.
+
+        ## Usage
+
+        ```luwu
+        Script(nil, "/app.js")
+            :defer()
+            :to_html()
+        ```
+
+        ```html
+        <script src="/app.js" defer></script>
+        ```
+    ]=]
+    function defer(self): Script
+        return self:attr("defer", true)
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Text) then
+            self.code ..= node.content
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Script
+        self.code = ""
+        return self
+    end
+
+    function outline(self): string
+        const src = self:get_attr("src")
+        return if type(src) == "string" then `Script({src})` else `Script({#self.code} bytes)`
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write((string.gsub(self.code, "</script", "<\\/script")))
+        out:write("</script>")
+    end
+end
+
+--[=[
+    A `"style"` element that holds CSS rules. Can go in the head or the body.
+
+    ```luwu
+    Stylesheet()
+        :rule(".hero", {
+            padding = "4rem 1rem",
+            text_align = "center",
+        })
+        :css("footer { opacity: 0.7 }")
+    ```
+]=]
+export class Stylesheet implements Component, Metadata
+    function tag(): string
+        return "style"
+    end
+    rules: { Rule } = {}
+
+    function __init(self, css: string | { read Rule } | nil)
+        if type(css) == "string" then
+            self:css(css)
+        elseif css then
+            for _, rule in css do
+                table.insert(self.rules, rule)
+            end
+        end
+    end
+
+    --[=[
+        Appends a CSS rule.
+
+        ## Usage
+
+        ```luwu
+        Stylesheet()
+            :rule(".hero", { padding = "4rem" })
+            :to_html()
+        ```
+
+        ```html
+        <style>.hero{padding: 4rem}</style>
+        ```
+    ]=]
+    function rule(self, selector: string, input: StyleInput): Stylesheet
+        table.insert(self.rules, Rule(selector, input))
+        return self
+    end
+
+    --[=[
+        Parses CSS text and appends its rules.
+
+        ## Usage
+
+        ```luwu
+        Stylesheet()
+            :css("a { color: red } @media print { a { color: black } }")
+            :to_html()
+        ```
+
+        ```html
+        <style>a{color: red}@media print{a{color: black}}</style>
+        ```
+    ]=]
+    function css(self, text: string): Stylesheet
+        for _, rule in Rule.parse(text) do
+            table.insert(self.rules, rule)
+        end
+        return self
+    end
+
+    --[=[
+        The rules as CSS text, without the `<style>` tags. `pretty` puts each declaration on its own line.
+
+        ## Usage
+
+        ```luwu
+        Stylesheet()
+            :rule("p", { margin = 0 })
+            :to_css()
+        ```
+
+        ```css
+        p{margin: 0}
+        ```
+    ]=]
+    function to_css(self, pretty: boolean?): string
+        const parts = { for _, rule in self.rules give rule:to_css(pretty) }
+        return table.concat(parts, if pretty then "\n" else "")
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Text) then
+            self:css(node.content)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Stylesheet
+        table.clear(self.rules)
+        return self
+    end
+
+    function outline(self): string
+        return `Stylesheet({#self.rules} rules)`
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        if out.pretty and #self.rules > 0 then
+            out.level += 1
+            for _, rule in self.rules do
+                out:newline()
+                out:write((string.gsub(rule:to_css(true), "\n", "\n" .. string.rep(out.indent, out.level))))
+            end
+            out.level -= 1
+            out:newline()
+        else
+            out:write(self:to_css())
+        end
+        out:write("</style>")
+    end
+end
+
+--[=[
+    A `"head"` element that holds a [Document][document.Document]'s [Title], [Meta] tags, [Stylesheet]s and [Script]s.
+
+    [document = require("@document/document")]
+
+    ```luwu
+    Head { Title("Home"), Meta.charset("utf-8"), ResourceLink.stylesheet("/site.css") }
+    ```
+]=]
+export class Head implements Element
+    function tag(): string
+        return "head"
+    end
+    items: { Metadata } = {}
+
+    function __init(self, items: { read Metadata }?)
+        for _, item in items or {} do
+            table.insert(self.items, item)
+        end
+    end
+
+    --[=[
+        Appends head elements: [Title]s, [Meta] tags, [ResourceLink]s, [Script]s and [Stylesheet]s.
+
+        ## Usage
+
+        ```luwu
+        Head()
+            :add(Title("Home"), Meta.charset("utf-8"))
+            :to_html()
+        ```
+
+        ```html
+        <head><title>Home</title><meta charset="utf-8"></head>
+        ```
+    ]=]
+    function add(self, ...: Metadata): Head
+        for _, item in { ... } do
+            table.insert(self.items, item)
+        end
+        return self
+    end
+
+    --[=[
+        The head's [Title], if it has one.
+
+        ## Usage
+
+        ```luwu
+        const title = Head({ Title("Home") }):title()
+        print(if title then title.text else "untitled")
+        ```
+    ]=]
+    function title(self): Title?
+        for _, item in self.items do
+            if class.isinstance(item, Title) then
+                return item
+            end
+        end
+        return nil
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.implements(node, Metadata) then
+            table.insert(self.items, node)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Head
+        table.clear(self.items)
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.items
+    end
+end
+
+for _, cls in { Title, Meta, ResourceLink, Script, Stylesheet, Head } do
+    Element.register_class(cls)
+end

@@ -1,0 +1,11 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const str = require("@std/str")
+const .{ components.{ CodeBlock } } = require("@chimera")
+
+--- A copyable, highlighted Luwu sample, written indented eight spaces in a page module.
+return function(source: string): CodeBlock
+    return CodeBlock((string.gsub(str.unindent(source, "Spaces", 8), "%s+$", ""))):copyable()
+end

@@ -1,0 +1,139 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2 } = Heading
+
+return Page("Table Comprehensions", {
+    h1("Table Comprehensions"),
+    Paragraph("A table comprehension builds a new table from a loop, in one expression."),
+    Paragraph("In Luau, you'd create an empty table and fill it:"),
+    luwu([====[
+        const numbers = { 1, 2, 3, 4 }
+
+        local doubled = {}
+        for _, n in numbers do
+            table.insert(doubled, n * 2)
+        end
+        print(#doubled)
+    ]====]),
+    Paragraph("In Luwu, you write the loop inside the table:"),
+    luwu([====[
+        const numbers = { 1, 2, 3, 4 }
+
+        const doubled = { for _, n in numbers give n * 2 }
+        print(#doubled)
+    ]====]),
+    Paragraph({ Code("give"), " says what goes into the table for each item." }),
+    Paragraph("Comprehensions are also faster. Luwu sizes the table up front. It never has to grow while filling."),
+    TableOfContents(),
+
+    h2("Filtering with when"),
+    Paragraph({ "Add ", Code("when"), " clauses to skip items. They work just like in if local." }),
+    luwu([====[
+        const scores: { [string]: number? } = { ada = 92, alan = 67, grace = 88 }
+
+        const passed = {
+            for name, score in scores
+            when score >= 70
+            give name
+        }
+        print(#passed)
+    ]====]),
+    Paragraph("A when clause can bind a value for the give to use:"),
+    luwu([====[
+        const prices: { [string]: number? } = { apple = 1.25, pear = 0.8 }
+        const basket = { "apple", "kiwi", "pear" }
+
+        const costs = {
+            for _, fruit in basket
+            when const price = prices[fruit]
+            give price * 2
+        }
+        print(costs[1], costs[2])
+    ]====]),
+
+    h2("Building maps"),
+    Paragraph({ "Give ", Code("[key] = value"), " to build a map instead of a list." }),
+    luwu([====[
+        const players = { "Ada", "Grace", "Alan" }
+
+        const name_lengths = {
+            for _, player in players
+            give [player] = #player
+        }
+        print(name_lengths.Grace)
+    ]====]),
+    Paragraph({ Code("[key] += value"), " adds to what's already there. It's perfect for counting." }),
+    luwu([====[
+        const words = { "red", "blue", "red", "green", "red" }
+
+        const counts = {
+            for _, word in words
+            give [word] += 1
+        }
+        print(counts.red, counts.blue)
+    ]====]),
+
+    h2("Destructuring items"),
+    Paragraph("The loop header can destructure each item."),
+    luwu([====[
+        const people = {
+            { name = "Ada", age = 36 },
+            { name = "Tom", age = 12 },
+        }
+
+        const adults = {
+            for _, .{ name, age } in people
+            when age >= 18
+            give name
+        }
+        print(adults[1], #adults)
+    ]====]),
+
+    h2("Several loops"),
+    Paragraph("Chain for clauses to loop inside a loop. This flattens a grid into a list:"),
+    luwu([====[
+        const grid = {
+            { 1, 0, 2 },
+            { 0, 3, 0 },
+        }
+
+        const filled = {
+            for _, row in grid
+            for _, cell in row
+            when cell ~= 0
+            give cell
+        }
+        print(#filled)
+    ]====]),
+
+    h2("Items that need statements"),
+    Paragraph("When one item takes a few steps, give a do expression."),
+    luwu([====[
+        const lines = { "hp=10", "", "mp=4" }
+
+        const settings = {
+            for _, line in lines
+            when line ~= ""
+            give do
+                const key, value = string.match(line, "^(%a+)=(%d+)$")
+                give `{key}: {value}`
+        }
+        print(settings[1], settings[2])
+    ]====]),
+
+    h2("Things to know"),
+    UnorderedList({
+        ListItem("A comprehension must be the only thing inside its braces."),
+        ListItem("If an item is nil, nothing is added. Lists never get holes."),
+        ListItem({ "Numeric loops work too: ", Code("{ for i = 1, 10 give i * i }"), "." }),
+        ListItem({ "Luau's ", Code("table.insert"), " loop still works. Comprehensions are just shorter." }),
+    }),
+}, "table-comprehensions.html")

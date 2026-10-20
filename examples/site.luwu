@@ -1,0 +1,275 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const str = require("@std/str")
+const chimera = require("@chimera")
+const .{
+    Component,
+    Container,
+    elements.{ Header, Section, Span, Heading, Paragraph, Link, Table, Details },
+    style.{ Rule, token },
+    themes.{ Light, Dark, catppuccin },
+    components.{ Card, Menu, Dropdown, ThemeSwitcher, CodeBlock, Code, Row, Column },
+    site.{ Site, Page, PageLink, TableOfContents },
+} = chimera
+type .{ Content } = chimera
+const .{ h1, h2 } = Heading
+
+--- The landing page's banner: a small label, a headline ending in a gradient, a tagline and two links.
+class Hero implements Component, Container
+    function tag(): string
+        return "section"
+    end
+
+    function __init(self, headline: string?, highlight: string?, tagline: Content?, guide: Page?)
+        self:add(
+            Span("Luwu · static sites"):add_style_class("eyebrow"),
+            h1({ headline or "", " ", Span(highlight):add_style_class("gradient") }),
+            Paragraph(tagline):add_style_class("tagline"),
+            Row({
+                PageLink(guide, "Read the guide"):add_style_class("action primary"),
+                Link("View source", "https://github.com/seal-runtime/chimera")
+                    :new_tab()
+                    :add_style_class("action"),
+            })
+                :justify("center")
+                :gap("0.75rem")
+                :add_style_class("actions")
+        )
+    end
+
+    function default_styles(self): { Rule }
+        const hero = self:style_selector()
+        return {
+            Rule(hero, {
+                max_width = "46rem",
+                margin = "0 auto",
+                padding = "5rem 0 3rem",
+                text_align = "center",
+            }),
+            Rule(`{hero} .eyebrow`, {
+                color = token("muted"),
+                font_size = "0.8rem",
+                font_weight = "600",
+                letter_spacing = "0.12em",
+                text_transform = "uppercase",
+            }),
+            Rule(`{hero} h1`, {
+                margin = "0.6rem 0 1.1rem",
+                font_size = "clamp(2.6rem, 7vw, 4.2rem)",
+            }),
+            Rule(`{hero} .gradient`, {
+                background = `linear-gradient(120deg, {token("primary")}, {token("accent")})`,
+                webkit_background_clip = "text",
+                background_clip = "text",
+                color = "transparent",
+            }),
+            Rule(`{hero} .tagline`, {
+                color = token("muted"),
+                font_size = "1.2rem",
+            }),
+            Rule(`{hero} .actions`, { margin_top = "2rem" }),
+            Rule(`{hero} .action`, {
+                padding = "0.7em 1.4em",
+                color = token("text"),
+                font_weight = "600",
+                border = `1px solid {token("border")}`,
+                border_radius = "999px",
+            }),
+            Rule(`{hero} .action:hover`, {
+                text_decoration = "none",
+                border_color = token("primary"),
+            }),
+            Rule(`{hero} .action.primary`, {
+                background = token("primary"),
+                color = token("primary_text"),
+                border_color = token("primary"),
+            }),
+        }
+    end
+end
+
+Component.register(Hero)
+
+--- A highlighted Luwu sample written indented in this file.
+const function luwu(source: string): CodeBlock
+    return CodeBlock((string.gsub(str.unindent(source, "Spaces", 8), "%s+$", ""))):copyable()
+end
+
+const guide = Page("Guide")
+const sites = Page("Sites and pages")
+const theming = Page("Theming")
+guide:add_page(sites, theming)
+const luwu_pages = require("./luwu/index")
+const home = Page("Home", nil, "index.html")
+
+home:add(
+    Hero(
+        "Static sites as",
+        "classes.",
+        "Compose typed elements, theme them with tokens, and parse the HTML back.",
+        guide
+    ),
+    luwu([====[
+        const home = Page("Home", Hero(), "index.html")
+        const guide = Page("Guide", { h1("Guide"), TableOfContents(), h2("Install") })
+
+        -- Every page gets a menu of the site's pages, a theme switcher and a footer.
+        Site("chimera")
+            :default_dark_theme(catppuccin.Mocha)
+            :add_page(home, guide)
+            :build("site")
+    ]====]):add_style_class("showcase"),
+    Section({
+        Card("Typed", Paragraph("A list item outside a list, or a padding of \"1rx\", is a type error.")),
+        Card("Themeable", Paragraph("Every style reads theme tokens. Switch flavors and the whole page follows.")),
+        Card("Roundtrips", Paragraph("Parse the generated HTML and get the same objects back.")),
+    })
+        :grid("15rem")
+        :style({ margin_top = "4rem" }),
+    do
+        const secret = Paragraph("Every element on this page is a Luwu object that gets typechecked before becoming HTML")
+        give Column({ components.Toggle("Tell me a secret", secret), secret:hidden() })
+            :align("center")
+            :style({ margin_top = "3rem" })
+)
+
+const element_header = Table.header()
+    :column("Class")
+    :column("Tag")
+const element_row = Table.row_for(element_header)
+
+guide:add(
+    h1("Guide"),
+    TableOfContents(),
+    h2("Build a page"),
+    Paragraph("Build pages from classes, refine them with chained methods, and write them out with seal:"),
+    luwu([====[
+        const page = Document("Home")
+            :default_dark_theme(catppuccin.Mocha)
+            :add(Main {
+                Heading.h1("Hello"),
+                Paragraph("Static sites as classes."),
+            })
+
+        fs.writefile("index.html", page:to_html(true))
+    ]====]),
+    Paragraph({ "Run it with ", Code("seal run"), ", or from a shell:" }),
+    CodeBlock("seal ./examples/site.luwu && open examples/out/index.html", "bash"):copyable(),
+    h2("Elements"),
+    Paragraph("Every element is a class named after what it is, not its tag:"),
+    Table(element_header)
+        :rows({
+            element_row("Paragraph", Code("p")),
+            element_row("UnorderedList", Code("ul")),
+            element_row("Link", Code("a")),
+            element_row("Heading", Code("h1–h6")),
+        })
+        :table_style({ hover = true }),
+    h2("FAQ"),
+    Details(
+        "Can I write my own components?",
+        Paragraph("Implement Component, plus Container to hold children, then call Component.register.")
+    ),
+    Details(
+        "Can I use my own theme?",
+        Paragraph("Implement Theme with a name, a mode and a palette(), or make a Catppuccin Flavor of your own.")
+    ),
+    Details("Does it need JavaScript?", Paragraph("Only for theme switching and toggles.")),
+    h2("More"),
+    Paragraph("The guide continues on these pages:")
+)
+
+sites:add(
+    h1("Sites and pages"),
+    TableOfContents(),
+    h2("Pages"),
+    Paragraph({
+        "A ", Code("Page"), " is a title and the content of its ", Code("<main>"),
+        ". Pages hold other pages, which go in their parent's folder: this page is ",
+        Code(sites:path()), ".",
+    }),
+    luwu([====[
+        const docs = Page("Docs", Paragraph("Start here."), "docs/index.html")
+            :add_page(Page("Install"), Page("Themes"))
+    ]====]),
+    h2("Shared parts"),
+    Paragraph({
+        "A ", Code("Site"), " renders its header, footer and sidebar on every page. Link between pages with ",
+        Code("PageLink"), ", which works out the right path from each folder.",
+    }),
+    h2("Tables of contents"),
+    Paragraph({
+        Code("TableOfContents()"), " lists the headings of its page and the pages under it. ",
+        Code("TableOfContents(\"site\")"), " lists every page.",
+    })
+)
+
+theming:add(
+    h1("Theming"),
+    TableOfContents(),
+    h2("Defaults"),
+    Paragraph("Readers first see the default theme for their OS's light or dark mode. A theme they pick sticks."),
+    luwu([====[
+        site
+            :default_dark_theme(catppuccin.Mocha)
+            :default_light_theme(catppuccin.Latte)
+            :offer_theme(catppuccin.Frappe)
+    ]====]),
+    h2("Tokens"),
+    Paragraph({
+        "Styles read theme tokens with ", Code("token(\"primary\")"), ", so they follow theme switches.",
+    })
+)
+
+const website = Site("chimera")
+    :default_dark_theme(catppuccin.Mocha)
+    :default_light_theme(catppuccin.Latte)
+    :offer_theme(catppuccin.Macchiato)
+    :offer_theme(catppuccin.Frappe)
+    :offer_theme(Light)
+    :offer_theme(Dark)
+    :describe("An HTML DSL built from Luwu classes")
+    :header(Header {
+        Menu {
+            PageLink(home, "chimera"):add_style_class("chimera-brand"),
+            PageLink(home),
+            PageLink(guide),
+            PageLink(luwu_pages),
+            Dropdown("More", {
+                Link("Source", "https://github.com/seal-runtime/chimera"):new_tab(),
+                Link("Luwu", "https://github.com/luwu-community/luwu"):new_tab(),
+            }),
+            ThemeSwitcher(),
+        },
+    })
+    :footer(components.SiteFooter()
+        :link_column("Learn", { PageLink(guide), PageLink(sites), PageLink(theming), PageLink(luwu_pages) })
+        :link_column("Project", {
+            Link("Source", "https://github.com/seal-runtime/chimera"):new_tab(),
+            Link("Luwu", "https://github.com/luwu-community/luwu"):new_tab(),
+            Link("seal", "https://github.com/seal-runtime/seal"):new_tab(),
+        })
+        :copyright("seal-runtime", "Built with chimera in Luwu.")
+        :legal({ Link("License", "https://github.com/seal-runtime/chimera/blob/main/LICENSE"):new_tab() })
+    )
+    :style_every(".showcase", {
+        max_width = "54rem",
+        margin = "0 auto",
+        box_shadow = token("shadow"),
+    })
+    :add_page(home, guide, luwu_pages)
+
+for _, path in website:build("examples/out") do
+    print(`wrote {path}`)
+end
+
+const assets = {
+    { file = "nyla-nyeh.png", destination = "luwu/nyla-nyeh.png" },
+}
+for _, .{ file, destination } in assets do
+    fs.copy(`examples/assets/{file}`, `examples/out/{destination}`)
+    print(`copied examples/out/{destination}`)
+end

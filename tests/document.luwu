@@ -1,0 +1,211 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ equal, contains, excludes } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    Document,
+    Component,
+    Container,
+    style.{ Rule, Theme, Palette, Color },
+    themes.{ Light, Dark, catppuccin },
+    elements.{ Div, Main, Paragraph, Link, Button },
+    components.{ Card, ThemeSwitcher },
+} = chimera
+type .{ Content } = chimera
+
+--- A user-defined theme that restyles buttons on top of the base styles.
+class Sepia() implements Theme
+    const name = "sepia"
+    const mode = "Light"
+
+    function palette(self): Palette
+        return Palette {
+            background = Color.hex("#f4ecd8"),
+            text = Color.hex("#5b4636"),
+            primary = Color.hex("#8b5e3c"),
+        }
+    end
+
+    function base_styles(self): { Rule }
+        const rules = Theme.base_styles(self)
+        table.insert(rules, Rule("button", { text_transform = "uppercase" }))
+        return rules
+    end
+end
+
+--- A user-defined component with its own CSS.
+class Callout implements Component, Container
+    function tag(): string
+        return "aside"
+    end
+
+    function __init(self, content: Content?)
+        self
+            :add_style_class("callout")
+            :add(content)
+    end
+
+    function default_styles(self): { Rule }
+        return {
+            Rule(self:style_selector(), { border_left = "4px solid orange" }),
+        }
+    end
+end
+
+Component.register(Callout)
+Theme.register(Sepia)
+
+const tests: { [string]: () -> () } = {
+    ["documents start with charset, viewport and title"] = function()
+        const html = Document("Home"):to_html()
+        contains(html, `<!DOCTYPE html><html data-themes="light dark" data-theme-light="light" data-theme-dark="dark"`)
+        contains(html, `<head><meta charset="utf-8">`)
+        contains(html, "<title>Home</title>")
+        equal(
+            Document("Home")
+                :title("Away")
+                :get_title(),
+            "Away"
+        )
+    end,
+
+    ["defaults follow the OS, and picked themes override them"] = function()
+        const html = Document()
+            :default_light_theme(catppuccin.Latte)
+            :default_dark_theme(catppuccin.Mocha)
+            :to_html()
+        contains(html, `<html data-themes="catppuccin-latte catppuccin-mocha"`)
+        contains(html, `data-theme-light="catppuccin-latte" data-theme-dark="catppuccin-mocha"`)
+        contains(html, `:root[data-theme="catppuccin-mocha"]\{--chimera-accent: #fab387`)
+        contains(html, `:root:not([data-theme])\{--chimera-accent: #fe640b`)
+        contains(html, `@media (prefers-color-scheme: dark)\{:root:not([data-theme])\{--chimera-accent: #fab387`)
+        contains(html, "color-scheme: dark")
+    end,
+
+    ["one default makes a single-mode site"] = function()
+        const page = Document()
+            :default_dark_theme(catppuccin.Mocha)
+            :offer_theme(catppuccin.Frappe)
+        equal(page:default_theme("Light"), nil)
+        const html = page:to_html()
+        contains(html, `<html data-themes="catppuccin-mocha catppuccin-frappe" data-theme-dark="catppuccin-mocha"`)
+        excludes(html, "prefers-color-scheme: dark)\{")
+        excludes(html, "data-theme-light")
+    end,
+
+    ["without defaults the page uses Light and Dark"] = function()
+        const page = Document():offer_theme(catppuccin.Frappe)
+        equal(if const light = page:default_theme("Light") then light.name else nil, "light")
+        equal(if const dark = page:default_theme("Dark") then dark.name else nil, "dark")
+        contains(page:to_html(), `<html data-themes="catppuccin-frappe light dark"`)
+    end,
+
+    ["a default must match its mode"] = function()
+        const ok, message = pcall(function()
+            return Document():default_light_theme(Dark)
+        end)
+        equal(ok, false)
+        contains(tostring(message), "'dark' is a Dark theme; use default_dark_theme")
+    end,
+
+    ["themes are found by name"] = function()
+        equal(if const sepia = Theme.find("sepia") then sepia().name else nil, "sepia")
+        equal(Theme.find("missing"), nil)
+    end,
+
+    ["user themes extend the base styles"] = function()
+        const html = Document()
+            :default_light_theme(Sepia)
+            :to_html()
+        contains(html, "--chimera-background: #f4ecd8")
+        contains(html, "--chimera-surface: #f5f5f7")
+        contains(html, "button{text-transform: uppercase}")
+        contains(html, "body{")
+    end,
+
+    ["theme switchers list offered themes"] = function()
+        const html = Document()
+            :default_light_theme(Light)
+            :offer_theme(Dark)
+            :add(ThemeSwitcher())
+            :to_html()
+        contains(html, `<details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary`)
+        contains(html, `data-chimera-theme-option="light" onclick="chimera.setTheme('light')">`)
+        contains(html, `<span style="background: #ffffff"></span><span style="background: #3b5bdb"></span>`)
+        contains(html, `</span>Light</button>`)
+        contains(html, `data-chimera-theme-option="dark"`)
+    end,
+
+    ["catppuccin flavors are themes with labels"] = function()
+        const html = Document()
+            :default_dark_theme(catppuccin.Mocha)
+            :offer_theme(catppuccin.Frappe)
+            :add(ThemeSwitcher())
+            :to_html()
+        contains(html, `<html data-themes="catppuccin-mocha catppuccin-frappe"`)
+        contains(html, "--chimera-primary: #cba6f7")
+        contains(html, "</span>Catppuccin Frappé</button>")
+        equal(catppuccin.Mocha().mauve:to_hex(), "#cba6f7")
+        equal(catppuccin.Latte().base:to_hex(), "#eff1f5")
+    end,
+
+    ["style_every targets classes, components and selectors"] = function()
+        const html = Document()
+            :style_every(Button, { border_radius = "999px" })
+            :style_every(Card, { padding = "2rem" })
+            :style_every(".hero h1", { font_size = "3rem" })
+            :to_html()
+        contains(html, `<style data-chimera="overrides">button\{border-radius: 999px}`)
+        contains(html, `[data-element="Card"]\{padding: 2rem}`)
+        contains(html, ".hero h1{font-size: 3rem}")
+    end,
+
+    ["component styles are included once per class present"] = function()
+        const with_callouts = Document()
+            :add(Callout("a"), Callout("b"))
+            :to_html()
+        const _, count = string.gsub(with_callouts, "border%-left: 4px solid orange", "")
+        equal(count, 1)
+        excludes(
+            Document()
+                :add(Paragraph("x"))
+                :to_html(),
+            "orange"
+        )
+    end,
+
+    ["scoped styles land in the overrides sheet"] = function()
+        const main = Main { Link("a", "/") }
+            :id("content")
+            :style_inside(Link, { color = "red" })
+        contains(
+            Document()
+                :add(main)
+                :to_html(),
+            "#content a{color: red}"
+        )
+    end,
+
+    ["scripts and css go where they belong"] = function()
+        const html = Document()
+            :css("p { margin: 0 }")
+            :add(Div("x"))
+            :script("go()")
+            :to_html()
+        contains(html, "<style>p{margin: 0}</style>")
+        contains(html, "<div>x</div><script>go()</script></body>")
+    end,
+
+    ["documents render completely in pretty mode"] = function()
+        const html = Document("Pretty")
+            :add(Paragraph("hi"))
+            :to_html(true)
+        contains(html, "<!DOCTYPE html>\n<html")
+        contains(html, "<title>Pretty</title>")
+        contains(html, "\n  <p>hi</p>\n")
+    end,
+}
+
+return tests

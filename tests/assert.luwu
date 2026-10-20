@@ -1,0 +1,37 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const function equal<T>(actual: T, expected: T, label: string?)
+    if actual ~= expected then
+        error(`{label or "values differ"}\n    expected: {tostring(expected)}\n    actual:   {tostring(actual)}`, 2)
+    end
+end
+
+const function truthy(value: unknown, label: string?)
+    if not value then
+        error(label or "expected a truthy value", 2)
+    end
+end
+
+const function contains(haystack: string, needle: string, label: string?)
+    if not string.find(haystack, needle, 1, true) then
+        error(`{label or "missing text"}\n    expected to find: {needle}\n    in: {haystack}`, 2)
+    end
+end
+
+const function excludes(haystack: string, needle: string, label: string?)
+    if string.find(haystack, needle, 1, true) then
+        error(`{label or "unexpected text"}\n    expected not to find: {needle}\n    in: {haystack}`, 2)
+    end
+end
+
+--- Assertions shared by the test modules; each raises at the caller's line.
+const assertions = .{
+    equal,
+    truthy,
+    contains,
+    excludes,
+}
+
+return assertions

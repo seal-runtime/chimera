@@ -1,0 +1,381 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Component, Container, Text } = require("@core/markup")
+type .{ Content, Markup, Writer, AttributeValue } = markup
+
+const ESCAPES: { [string]: string } = {
+    ["&"] = "&amp;",
+    ["<"] = "&lt;",
+    [">"] = "&gt;",
+}
+
+--[=[
+    A `"form"` element that submits its fields to `action`.
+
+    ```luwu
+    Form({ Label("Email", "email"), Input("email", "email"), Button("Subscribe", "submit") }, "/subscribe", "post")
+    ```
+]=]
+export class Form implements Component, Container
+    function tag(): string
+        return "form"
+    end
+
+    function __init(self, content: Content?, action: string?, method: string?)
+        self
+            :add(content)
+            :attr("action", action)
+            :attr("method", method)
+    end
+end
+
+--- A `"label"` element that captions the form field whose id is `for_id`.
+export class Label implements Component, Container
+    function tag(): string
+        return "label"
+    end
+
+    function __init(self, content: Content?, for_id: string?)
+        self
+            :add(content)
+            :attr("for", for_id)
+    end
+end
+
+--[=[
+    A `"button"` element that runs an action when clicked. Its type is `"button"` unless `button_type` says
+    otherwise; only `"submit"` buttons submit forms.
+
+    ```luwu
+    Button("Save"):on("click", "save()")
+    Button("Send", "submit")
+    ```
+]=]
+export class Button implements Component, Container
+    function tag(): string
+        return "button"
+    end
+
+    function __init(self, content: Content?, button_type: string?)
+        self
+            :add(content)
+            :attr("type", button_type or "button")
+    end
+
+    --[=[
+        Makes the button unclickable. `disabled(false)` makes it clickable again.
+
+        ## Usage
+
+        ```luwu
+        Button("Send", "submit")
+            :disabled()
+            :to_html()
+        ```
+
+        ```html
+        <button type="submit" disabled>Send</button>
+        ```
+    ]=]
+    function disabled(self, is_disabled: boolean?): Button
+        return self:attr("disabled", is_disabled ~= false)
+    end
+end
+
+--[=[
+    An `"input"` element that takes input in a form. `input_type` is the HTML input type: `"text"`, `"email"`,
+    `"checkbox"`, ...
+
+    ```luwu
+    Input("text", "username")
+        :placeholder("Your name")
+        :required()
+    ```
+]=]
+export class Input implements Component
+    function tag(): string
+        return "input"
+    end
+
+    function __init(self, input_type: string?, name: string?, value: AttributeValue?)
+        self
+            :attr("type", input_type)
+            :attr("name", name)
+            :attr("value", value)
+    end
+
+    --[=[
+        Sets the field's starting value; `nil` clears it.
+
+        ## Usage
+
+        ```luwu
+        Input("text", "name")
+            :value("Taz")
+            :to_html()
+        ```
+
+        ```html
+        <input type="text" name="name" value="Taz">
+        ```
+    ]=]
+    function value(self, value: AttributeValue?): Input
+        return self:attr("value", value)
+    end
+
+    --[=[
+        Sets the hint shown while the field is empty.
+
+        ## Usage
+
+        ```luwu
+        Input("email", "email")
+            :placeholder("you@example.com")
+            :to_html()
+        ```
+
+        ```html
+        <input type="email" name="email" placeholder="you@example.com">
+        ```
+    ]=]
+    function placeholder(self, text: string): Input
+        return self:attr("placeholder", text)
+    end
+
+    --[=[
+        Makes the form refuse to submit while the field is empty; `required(false)` undoes it.
+
+        ## Usage
+
+        ```luwu
+        Input("text", "name")
+            :required()
+            :to_html()
+        ```
+
+        ```html
+        <input type="text" name="name" required>
+        ```
+    ]=]
+    function required(self, is_required: boolean?): Input
+        return self:attr("required", is_required ~= false)
+    end
+
+    --[=[
+        Starts a checkbox or radio button ticked; `checked(false)` unticks it.
+
+        ## Usage
+
+        ```luwu
+        Input("checkbox", "agree")
+            :checked()
+            :to_html()
+        ```
+
+        ```html
+        <input type="checkbox" name="agree" checked>
+        ```
+    ]=]
+    function checked(self, is_checked: boolean?): Input
+        return self:attr("checked", is_checked ~= false)
+    end
+
+    --[=[
+        Makes the field read-only and leaves it out of form submissions. `disabled(false)` undoes it.
+
+        ## Usage
+
+        ```luwu
+        Input("text", "id", 42)
+            :disabled()
+            :to_html()
+        ```
+
+        ```html
+        <input type="text" name="id" value="42" disabled>
+        ```
+    ]=]
+    function disabled(self, is_disabled: boolean?): Input
+        return self:attr("disabled", is_disabled ~= false)
+    end
+end
+
+--- A `"textarea"` element that takes multi-line text input.
+export class TextArea implements Component
+    function tag(): string
+        return "textarea"
+    end
+    text = ""
+
+    function __init(self, name: string?, text: string?)
+        self:attr("name", name)
+        self.text = text or ""
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Text) then
+            self.text ..= node.content
+            return true
+        end
+        return false
+    end
+
+    function clear(self): TextArea
+        self.text = ""
+        return self
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write((string.gsub(self.text, "[&<>]", ESCAPES)))
+        out:write("</textarea>")
+    end
+end
+
+--- An `"option"` element that offers one choice in a [Select].
+export class Option implements Element
+    function tag(): string
+        return "option"
+    end
+    label = ""
+
+    function __init(self, label: string?, value: string?)
+        self.label = label or ""
+        self:attr("value", value)
+    end
+
+    --[=[
+        Makes this the option chosen when the page loads; `selected(false)` unselects it.
+
+        ## Usage
+
+        ```luwu
+        Option("Large", "lg")
+            :selected()
+            :to_html()
+        ```
+
+        ```html
+        <option value="lg" selected>Large</option>
+        ```
+    ]=]
+    function selected(self, is_selected: boolean?): Option
+        return self:attr("selected", is_selected ~= false)
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Text) then
+            self.label ..= node.content
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Option
+        self.label = ""
+        return self
+    end
+
+    function outline(self): string
+        return `Option({self.label})`
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write((string.gsub(self.label, "[&<>]", ESCAPES)))
+        out:write("</option>")
+    end
+end
+
+--[=[
+    A `"select"` element that lets the reader pick one of its [Option]s. Strings become options with the same text
+    and value.
+
+    ```luwu
+    Select("size", { "Small", "Medium", Option("Large", "lg") }):select("Medium")
+    ```
+]=]
+export class Select implements Component
+    function tag(): string
+        return "select"
+    end
+    options: { Option } = {}
+
+    function __init(self, name: string?, options: { read Option | string }?)
+        self:attr("name", name)
+        for _, option in options or {} do
+            self:add(option)
+        end
+    end
+
+    --[=[
+        Appends options. A string becomes an [Option] whose text and value are both that string.
+
+        ## Usage
+
+        ```luwu
+        Select("size")
+            :add("S", Option("Large", "L"))
+            :to_html()
+        ```
+
+        ```html
+        <select name="size"><option value="S">S</option><option value="L">Large</option></select>
+        ```
+    ]=]
+    function add(self, ...: Option | string): Select
+        for index = 1, select("#", ...) do
+            const option = select(index, ...)
+            table.insert(self.options, if type(option) == "string" then Option(option, option) else option)
+        end
+        return self
+    end
+
+    --[=[
+        Marks the option whose value is `value` as chosen, unselecting the rest. Options without a value match by
+        their text.
+
+        ## Usage
+
+        ```luwu
+        Select("size", { "S", "M", "L" })
+            :select("M")
+            :to_html()
+        ```
+
+        ```html
+        <select name="size"><option value="S">S</option><option value="M" selected>M</option>...</select>
+        ```
+    ]=]
+    function select(self, value: string): Select
+        for _, option in self.options do
+            const option_value = option:get_attr("value")
+            option:selected((if type(option_value) == "string" then option_value else option.label) == value)
+        end
+        return self
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Option) then
+            table.insert(self.options, node)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Select
+        table.clear(self.options)
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.options
+    end
+end
+
+for _, cls in { Form, Label, Button, Input, TextArea, Option, Select } do
+    Element.register_class(cls)
+end

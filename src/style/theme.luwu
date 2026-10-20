@@ -1,0 +1,852 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ Style, Rule } = require("@style/style")
+const .{ Color } = require("@style/color")
+const .{ token } = require("@style/token")
+
+--[=[
+    The design tokens a [Theme] sets: its [Color]s, plus the corner radius, spacing, fonts and shadow every
+    element uses. Fields left out keep the [Light][themes.Light] defaults.
+
+    ## Usage
+
+    Return one from a theme's [Theme:palette], setting only the tokens that change:
+
+    ```luwu
+    const .{ Theme, Palette, Color } = chimera.style
+
+    class Sepia() implements Theme
+        const name = "sepia"
+        const mode = "Light"
+
+        function palette(self): Palette
+            return Palette {
+                background = Color.hex("#f4ecd8"),
+                text = Color(91, 70, 54),
+                primary = Color.named("saddlebrown"),
+                radius = "2px",
+            }
+        end
+    end
+    ```
+
+    [themes = require("@themes")]
+]=]
+export class Palette
+    background = Color.hex("#ffffff")
+    surface = Color.hex("#f5f5f7")
+    text = Color.hex("#1d1d1f")
+    muted = Color.hex("#6e6e73")
+    primary = Color.hex("#3b5bdb")
+    primary_text = Color.hex("#ffffff")
+    accent = Color.hex("#e8590c")
+    border = Color.hex("#d2d2d7")
+    radius = "8px"
+    spacing = "1rem"
+    font = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    mono_font = "ui-monospace, 'JetBrains Mono', Menlo, monospace"
+    shadow = "0 1px 3px rgba(0, 0, 0, 0.12)"
+    --- Code highlighting colors, used by code blocks.
+    syntax_keyword = Color.hex("#cf222e")
+    syntax_string = Color.hex("#0a3069")
+    syntax_number = Color.hex("#0550ae")
+    syntax_comment = Color.hex("#6e7781")
+    syntax_function = Color.hex("#8250df")
+    syntax_type = Color.hex("#953800")
+    syntax_builtin = Color.hex("#0550ae")
+    syntax_constant = Color.hex("#0550ae")
+    --- Bracket pairs in code, by nesting depth: three clearly different hues, unlike the other syntax colors.
+    syntax_bracket_1 = Color.hex("#a07c00")
+    syntax_bracket_2 = Color.hex("#0e8a7d")
+    syntax_bracket_3 = Color.hex("#c13a8e")
+    --- Squiggle colors under code: errors, lint warnings and information.
+    syntax_error = Color.hex("#d1242f")
+    syntax_warning = Color.hex("#bf8700")
+    syntax_info = Color.hex("#0969da")
+
+    --[=[
+        The palette as CSS custom properties, one `--chimera-<token>` per token. A [Document][document.Document] writes
+        them under `:root[data-theme="<name>"]` for each theme it offers. [token] reads them.
+
+        ## Usage
+
+        ```luwu
+        Palette({ primary = Color(59, 91, 219) }):variables()
+        ```
+
+        ```css
+        :root[data-theme="light"]{--chimera-accent: #e8590c; ... --chimera-primary: #3b5bdb; ...}
+        ```
+
+        [document = require("@document/document")]
+    ]=]
+    function variables(self): Style
+        return Style {
+            ["--chimera-background"] = self.background,
+            ["--chimera-surface"] = self.surface,
+            ["--chimera-text"] = self.text,
+            ["--chimera-muted"] = self.muted,
+            ["--chimera-primary"] = self.primary,
+            ["--chimera-primary-text"] = self.primary_text,
+            ["--chimera-accent"] = self.accent,
+            ["--chimera-border"] = self.border,
+            ["--chimera-radius"] = self.radius,
+            ["--chimera-spacing"] = self.spacing,
+            ["--chimera-font"] = self.font,
+            ["--chimera-mono-font"] = self.mono_font,
+            ["--chimera-shadow"] = self.shadow,
+            ["--chimera-syntax-keyword"] = self.syntax_keyword,
+            ["--chimera-syntax-string"] = self.syntax_string,
+            ["--chimera-syntax-number"] = self.syntax_number,
+            ["--chimera-syntax-comment"] = self.syntax_comment,
+            ["--chimera-syntax-function"] = self.syntax_function,
+            ["--chimera-syntax-type"] = self.syntax_type,
+            ["--chimera-syntax-builtin"] = self.syntax_builtin,
+            ["--chimera-syntax-constant"] = self.syntax_constant,
+            ["--chimera-syntax-bracket-1"] = self.syntax_bracket_1,
+            ["--chimera-syntax-bracket-2"] = self.syntax_bracket_2,
+            ["--chimera-syntax-bracket-3"] = self.syntax_bracket_3,
+            ["--chimera-syntax-error"] = self.syntax_error,
+            ["--chimera-syntax-warning"] = self.syntax_warning,
+            ["--chimera-syntax-info"] = self.syntax_info,
+        }
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        return `Palette(primary = {self.primary}, background = {self.background})`
+    end
+end
+
+--[=[
+    Whether a [Theme] is light or dark. Pages pick their first theme of the reader's OS mode until the reader picks
+    one with a [ThemeSwitcher][components.ThemeSwitcher].
+
+    [components = require("@components/components")]
+]=]
+export type ThemeMode = "Light" | "Dark"
+
+const themes_by_name: { [string]: class<Theme> } = {}
+
+--[=[
+    A named look for a document: a [Palette] of tokens plus the base [Rule]s of every element.
+
+    A [Document][document.Document] can offer several themes and switch between them at build time or in the
+    browser. Base styles read only tokens. Switching themes swaps token values and restyles every element.
+
+    ## Usage
+
+    A theme needs a unique `name`, a [ThemeMode], and a constructor without arguments. Override [Theme:palette] to
+    set its tokens, and `base_styles` to restyle elements: start from [Theme.base_styles] to keep the defaults, then
+    add rules.
+    Register the theme so parsed documents can find it by name.
+
+    ```luwu
+    const .{ Theme, Palette, Rule, Color } = chimera.style
+
+    class Dracula() implements Theme
+        const name = "dracula"
+        const mode = "Dark"
+
+        function palette(self): Palette
+            return Palette {
+                background = Color.hex("#282a36"),
+                surface = Color.hex("#343746"),
+                text = Color.hex("#f8f8f2"),
+                primary = Color.hex("#bd93f9"),
+            }
+        end
+
+        function base_styles(self): { Rule }
+            const rules = Theme.base_styles(self)
+            table.insert(rules, Rule("button", { text_transform = "uppercase" }))
+            return rules
+        end
+    end
+
+    Theme.register(Dracula)
+    page:default_dark_theme(Dracula)
+    ```
+
+    [document = require("@document/document")]
+]=]
+export trait Theme
+    expect function __init(self)
+    expect const name: string
+    expect const mode: ThemeMode
+
+    --- The theme's design tokens. Defaults to the light [Palette]; override it to set your own.
+    function palette(self): Palette
+        return Palette()
+    end
+
+    --[=[
+        The name readers see in a theme picker. Defaults to the theme's `name` in title case.
+
+        ## Usage
+
+        ```luwu
+        Mocha():label()
+        ```
+    ]=]
+    function label(self): string
+        const words = {
+            for word in string.gmatch(self.name, "[^%-_ ]+")
+            give string.upper(string.sub(word, 1, 1)) .. string.sub(word, 2)
+        }
+        return table.concat(words, " ")
+    end
+
+    --[=[
+        The base CSS for every element and built-in component, written with theme tokens.
+
+        Override it in your theme to restyle elements: call [Theme.base_styles] to keep the defaults, then add rules.
+
+        ## Usage
+
+        ```luwu
+        function base_styles(self): { Rule }
+            const rules = Theme.base_styles(self)
+            table.insert(rules, Rule("button", { text_transform = "uppercase" }))
+            return rules
+        end
+        ```
+    ]=]
+    function base_styles(self): { Rule }
+        const border = `1px solid {token("border")}`
+        return {
+            Rule("*, *::before, *::after", { box_sizing = "border-box" }),
+            Rule("html", { scroll_behavior = "smooth" }),
+            Rule("body", {
+                margin = "0",
+                background = token("background"),
+                color = token("text"),
+                font_family = token("font"),
+                font_size = "1.0625rem",
+                line_height = "1.65",
+                webkit_font_smoothing = "antialiased",
+                transition = "background 0.25s, color 0.25s",
+            }),
+            Rule("main", {
+                max_width = "64rem",
+                margin = "0 auto",
+                padding = "2rem 1.5rem 4rem",
+            }),
+            Rule("main > :first-child", { margin_top = "0" }),
+            Rule("h1, h2, h3, h4, h5, h6", {
+                line_height = "1.15",
+                letter_spacing = "-0.02em",
+                margin = "2em 0 0.6em",
+            }),
+            Rule("h1", { font_size = "clamp(2.2rem, 5vw, 3rem)" }),
+            Rule("h2", { font_size = "1.75rem" }),
+            Rule("p", { margin = "0 0 1em" }),
+            Rule("a", {
+                color = token("primary"),
+                text_decoration = "none",
+                transition = "color 0.15s",
+            }),
+            Rule("a:hover", {
+                color = token("accent"),
+                text_decoration = "underline",
+                text_underline_offset = "0.2em",
+            }),
+            Rule("img", {
+                max_width = "100%",
+                height = "auto",
+            }),
+            Rule("code, pre", { font_family = token("mono_font") }),
+            Rule("code", {
+                font_size = "0.9em",
+                padding = "0.15em 0.4em",
+                background = token("surface"),
+                border = border,
+                border_radius = "6px",
+            }),
+            Rule("pre", {
+                padding = "1.1rem 1.25rem",
+                overflow_x = "auto",
+                line_height = "1.55",
+                background = token("surface"),
+                border = border,
+                border_radius = token("radius"),
+            }),
+            Rule("pre code", {
+                padding = "0",
+                background = "none",
+                border = "none",
+                font_size = "0.875rem",
+            }),
+            Rule("blockquote", {
+                margin = "1.5em 0",
+                padding = "0.25em 0 0.25em 1.25em",
+                border_left = `3px solid {token("primary")}`,
+                color = token("muted"),
+            }),
+            Rule("hr", {
+                border = "none",
+                border_top = border,
+                margin = "2.5em 0",
+            }),
+            Rule("button", {
+                font = "inherit",
+                font_weight = "600",
+                cursor = "pointer",
+                padding = "0.6em 1.15em",
+                border = "none",
+                border_radius = token("radius"),
+                background = token("primary"),
+                color = token("primary_text"),
+                transition = "filter 0.15s, transform 0.15s",
+            }),
+            Rule("button:hover", {
+                filter = "brightness(1.08)",
+                transform = "translateY(-1px)",
+            }),
+            Rule("button:disabled", {
+                opacity = "0.5",
+                cursor = "not-allowed",
+                transform = "none",
+            }),
+            Rule("input, select, textarea", {
+                font = "inherit",
+                padding = "0.5em 0.7em",
+                border = border,
+                border_radius = token("radius"),
+                background = token("background"),
+                color = token("text"),
+            }),
+            Rule("input:focus, select:focus, textarea:focus", {
+                outline = `2px solid {token("primary")}`,
+                outline_offset = "1px",
+            }),
+            Rule("table", {
+                border_collapse = "collapse",
+                width = "100%",
+                margin = "1.5em 0",
+                font_size = "0.95rem",
+            }),
+            Rule("th, td", {
+                text_align = "left",
+                padding = "0.65em 0.8em",
+                border_bottom = border,
+            }),
+            Rule("th", {
+                color = token("muted"),
+                font_size = "0.8rem",
+                letter_spacing = "0.06em",
+                text_transform = "uppercase",
+            }),
+            Rule(".chimera-table-striped tbody tr:nth-child(even)", { background = token("surface") }),
+            Rule(".chimera-table-plain-header th", { font_weight = "normal" }),
+            Rule(".chimera-table-grid th, .chimera-table-grid td", { border = border }),
+            Rule(".chimera-table-none th, .chimera-table-none td", { border = "none" }),
+            Rule(".chimera-table-compact th, .chimera-table-compact td", { padding = "0.25em 0.5em" }),
+            Rule(".chimera-table-hover tbody tr:hover", { background = token("surface") }),
+            Rule("details", {
+                margin = "0.75em 0",
+                padding = "0.9em 1.15em",
+                background = token("surface"),
+                border = border,
+                border_radius = token("radius"),
+            }),
+            Rule("summary", {
+                cursor = "pointer",
+                font_weight = "600",
+            }),
+            Rule("details[open] > summary", { margin_bottom = "0.6em" }),
+            Rule("details > :last-child", { margin_bottom = "0" }),
+            Rule(".chimera-menu", {
+                position = "sticky",
+                top = "0",
+                z_index = "30",
+                display = "flex",
+                align_items = "center",
+                gap = "1.5rem",
+                padding = "0.85rem max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem))",
+                background = `color-mix(in srgb, {token("background")} 82%, transparent)`,
+                webkit_backdrop_filter = "blur(12px)",
+                backdrop_filter = "blur(12px)",
+                border_bottom = border,
+            }),
+            Rule(".chimera-menu a", {
+                color = token("muted"),
+                font_weight = "500",
+            }),
+            Rule(".chimera-menu a:hover", {
+                color = token("text"),
+                text_decoration = "none",
+            }),
+            Rule(".chimera-menu .chimera-theme-switcher", { margin_left = "auto" }),
+            Rule(".chimera-dropdown, .chimera-theme-switcher", {
+                position = "relative",
+                margin = "0",
+                padding = "0",
+                background = "none",
+                border = "none",
+            }),
+            Rule(".chimera-dropdown > summary, .chimera-theme-switcher > summary", {
+                list_style = "none",
+                margin = "0",
+            }),
+            Rule(".chimera-dropdown > summary::-webkit-details-marker", { display = "none" }),
+            Rule(".chimera-theme-switcher > summary::-webkit-details-marker", { display = "none" }),
+            Rule(".chimera-dropdown > summary", {
+                color = token("muted"),
+                font_weight = "500",
+            }),
+            Rule(".chimera-dropdown > summary::after", {
+                content = "\"▾\"",
+                margin_left = "0.35em",
+                font_size = "0.8em",
+            }),
+            Rule(".chimera-dropdown > summary:hover", { color = token("text") }),
+            Rule(".chimera-dropdown[open] > summary, .chimera-theme-switcher[open] > summary", { margin_bottom = "0" }),
+            Rule(".chimera-dropdown-items, .chimera-theme-options", {
+                position = "absolute",
+                z_index = "40",
+                min_width = "11rem",
+                margin_top = "0.4rem",
+                padding = "0.25rem",
+                display = "flex",
+                flex_direction = "column",
+                font_size = "0.875rem",
+                background = token("background"),
+                border = border,
+                border_radius = "8px",
+                box_shadow = token("shadow"),
+            }),
+            Rule(".chimera-theme-options", { right = "0" }),
+            Rule(".chimera-dropdown-items > *", {
+                padding = "0.3rem 0.5rem",
+                border_radius = "4px",
+                color = token("text"),
+            }),
+            Rule(".chimera-dropdown-items > *:hover", {
+                background = token("surface"),
+                text_decoration = "none",
+            }),
+            Rule(".chimera-theme-switcher > summary", {
+                display = "grid",
+                place_items = "center",
+                width = "2.3rem",
+                height = "2.3rem",
+                cursor = "pointer",
+                color = token("text"),
+                border = border,
+                border_radius = "999px",
+                transition = "color 0.15s, border-color 0.15s, transform 0.3s",
+            }),
+            Rule(".chimera-theme-switcher > summary:hover", {
+                color = token("primary"),
+                border_color = token("primary"),
+            }),
+            Rule(".chimera-theme-switcher[open] > summary", { transform = "rotate(180deg)" }),
+            Rule(".chimera-theme-options button", {
+                display = "flex",
+                align_items = "center",
+                gap = "0.5rem",
+                width = "100%",
+                padding = "0.3rem 0.5rem",
+                background = "transparent",
+                color = token("text"),
+                font_size = "inherit",
+                font_weight = "normal",
+                line_height = "1.4",
+                text_align = "left",
+                white_space = "nowrap",
+                border_radius = "4px",
+            }),
+            Rule(".chimera-theme-options button:hover", {
+                background = token("surface"),
+                filter = "none",
+                transform = "none",
+            }),
+            Rule(".chimera-theme-options button[aria-checked=\"true\"]", {
+                background = token("surface"),
+                color = token("primary"),
+            }),
+            Rule(".chimera-theme-options button[aria-checked=\"true\"]::after", {
+                content = "\"✓\"",
+                margin_left = "auto",
+                padding_left = "0.75rem",
+                font_size = "0.8em",
+            }),
+            Rule(".chimera-theme-swatch", {
+                display = "inline-flex",
+                overflow = "hidden",
+                border = border,
+                border_radius = "999px",
+            }),
+            Rule(".chimera-theme-swatch > span", {
+                display = "block",
+                width = "0.45rem",
+                height = "0.9rem",
+            }),
+            Rule(".chimera-code-block", {
+                position = "relative",
+                margin = "1.25em 0",
+                ["container-type"] = "inline-size",
+            }),
+            Rule(".chimera-copy", {
+                position = "absolute",
+                top = "0.5rem",
+                right = "0.5rem",
+                padding = "0.2rem 0.55rem",
+                color = token("muted"),
+                font_family = token("font"),
+                font_size = "0.75rem",
+                font_weight = "500",
+                background = token("background"),
+                border = border,
+                border_radius = "6px",
+                opacity = 0,
+                transition = "opacity 0.15s, color 0.15s, border-color 0.15s",
+            }),
+            Rule(".chimera-code-block:hover .chimera-copy, .chimera-copy:focus-visible", { opacity = 1 }),
+            Rule(".chimera-copy:hover", {
+                color = token("text"),
+                border_color = token("primary"),
+                filter = "none",
+                transform = "none",
+            }),
+            Rule("@media (hover: none)", {}, {
+                Rule(".chimera-copy", { opacity = 1 }),
+            }),
+            Rule(".chimera-code-block code, .chimera-line-numbers", {
+                font_size = "clamp(0.8rem, calc(100cqw / (var(--chimera-code-columns, 80) * 0.62)), 0.875rem)",
+            }),
+            Rule(".chimera-code-block[data-line-numbers]", { display = "flex" }),
+            Rule(".chimera-line-numbers", {
+                position = "sticky",
+                left = 0,
+                flex_shrink = 0,
+                margin_right = "1.25em",
+                color = token("muted"),
+                opacity = 0.55,
+                text_align = "right",
+                background = token("surface"),
+                user_select = "none",
+                counter_reset = "chimera-line",
+            }),
+            Rule(".chimera-line-numbers > span", { display = "block" }),
+            Rule(".chimera-line-numbers > span::before", {
+                content = "counter(chimera-line)",
+                counter_increment = "chimera-line",
+            }),
+            Rule(".chimera-code", { white_space = "nowrap" }),
+            Rule(".hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-meta .hljs-keyword", {
+                color = token("syntax_keyword"),
+            }),
+            Rule(".hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string", {
+                color = token("syntax_string"),
+            }),
+            Rule(".hljs-number", { color = token("syntax_number") }),
+            Rule(".hljs-literal, .hljs-symbol, .hljs-variable.constant_, .hljs-template-variable", {
+                color = token("syntax_constant"),
+            }),
+            Rule(".hljs-comment, .hljs-quote", {
+                color = token("syntax_comment"),
+                font_style = "italic",
+            }),
+            Rule(".hljs-title, .hljs-title.function_, .hljs-section, .hljs-attr", {
+                color = token("syntax_function"),
+            }),
+            Rule(".hljs-title.class_, .hljs-type, .hljs-name, .hljs-selector-class, .hljs-selector-id", {
+                color = token("syntax_type"),
+            }),
+            Rule(".hljs-built_in, .hljs-deletion, .hljs-variable.language_", { color = token("syntax_builtin") }),
+            Rule(".hljs-meta, .hljs-tag, .hljs-punctuation", { color = token("muted") }),
+            Rule(".hljs-subst", { color = token("text") }),
+            Rule(".chimera-bracket-1", { color = token("syntax_bracket_1") }),
+            Rule(".chimera-bracket-2", { color = token("syntax_bracket_2") }),
+            Rule(".chimera-bracket-3", { color = token("syntax_bracket_3") }),
+            Rule(".chimera-squiggle", {
+                text_decoration = `underline wavy var(--chimera-squiggle-color, {token("syntax_error")})`,
+                text_underline_offset = "0.2em",
+                ["text-decoration-skip-ink"] = "none",
+            }),
+            Rule(".chimera-squiggle[data-message]", { cursor = "help" }),
+            Rule(".chimera-hover", {
+                position = "fixed",
+                z_index = 50,
+                max_width = "min(36rem, calc(100vw - 16px))",
+                padding = "0.55rem 0.75rem",
+                color = token("text"),
+                font_family = token("mono_font"),
+                font_size = "0.8rem",
+                line_height = "1.5",
+                white_space = "pre-wrap",
+                overflow_wrap = "anywhere",
+                background = token("background"),
+                border = border,
+                border_left = `3px solid {token("syntax_error")}`,
+                border_radius = "6px",
+                box_shadow = "0 6px 20px rgba(0, 0, 0, 0.18)",
+            }),
+            Rule(".chimera-tabs", { margin = "1.25em 0" }),
+            Rule(".chimera-tab-list", {
+                display = "flex",
+                gap = "0.25rem",
+                border_bottom = border,
+            }),
+            Rule(".chimera-tab-list > button", {
+                margin_bottom = "-1px",
+                padding = "0.4rem 0.85rem",
+                color = token("muted"),
+                font_size = "0.85rem",
+                background = "none",
+                border_bottom = "2px solid transparent",
+                border_radius = "0",
+                transition = "color 0.15s, border-color 0.15s",
+            }),
+            Rule(".chimera-tab-list > button:hover", {
+                color = token("text"),
+                filter = "none",
+                transform = "none",
+            }),
+            Rule(".chimera-tab-list > button[aria-selected=\"true\"]", {
+                color = token("text"),
+                border_bottom_color = token("primary"),
+            }),
+            Rule(".chimera-tab > :first-child", { margin_top = "0.75rem" }),
+            Rule(".chimera-tab > :last-child", { margin_bottom = "0" }),
+            Rule(".chimera-menu a[aria-current=\"page\"]", { color = token("text") }),
+            Rule("body", {
+                display = "flex",
+                flex_direction = "column",
+                min_height = "100vh",
+            }),
+            Rule("body > main, body > .chimera-site-layout, body > .chimera-breadcrumbs", { width = "100%" }),
+            Rule("body > main, body > .chimera-site-layout", { flex = "1 0 auto" }),
+            Rule(".chimera-row", {
+                display = "flex",
+                flex_wrap = "wrap",
+                gap = token("spacing"),
+            }),
+            Rule(".chimera-column", {
+                display = "flex",
+                flex_direction = "column",
+                gap = token("spacing"),
+            }),
+            Rule(".chimera-grid", {
+                display = "grid",
+                grid_template_columns = "repeat(auto-fit, minmax(min(var(--chimera-grid-min, 12rem), 100%), 1fr))",
+                gap = token("spacing"),
+            }),
+            Rule(".chimera-menu .chimera-brand", {
+                color = token("text"),
+                font_size = "1.15rem",
+                font_weight = "800",
+                letter_spacing = "-0.02em",
+            }),
+            Rule(".chimera-footer", {
+                margin_top = "3rem",
+                padding = "2.5rem max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem)) 2rem",
+                color = token("muted"),
+                font_size = "0.9rem",
+                border_top = border,
+            }),
+            Rule(".chimera-footer-columns", { margin_bottom = "2rem" }),
+            Rule(".chimera-footer-title", {
+                margin = "0 0 0.6rem",
+                color = token("text"),
+                font_weight = "600",
+            }),
+            Rule(".chimera-footer ul", {
+                margin = "0",
+                padding = "0",
+                list_style = "none",
+            }),
+            Rule(".chimera-footer li", { margin = "0.35rem 0" }),
+            Rule(".chimera-footer a", { color = token("muted") }),
+            Rule(".chimera-footer a:hover", { color = token("text") }),
+            Rule(".chimera-footer-columns + .chimera-footer-bar", {
+                padding_top = "1.5rem",
+                border_top = border,
+            }),
+            Rule(".chimera-footer-copyright", { margin = "0" }),
+            Rule(".chimera-site-layout", {
+                display = "grid",
+                grid_template_columns = "14rem minmax(0, 1fr)",
+                gap = "3rem",
+                max_width = "76rem",
+                margin = "0 auto",
+                padding = "0 1.5rem",
+            }),
+            Rule(".chimera-site-layout > aside", {
+                position = "sticky",
+                top = "5rem",
+                align_self = "start",
+                max_height = "calc(100vh - 6rem)",
+                overflow_y = "auto",
+                padding_top = "2rem",
+            }),
+            Rule(".chimera-site-layout main", {
+                max_width = "52rem",
+                margin = "0",
+                padding_left = "0",
+                padding_right = "0",
+            }),
+            Rule("@media (max-width: 800px)", {}, {
+                Rule(".chimera-site-layout", { grid_template_columns = "minmax(0, 1fr)" }),
+                Rule(".chimera-site-layout > aside", { position = "static" }),
+            }),
+            Rule(".chimera-toc", { font_size = "0.9rem" }),
+            Rule(".chimera-toc ul", {
+                list_style = "none",
+                margin = "0",
+                padding = "0",
+            }),
+            Rule(".chimera-toc ul ul", {
+                margin_left = "0.25rem",
+                padding_left = "0.75rem",
+                border_left = `1px solid {token("border")}`,
+            }),
+            Rule(".chimera-toc li", { margin = "0.3rem 0" }),
+            Rule(".chimera-toc a", { color = token("muted") }),
+            Rule(".chimera-toc a:hover", {
+                color = token("text"),
+                text_decoration = "none",
+            }),
+            Rule(".chimera-toc a[aria-current=\"page\"]", {
+                color = token("primary"),
+                font_weight = "600",
+            }),
+            Rule(".chimera-toc-title", {
+                margin = "0 0 0.5rem",
+                color = token("muted"),
+                font_size = "0.75rem",
+                font_weight = "600",
+                letter_spacing = "0.08em",
+                text_transform = "uppercase",
+            }),
+            Rule("main .chimera-toc", {
+                margin = "1.5rem 0",
+                padding = "0.9rem 1.15rem",
+                background = token("surface"),
+                border = border,
+                border_radius = token("radius"),
+            }),
+            Rule(".chimera-toc details", {
+                margin = "0",
+                padding = "0",
+                background = "none",
+                border = "none",
+            }),
+            Rule(".chimera-toc summary", {
+                color = token("muted"),
+                font_size = "0.8rem",
+                letter_spacing = "0.06em",
+                text_transform = "uppercase",
+            }),
+            Rule(".chimera-toc details[open] > summary", { margin_bottom = "0.75rem" }),
+            Rule(".chimera-toc-columns", {
+                display = "grid",
+                grid_template_columns = "repeat(auto-fit, minmax(12rem, 1fr))",
+                gap = "0.75rem 2.5rem",
+            }),
+            Rule("@media (min-width: 1100px)", {}, {
+                Rule("main:has(> .chimera-toc)", {
+                    display = "grid",
+                    grid_template_columns = "minmax(0, 61rem) 15rem",
+                    column_gap = "3.5rem",
+                    align_items = "start",
+                    max_width = "none",
+                    margin = "0",
+                    padding_left = "max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem))",
+                }),
+                Rule("main:has(> .chimera-toc) > *", {
+                    grid_column = 1,
+                    margin_top = "0",
+                }),
+                Rule("main:has(> .chimera-toc) > :is(h2, h3, h4, h5, h6)", { margin_top = "1.5em" }),
+                Rule("main:has(> .chimera-toc) > .chimera-toc", {
+                    position = "sticky",
+                    top = "5.5rem",
+                    grid_column = 2,
+                    grid_row = "1 / span 999",
+                    max_height = "calc(100vh - 7rem)",
+                    margin = "0",
+                    padding = "0 0 0 1.25rem",
+                    overflow_y = "auto",
+                    background = "none",
+                    border = "none",
+                    border_left = border,
+                    border_radius = "0",
+                }),
+                Rule("main:has(> .chimera-toc) .chimera-toc-columns", { grid_template_columns = "minmax(0, 1fr)" }),
+            }),
+            Rule(".chimera-breadcrumbs", {
+                max_width = "64rem",
+                margin = "0 auto",
+                padding = "1.5rem 1.5rem 0",
+                color = token("muted"),
+                font_size = "0.875rem",
+            }),
+            Rule(".chimera-site-layout .chimera-breadcrumbs", { padding = "2rem 0 0" }),
+            Rule(".chimera-breadcrumbs ol", {
+                display = "flex",
+                flex_wrap = "wrap",
+                gap = "0.4rem",
+                margin = "0",
+                padding = "0",
+                list_style = "none",
+            }),
+            Rule(".chimera-breadcrumbs li + li::before", {
+                content = "\"/\"",
+                margin_right = "0.4rem",
+                color = token("border"),
+            }),
+            Rule(".chimera-breadcrumbs a", { color = token("muted") }),
+            Rule(".chimera-breadcrumbs a:hover", { color = token("text") }),
+            Rule(".chimera-breadcrumbs [aria-current=\"page\"]", { color = token("text") }),
+            Rule(".chimera-breadcrumbs + main", { padding_top = "1.25rem" }),
+            Rule(".chimera-card", {
+                padding = "1.4rem 1.5rem",
+                background = token("surface"),
+                border = border,
+                border_radius = token("radius"):times(1.5),
+                transition = "transform 0.2s, border-color 0.2s, box-shadow 0.2s",
+            }),
+            Rule(".chimera-card:hover", {
+                transform = "translateY(-2px)",
+                border_color = token("primary"),
+                box_shadow = token("shadow"),
+            }),
+            Rule(".chimera-card > h3", { margin_top = "0" }),
+            Rule(".chimera-card > :last-child", { margin_bottom = "0" }),
+        }
+    end
+
+    --[=[
+        Makes the theme class `cls` findable by its name with [Theme.find]. Parsing a page looks up the theme names
+        on its `<html>` tag here. Register every theme your pages use.
+
+        ## Usage
+
+        ```luwu
+        Theme.register(Sepia)
+        Parser():parse_document(html).light_theme
+        ```
+    ]=]
+    final function register(cls: class<Theme>)
+        themes_by_name[cls().name] = cls
+    end
+
+    --[=[
+        The registered theme called `name`, or nil. Every theme in [themes] is registered.
+
+        [themes = require("@themes")]
+
+        ## Usage
+
+        ```luwu
+        const dark = Theme.find("dark")
+        ```
+    ]=]
+    final function find(name: string): class<Theme>?
+        return themes_by_name[name]
+    end
+end

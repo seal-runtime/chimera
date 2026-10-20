@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html data-themes="catppuccin-latte catppuccin-mocha catppuccin-macchiato catppuccin-frappe light dark" data-theme-light="catppuccin-latte" data-theme-dark="catppuccin-mocha" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home · chimera</title>
+  <meta name="description" content="An HTML DSL built from Luwu classes">
+  <style data-chimera="styles">
+    :root[data-theme="catppuccin-latte"] {
+      --chimera-accent: #fe640b;
+      --chimera-background: #eff1f5;
+      --chimera-border: #ccd0da;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #6c6f85;
+      --chimera-primary: #8839ef;
+      --chimera-primary-text: #eff1f5;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(76 79 105 / 0.15);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #e6e9ef;
+      --chimera-syntax-bracket-1: #e64553;
+      --chimera-syntax-bracket-2: #179299;
+      --chimera-syntax-bracket-3: #7287fd;
+      --chimera-syntax-builtin: #d20f39;
+      --chimera-syntax-comment: #7c7f93;
+      --chimera-syntax-constant: #fe640b;
+      --chimera-syntax-error: #d20f39;
+      --chimera-syntax-function: #1e66f5;
+      --chimera-syntax-info: #1e66f5;
+      --chimera-syntax-keyword: #8839ef;
+      --chimera-syntax-number: #fe640b;
+      --chimera-syntax-string: #40a02b;
+      --chimera-syntax-type: #df8e1d;
+      --chimera-syntax-warning: #df8e1d;
+      --chimera-text: #4c4f69;
+      color-scheme: light;
+    }
+    :root[data-theme="catppuccin-mocha"] {
+      --chimera-accent: #fab387;
+      --chimera-background: #1e1e2e;
+      --chimera-border: #313244;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #a6adc8;
+      --chimera-primary: #cba6f7;
+      --chimera-primary-text: #1e1e2e;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(17 17 27 / 0.6);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #181825;
+      --chimera-syntax-bracket-1: #eba0ac;
+      --chimera-syntax-bracket-2: #94e2d5;
+      --chimera-syntax-bracket-3: #b4befe;
+      --chimera-syntax-builtin: #f38ba8;
+      --chimera-syntax-comment: #9399b2;
+      --chimera-syntax-constant: #fab387;
+      --chimera-syntax-error: #f38ba8;
+      --chimera-syntax-function: #89b4fa;
+      --chimera-syntax-info: #89b4fa;
+      --chimera-syntax-keyword: #cba6f7;
+      --chimera-syntax-number: #fab387;
+      --chimera-syntax-string: #a6e3a1;
+      --chimera-syntax-type: #f9e2af;
+      --chimera-syntax-warning: #f9e2af;
+      --chimera-text: #cdd6f4;
+      color-scheme: dark;
+    }
+    :root[data-theme="catppuccin-macchiato"] {
+      --chimera-accent: #f5a97f;
+      --chimera-background: #24273a;
+      --chimera-border: #363a4f;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #a5adcb;
+      --chimera-primary: #c6a0f6;
+      --chimera-primary-text: #24273a;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(24 25 38 / 0.5);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #1e2030;
+      --chimera-syntax-bracket-1: #ee99a0;
+      --chimera-syntax-bracket-2: #8bd5ca;
+      --chimera-syntax-bracket-3: #b7bdf8;
+      --chimera-syntax-builtin: #ed8796;
+      --chimera-syntax-comment: #939ab7;
+      --chimera-syntax-constant: #f5a97f;
+      --chimera-syntax-error: #ed8796;
+      --chimera-syntax-function: #8aadf4;
+      --chimera-syntax-info: #8aadf4;
+      --chimera-syntax-keyword: #c6a0f6;
+      --chimera-syntax-number: #f5a97f;
+      --chimera-syntax-string: #a6da95;
+      --chimera-syntax-type: #eed49f;
+      --chimera-syntax-warning: #eed49f;
+      --chimera-text: #cad3f5;
+      color-scheme: dark;
+    }
+    :root[data-theme="catppuccin-frappe"] {
+      --chimera-accent: #ef9f76;
+      --chimera-background: #303446;
+      --chimera-border: #414559;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #a5adce;
+      --chimera-primary: #ca9ee6;
+      --chimera-primary-text: #303446;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(35 38 52 / 0.5);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #292c3c;
+      --chimera-syntax-bracket-1: #ea999c;
+      --chimera-syntax-bracket-2: #81c8be;
+      --chimera-syntax-bracket-3: #babbf1;
+      --chimera-syntax-builtin: #e78284;
+      --chimera-syntax-comment: #949cbb;
+      --chimera-syntax-constant: #ef9f76;
+      --chimera-syntax-error: #e78284;
+      --chimera-syntax-function: #8caaee;
+      --chimera-syntax-info: #8caaee;
+      --chimera-syntax-keyword: #ca9ee6;
+      --chimera-syntax-number: #ef9f76;
+      --chimera-syntax-string: #a6d189;
+      --chimera-syntax-type: #e5c890;
+      --chimera-syntax-warning: #e5c890;
+      --chimera-text: #c6d0f5;
+      color-scheme: dark;
+    }
+    :root[data-theme="light"] {
+      --chimera-accent: #e8590c;
+      --chimera-background: #ffffff;
+      --chimera-border: #d2d2d7;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #6e6e73;
+      --chimera-primary: #3b5bdb;
+      --chimera-primary-text: #ffffff;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #f5f5f7;
+      --chimera-syntax-bracket-1: #a07c00;
+      --chimera-syntax-bracket-2: #0e8a7d;
+      --chimera-syntax-bracket-3: #c13a8e;
+      --chimera-syntax-builtin: #0550ae;
+      --chimera-syntax-comment: #6e7781;
+      --chimera-syntax-constant: #0550ae;
+      --chimera-syntax-error: #d1242f;
+      --chimera-syntax-function: #8250df;
+      --chimera-syntax-info: #0969da;
+      --chimera-syntax-keyword: #cf222e;
+      --chimera-syntax-number: #0550ae;
+      --chimera-syntax-string: #0a3069;
+      --chimera-syntax-type: #953800;
+      --chimera-syntax-warning: #bf8700;
+      --chimera-text: #1d1d1f;
+      color-scheme: light;
+    }
+    :root[data-theme="dark"] {
+      --chimera-accent: #ffa94d;
+      --chimera-background: #121214;
+      --chimera-border: #33333a;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #9a9aa5;
+      --chimera-primary: #7b9cff;
+      --chimera-primary-text: #0b0b0d;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #1e1e22;
+      --chimera-syntax-bracket-1: #e6c547;
+      --chimera-syntax-bracket-2: #3fbfae;
+      --chimera-syntax-bracket-3: #e37cc1;
+      --chimera-syntax-builtin: #79c0ff;
+      --chimera-syntax-comment: #8b949e;
+      --chimera-syntax-constant: #79c0ff;
+      --chimera-syntax-error: #ff6b6b;
+      --chimera-syntax-function: #d2a8ff;
+      --chimera-syntax-info: #58a6ff;
+      --chimera-syntax-keyword: #ff7b72;
+      --chimera-syntax-number: #79c0ff;
+      --chimera-syntax-string: #a5d6ff;
+      --chimera-syntax-type: #ffa657;
+      --chimera-syntax-warning: #e3b341;
+      --chimera-text: #ececf1;
+      color-scheme: dark;
+    }
+    :root:not([data-theme]) {
+      --chimera-accent: #fe640b;
+      --chimera-background: #eff1f5;
+      --chimera-border: #ccd0da;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #6c6f85;
+      --chimera-primary: #8839ef;
+      --chimera-primary-text: #eff1f5;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(76 79 105 / 0.15);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #e6e9ef;
+      --chimera-syntax-bracket-1: #e64553;
+      --chimera-syntax-bracket-2: #179299;
+      --chimera-syntax-bracket-3: #7287fd;
+      --chimera-syntax-builtin: #d20f39;
+      --chimera-syntax-comment: #7c7f93;
+      --chimera-syntax-constant: #fe640b;
+      --chimera-syntax-error: #d20f39;
+      --chimera-syntax-function: #1e66f5;
+      --chimera-syntax-info: #1e66f5;
+      --chimera-syntax-keyword: #8839ef;
+      --chimera-syntax-number: #fe640b;
+      --chimera-syntax-string: #40a02b;
+      --chimera-syntax-type: #df8e1d;
+      --chimera-syntax-warning: #df8e1d;
+      --chimera-text: #4c4f69;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme]) {
+        --chimera-accent: #fab387;
+        --chimera-background: #1e1e2e;
+        --chimera-border: #313244;
+        --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+        --chimera-muted: #a6adc8;
+        --chimera-primary: #cba6f7;
+        --chimera-primary-text: #1e1e2e;
+        --chimera-radius: 8px;
+        --chimera-shadow: 0 1px 3px rgb(17 17 27 / 0.6);
+        --chimera-spacing: 1rem;
+        --chimera-surface: #181825;
+        --chimera-syntax-bracket-1: #eba0ac;
+        --chimera-syntax-bracket-2: #94e2d5;
+        --chimera-syntax-bracket-3: #b4befe;
+        --chimera-syntax-builtin: #f38ba8;
+        --chimera-syntax-comment: #9399b2;
+        --chimera-syntax-constant: #fab387;
+        --chimera-syntax-error: #f38ba8;
+        --chimera-syntax-function: #89b4fa;
+        --chimera-syntax-info: #89b4fa;
+        --chimera-syntax-keyword: #cba6f7;
+        --chimera-syntax-number: #fab387;
+        --chimera-syntax-string: #a6e3a1;
+        --chimera-syntax-type: #f9e2af;
+        --chimera-syntax-warning: #f9e2af;
+        --chimera-text: #cdd6f4;
+        color-scheme: dark;
+      }
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      background: var(--chimera-background);
+      color: var(--chimera-text);
+      font-family: var(--chimera-font);
+      font-size: 1.0625rem;
+      line-height: 1.65;
+      margin: 0;
+      transition: background 0.25s, color 0.25s;
+      -webkit-font-smoothing: antialiased;
+    }
+    main {
+      margin: 0 auto;
+      max-width: 64rem;
+      padding: 2rem 1.5rem 4rem;
+    }
+    main > :first-child {
+      margin-top: 0;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 2em 0 0.6em;
+    }
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3rem);
+    }
+    h2 {
+      font-size: 1.75rem;
+    }
+    p {
+      margin: 0 0 1em;
+    }
+    a {
+      color: var(--chimera-primary);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    a:hover {
+      color: var(--chimera-accent);
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+    img {
+      height: auto;
+      max-width: 100%;
+    }
+    code, pre {
+      font-family: var(--chimera-mono-font);
+    }
+    code {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: 6px;
+      font-size: 0.9em;
+      padding: 0.15em 0.4em;
+    }
+    pre {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      line-height: 1.55;
+      overflow-x: auto;
+      padding: 1.1rem 1.25rem;
+    }
+    pre code {
+      background: none;
+      border: none;
+      font-size: 0.875rem;
+      padding: 0;
+    }
+    blockquote {
+      border-left: 3px solid var(--chimera-primary);
+      color: var(--chimera-muted);
+      margin: 1.5em 0;
+      padding: 0.25em 0 0.25em 1.25em;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid var(--chimera-border);
+      margin: 2.5em 0;
+    }
+    button {
+      background: var(--chimera-primary);
+      border: none;
+      border-radius: var(--chimera-radius);
+      color: var(--chimera-primary-text);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      padding: 0.6em 1.15em;
+      transition: filter 0.15s, transform 0.15s;
+    }
+    button:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+    }
+    input, select, textarea {
+      background: var(--chimera-background);
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      color: var(--chimera-text);
+      font: inherit;
+      padding: 0.5em 0.7em;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: 2px solid var(--chimera-primary);
+      outline-offset: 1px;
+    }
+    table {
+      border-collapse: collapse;
+      font-size: 0.95rem;
+      margin: 1.5em 0;
+      width: 100%;
+    }
+    th, td {
+      border-bottom: 1px solid var(--chimera-border);
+      padding: 0.65em 0.8em;
+      text-align: left;
+    }
+    th {
+      color: var(--chimera-muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .chimera-table-striped tbody tr:nth-child(even) {
+      background: var(--chimera-surface);
+    }
+    .chimera-table-plain-header th {
+      font-weight: normal;
+    }
+    .chimera-table-grid th, .chimera-table-grid td {
+      border: 1px solid var(--chimera-border);
+    }
+    .chimera-table-none th, .chimera-table-none td {
+      border: none;
+    }
+    .chimera-table-compact th, .chimera-table-compact td {
+      padding: 0.25em 0.5em;
+    }
+    .chimera-table-hover tbody tr:hover {
+      background: var(--chimera-surface);
+    }
+    details {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      margin: 0.75em 0;
+      padding: 0.9em 1.15em;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+    }
+    details[open] > summary {
+      margin-bottom: 0.6em;
+    }
+    details > :last-child {
+      margin-bottom: 0;
+    }
+    .chimera-menu {
+      align-items: center;
+      backdrop-filter: blur(12px);
+      background: color-mix(in srgb, var(--chimera-background) 82%, transparent);
+      border-bottom: 1px solid var(--chimera-border);
+      display: flex;
+      gap: 1.5rem;
+      padding: 0.85rem max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem));
+      position: sticky;
+      top: 0;
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 30;
+    }
+    .chimera-menu a {
+      color: var(--chimera-muted);
+      font-weight: 500;
+    }
+    .chimera-menu a:hover {
+      color: var(--chimera-text);
+      text-decoration: none;
+    }
+    .chimera-menu .chimera-theme-switcher {
+      margin-left: auto;
+    }
+    .chimera-dropdown, .chimera-theme-switcher {
+      background: none;
+      border: none;
+      margin: 0;
+      padding: 0;
+      position: relative;
+    }
+    .chimera-dropdown > summary, .chimera-theme-switcher > summary {
+      list-style: none;
+      margin: 0;
+    }
+    .chimera-dropdown > summary::-webkit-details-marker {
+      display: none;
+    }
+    .chimera-theme-switcher > summary::-webkit-details-marker {
+      display: none;
+    }
+    .chimera-dropdown > summary {
+      color: var(--chimera-muted);
+      font-weight: 500;
+    }
+    .chimera-dropdown > summary::after {
+      content: "▾";
+      font-size: 0.8em;
+      margin-left: 0.35em;
+    }
+    .chimera-dropdown > summary:hover {
+      color: var(--chimera-text);
+    }
+    .chimera-dropdown[open] > summary, .chimera-theme-switcher[open] > summary {
+      margin-bottom: 0;
+    }
+    .chimera-dropdown-items, .chimera-theme-options {
+      background: var(--chimera-background);
+      border: 1px solid var(--chimera-border);
+      border-radius: 8px;
+      box-shadow: var(--chimera-shadow);
+      display: flex;
+      flex-direction: column;
+      font-size: 0.875rem;
+      margin-top: 0.4rem;
+      min-width: 11rem;
+      padding: 0.25rem;
+      position: absolute;
+      z-index: 40;
+    }
+    .chimera-theme-options {
+      right: 0;
+    }
+    .chimera-dropdown-items > * {
+      border-radius: 4px;
+      color: var(--chimera-text);
+      padding: 0.3rem 0.5rem;
+    }
+    .chimera-dropdown-items > *:hover {
+      background: var(--chimera-surface);
+      text-decoration: none;
+    }
+    .chimera-theme-switcher > summary {
+      border: 1px solid var(--chimera-border);
+      border-radius: 999px;
+      color: var(--chimera-text);
+      cursor: pointer;
+      display: grid;
+      height: 2.3rem;
+      place-items: center;
+      transition: color 0.15s, border-color 0.15s, transform 0.3s;
+      width: 2.3rem;
+    }
+    .chimera-theme-switcher > summary:hover {
+      border-color: var(--chimera-primary);
+      color: var(--chimera-primary);
+    }
+    .chimera-theme-switcher[open] > summary {
+      transform: rotate(180deg);
+    }
+    .chimera-theme-options button {
+      align-items: center;
+      background: transparent;
+      border-radius: 4px;
+      color: var(--chimera-text);
+      display: flex;
+      font-size: inherit;
+      font-weight: normal;
+      gap: 0.5rem;
+      line-height: 1.4;
+      padding: 0.3rem 0.5rem;
+      text-align: left;
+      white-space: nowrap;
+      width: 100%;
+    }
+    .chimera-theme-options button:hover {
+      background: var(--chimera-surface);
+      filter: none;
+      transform: none;
+    }
+    .chimera-theme-options button[aria-checked="true"] {
+      background: var(--chimera-surface);
+      color: var(--chimera-primary);
+    }
+    .chimera-theme-options button[aria-checked="true"]::after {
+      content: "✓";
+      font-size: 0.8em;
+      margin-left: auto;
+      padding-left: 0.75rem;
+    }
+    .chimera-theme-swatch {
+      border: 1px solid var(--chimera-border);
+      border-radius: 999px;
+      display: inline-flex;
+      overflow: hidden;
+    }
+    .chimera-theme-swatch > span {
+      display: block;
+      height: 0.9rem;
+      width: 0.45rem;
+    }
+    .chimera-code-block {
+      container-type: inline-size;
+      margin: 1.25em 0;
+      position: relative;
+    }
+    .chimera-copy {
+      background: var(--chimera-background);
+      border: 1px solid var(--chimera-border);
+      border-radius: 6px;
+      color: var(--chimera-muted);
+      font-family: var(--chimera-font);
+      font-size: 0.75rem;
+      font-weight: 500;
+      opacity: 0;
+      padding: 0.2rem 0.55rem;
+      position: absolute;
+      right: 0.5rem;
+      top: 0.5rem;
+      transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .chimera-code-block:hover .chimera-copy, .chimera-copy:focus-visible {
+      opacity: 1;
+    }
+    .chimera-copy:hover {
+      border-color: var(--chimera-primary);
+      color: var(--chimera-text);
+      filter: none;
+      transform: none;
+    }
+    @media (hover: none) {
+      .chimera-copy {
+        opacity: 1;
+      }
+    }
+    .chimera-code-block code, .chimera-line-numbers {
+      font-size: clamp(0.8rem, calc(100cqw / (var(--chimera-code-columns, 80) * 0.62)), 0.875rem);
+    }
+    .chimera-code-block[data-line-numbers] {
+      display: flex;
+    }
+    .chimera-line-numbers {
+      background: var(--chimera-surface);
+      color: var(--chimera-muted);
+      counter-reset: chimera-line;
+      flex-shrink: 0;
+      left: 0;
+      margin-right: 1.25em;
+      opacity: 0.55;
+      position: sticky;
+      text-align: right;
+      user-select: none;
+    }
+    .chimera-line-numbers > span {
+      display: block;
+    }
+    .chimera-line-numbers > span::before {
+      content: counter(chimera-line);
+      counter-increment: chimera-line;
+    }
+    .chimera-code {
+      white-space: nowrap;
+    }
+    .hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-meta .hljs-keyword {
+      color: var(--chimera-syntax-keyword);
+    }
+    .hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string {
+      color: var(--chimera-syntax-string);
+    }
+    .hljs-number {
+      color: var(--chimera-syntax-number);
+    }
+    .hljs-literal, .hljs-symbol, .hljs-variable.constant_, .hljs-template-variable {
+      color: var(--chimera-syntax-constant);
+    }
+    .hljs-comment, .hljs-quote {
+      color: var(--chimera-syntax-comment);
+      font-style: italic;
+    }
+    .hljs-title, .hljs-title.function_, .hljs-section, .hljs-attr {
+      color: var(--chimera-syntax-function);
+    }
+    .hljs-title.class_, .hljs-type, .hljs-name, .hljs-selector-class, .hljs-selector-id {
+      color: var(--chimera-syntax-type);
+    }
+    .hljs-built_in, .hljs-deletion, .hljs-variable.language_ {
+      color: var(--chimera-syntax-builtin);
+    }
+    .hljs-meta, .hljs-tag, .hljs-punctuation {
+      color: var(--chimera-muted);
+    }
+    .hljs-subst {
+      color: var(--chimera-text);
+    }
+    .chimera-bracket-1 {
+      color: var(--chimera-syntax-bracket-1);
+    }
+    .chimera-bracket-2 {
+      color: var(--chimera-syntax-bracket-2);
+    }
+    .chimera-bracket-3 {
+      color: var(--chimera-syntax-bracket-3);
+    }
+    .chimera-squiggle {
+      text-decoration-skip-ink: none;
+      text-decoration: underline wavy var(--chimera-squiggle-color, var(--chimera-syntax-error));
+      text-underline-offset: 0.2em;
+    }
+    .chimera-squiggle[data-message] {
+      cursor: help;
+    }
+    .chimera-hover {
+      background: var(--chimera-background);
+      border: 1px solid var(--chimera-border);
+      border-left: 3px solid var(--chimera-syntax-error);
+      border-radius: 6px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+      color: var(--chimera-text);
+      font-family: var(--chimera-mono-font);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      max-width: min(36rem, calc(100vw - 16px));
+      overflow-wrap: anywhere;
+      padding: 0.55rem 0.75rem;
+      position: fixed;
+      white-space: pre-wrap;
+      z-index: 50;
+    }
+    .chimera-tabs {
+      margin: 1.25em 0;
+    }
+    .chimera-tab-list {
+      border-bottom: 1px solid var(--chimera-border);
+      display: flex;
+      gap: 0.25rem;
+    }
+    .chimera-tab-list > button {
+      background: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      color: var(--chimera-muted);
+      font-size: 0.85rem;
+      margin-bottom: -1px;
+      padding: 0.4rem 0.85rem;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .chimera-tab-list > button:hover {
+      color: var(--chimera-text);
+      filter: none;
+      transform: none;
+    }
+    .chimera-tab-list > button[aria-selected="true"] {
+      border-bottom-color: var(--chimera-primary);
+      color: var(--chimera-text);
+    }
+    .chimera-tab > :first-child {
+      margin-top: 0.75rem;
+    }
+    .chimera-tab > :last-child {
+      margin-bottom: 0;
+    }
+    .chimera-menu a[aria-current="page"] {
+      color: var(--chimera-text);
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    body > main, body > .chimera-site-layout, body > .chimera-breadcrumbs {
+      width: 100%;
+    }
+    body > main, body > .chimera-site-layout {
+      flex: 1 0 auto;
+    }
+    .chimera-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--chimera-spacing);
+    }
+    .chimera-column {
+      display: flex;
+      flex-direction: column;
+      gap: var(--chimera-spacing);
+    }
+    .chimera-grid {
+      display: grid;
+      gap: var(--chimera-spacing);
+      grid-template-columns: repeat(auto-fit, minmax(min(var(--chimera-grid-min, 12rem), 100%), 1fr));
+    }
+    .chimera-menu .chimera-brand {
+      color: var(--chimera-text);
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .chimera-footer {
+      border-top: 1px solid var(--chimera-border);
+      color: var(--chimera-muted);
+      font-size: 0.9rem;
+      margin-top: 3rem;
+      padding: 2.5rem max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem)) 2rem;
+    }
+    .chimera-footer-columns {
+      margin-bottom: 2rem;
+    }
+    .chimera-footer-title {
+      color: var(--chimera-text);
+      font-weight: 600;
+      margin: 0 0 0.6rem;
+    }
+    .chimera-footer ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .chimera-footer li {
+      margin: 0.35rem 0;
+    }
+    .chimera-footer a {
+      color: var(--chimera-muted);
+    }
+    .chimera-footer a:hover {
+      color: var(--chimera-text);
+    }
+    .chimera-footer-columns + .chimera-footer-bar {
+      border-top: 1px solid var(--chimera-border);
+      padding-top: 1.5rem;
+    }
+    .chimera-footer-copyright {
+      margin: 0;
+    }
+    .chimera-site-layout {
+      display: grid;
+      gap: 3rem;
+      grid-template-columns: 14rem minmax(0, 1fr);
+      margin: 0 auto;
+      max-width: 76rem;
+      padding: 0 1.5rem;
+    }
+    .chimera-site-layout > aside {
+      align-self: start;
+      max-height: calc(100vh - 6rem);
+      overflow-y: auto;
+      padding-top: 2rem;
+      position: sticky;
+      top: 5rem;
+    }
+    .chimera-site-layout main {
+      margin: 0;
+      max-width: 52rem;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    @media (max-width: 800px) {
+      .chimera-site-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .chimera-site-layout > aside {
+        position: static;
+      }
+    }
+    .chimera-toc {
+      font-size: 0.9rem;
+    }
+    .chimera-toc ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .chimera-toc ul ul {
+      border-left: 1px solid var(--chimera-border);
+      margin-left: 0.25rem;
+      padding-left: 0.75rem;
+    }
+    .chimera-toc li {
+      margin: 0.3rem 0;
+    }
+    .chimera-toc a {
+      color: var(--chimera-muted);
+    }
+    .chimera-toc a:hover {
+      color: var(--chimera-text);
+      text-decoration: none;
+    }
+    .chimera-toc a[aria-current="page"] {
+      color: var(--chimera-primary);
+      font-weight: 600;
+    }
+    .chimera-toc-title {
+      color: var(--chimera-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      margin: 0 0 0.5rem;
+      text-transform: uppercase;
+    }
+    main .chimera-toc {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      margin: 1.5rem 0;
+      padding: 0.9rem 1.15rem;
+    }
+    .chimera-toc details {
+      background: none;
+      border: none;
+      margin: 0;
+      padding: 0;
+    }
+    .chimera-toc summary {
+      color: var(--chimera-muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .chimera-toc details[open] > summary {
+      margin-bottom: 0.75rem;
+    }
+    .chimera-toc-columns {
+      display: grid;
+      gap: 0.75rem 2.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    }
+    @media (min-width: 1100px) {
+      main:has(> .chimera-toc) {
+        align-items: start;
+        column-gap: 3.5rem;
+        display: grid;
+        grid-template-columns: minmax(0, 61rem) 15rem;
+        margin: 0;
+        max-width: none;
+        padding-left: max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem));
+      }
+      main:has(> .chimera-toc) > * {
+        grid-column: 1;
+        margin-top: 0;
+      }
+      main:has(> .chimera-toc) > :is(h2, h3, h4, h5, h6) {
+        margin-top: 1.5em;
+      }
+      main:has(> .chimera-toc) > .chimera-toc {
+        background: none;
+        border: none;
+        border-left: 1px solid var(--chimera-border);
+        border-radius: 0;
+        grid-column: 2;
+        grid-row: 1 / span 999;
+        margin: 0;
+        max-height: calc(100vh - 7rem);
+        overflow-y: auto;
+        padding: 0 0 0 1.25rem;
+        position: sticky;
+        top: 5.5rem;
+      }
+      main:has(> .chimera-toc) .chimera-toc-columns {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .chimera-breadcrumbs {
+      color: var(--chimera-muted);
+      font-size: 0.875rem;
+      margin: 0 auto;
+      max-width: 64rem;
+      padding: 1.5rem 1.5rem 0;
+    }
+    .chimera-site-layout .chimera-breadcrumbs {
+      padding: 2rem 0 0;
+    }
+    .chimera-breadcrumbs ol {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .chimera-breadcrumbs li + li::before {
+      color: var(--chimera-border);
+      content: "/";
+      margin-right: 0.4rem;
+    }
+    .chimera-breadcrumbs a {
+      color: var(--chimera-muted);
+    }
+    .chimera-breadcrumbs a:hover {
+      color: var(--chimera-text);
+    }
+    .chimera-breadcrumbs [aria-current="page"] {
+      color: var(--chimera-text);
+    }
+    .chimera-breadcrumbs + main {
+      padding-top: 1.25rem;
+    }
+    .chimera-card {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: calc(var(--chimera-radius) * 1.5);
+      padding: 1.4rem 1.5rem;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .chimera-card:hover {
+      border-color: var(--chimera-primary);
+      box-shadow: var(--chimera-shadow);
+      transform: translateY(-2px);
+    }
+    .chimera-card > h3 {
+      margin-top: 0;
+    }
+    .chimera-card > :last-child {
+      margin-bottom: 0;
+    }
+    [data-element="Hero"] {
+      margin: 0 auto;
+      max-width: 46rem;
+      padding: 5rem 0 3rem;
+      text-align: center;
+    }
+    [data-element="Hero"] .eyebrow {
+      color: var(--chimera-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    [data-element="Hero"] h1 {
+      font-size: clamp(2.6rem, 7vw, 4.2rem);
+      margin: 0.6rem 0 1.1rem;
+    }
+    [data-element="Hero"] .gradient {
+      background: linear-gradient(120deg, var(--chimera-primary), var(--chimera-accent));
+      background-clip: text;
+      color: transparent;
+      -webkit-background-clip: text;
+    }
+    [data-element="Hero"] .tagline {
+      color: var(--chimera-muted);
+      font-size: 1.2rem;
+    }
+    [data-element="Hero"] .actions {
+      margin-top: 2rem;
+    }
+    [data-element="Hero"] .action {
+      border: 1px solid var(--chimera-border);
+      border-radius: 999px;
+      color: var(--chimera-text);
+      font-weight: 600;
+      padding: 0.7em 1.4em;
+    }
+    [data-element="Hero"] .action:hover {
+      border-color: var(--chimera-primary);
+      text-decoration: none;
+    }
+    [data-element="Hero"] .action.primary {
+      background: var(--chimera-primary);
+      border-color: var(--chimera-primary);
+      color: var(--chimera-primary-text);
+    }
+  </style>
+  <style data-chimera="overrides">
+    .showcase {
+      box-shadow: var(--chimera-shadow);
+      margin: 0 auto;
+      max-width: 54rem;
+    }
+  </style>
+  <script data-chimera="runtime">(function () {
+  var root = document.documentElement;
+  var offered = (root.dataset.themes || "").split(" ");
+  function offers(name) {
+    return !!name && offered.indexOf(name) >= 0;
+  }
+  function sync(name) {
+    document.querySelectorAll("[data-chimera-theme-option]").forEach(function (option) {
+      option.setAttribute("aria-checked", option.dataset.chimeraThemeOption === name ? "true" : "false");
+    });
+  }
+  // Links carry the theme too. Some browsers don't share localStorage between file:// pages.
+  function carry(name) {
+    document.querySelectorAll("a[href]").forEach(function (link) {
+      var href = link.dataset.chimeraHref || link.getAttribute("href");
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.charAt(0) === "#") return;
+      link.dataset.chimeraHref = href;
+      var url = new URL(href, location.href);
+      url.searchParams.set("theme", name);
+      link.setAttribute("href", url.href);
+    });
+  }
+  function close_menus(except) {
+    var menus = document.querySelectorAll("details.chimera-theme-switcher[open], details.chimera-dropdown[open]");
+    menus.forEach(function (menu) {
+      if (!except || !menu.contains(except)) menu.open = false;
+    });
+  }
+  var chosen = new URLSearchParams(location.search).get("theme");
+  if (!offers(chosen)) {
+    try { chosen = localStorage.getItem("chimera-theme"); } catch (e) { chosen = null; }
+  }
+  if (!offers(chosen)) chosen = null;
+  if (chosen) root.dataset.theme = chosen;
+  // Until the reader picks a theme, the stylesheet follows the OS; this only keeps the switcher in step.
+  var os_dark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function current() {
+    var light = root.dataset.themeLight;
+    var dark = root.dataset.themeDark;
+    return chosen || (os_dark && os_dark.matches ? dark || light : light || dark);
+  }
+  if (os_dark && os_dark.addEventListener) {
+    os_dark.addEventListener("change", function () { sync(current()); });
+  }
+  window.chimera = {
+    setTheme: function (name) {
+      chosen = name;
+      root.dataset.theme = name;
+      try { localStorage.setItem("chimera-theme", name); } catch (e) {}
+      var here = new URL(location.href);
+      here.searchParams.set("theme", name);
+      try { history.replaceState(null, "", here.href); } catch (e) {}
+      carry(name);
+      sync(name);
+      close_menus();
+    },
+    toggle: function (id) {
+      var target = document.getElementById(id);
+      if (target) target.hidden = !target.hidden;
+    },
+    copy: function (button) {
+      var code = button.parentElement.querySelector("code");
+      if (!code) return;
+      var text = code.textContent;
+      function copied() {
+        button.textContent = "Copied";
+        setTimeout(function () { button.textContent = "Copy"; }, 1500);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(copied);
+        return;
+      }
+      var area = document.createElement("textarea");
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      copied();
+    },
+    tab: function (button) {
+      var tabs = button.parentElement.parentElement;
+      var buttons = button.parentElement.querySelectorAll("[role=tab]");
+      var panels = Array.prototype.filter.call(tabs.children, function (child) {
+        return child.getAttribute("role") === "tabpanel";
+      });
+      Array.prototype.forEach.call(buttons, function (each, index) {
+        var on = each === button;
+        each.setAttribute("aria-selected", on ? "true" : "false");
+        if (panels[index]) panels[index].hidden = !on;
+      });
+      hide_hover();
+    },
+  };
+  // Squiggle messages show in a box by the pointer, like an editor's hover.
+  var hover = null;
+  var hovered = null;
+  var hide_timer = 0;
+  function hide_hover() {
+    clearTimeout(hide_timer);
+    if (hover) hover.hidden = true;
+    hovered = null;
+  }
+  function show_hover(mark, x, y) {
+    clearTimeout(hide_timer);
+    var message = mark.dataset.message;
+    if (hovered === message && hover && !hover.hidden) return;
+    if (!hover) {
+      hover = document.createElement("div");
+      hover.className = "chimera-hover";
+      hover.setAttribute("role", "tooltip");
+      hover.addEventListener("mouseenter", function () { clearTimeout(hide_timer); });
+      hover.addEventListener("mouseleave", function () { hide_timer = setTimeout(hide_hover, 150); });
+      document.body.appendChild(hover);
+    }
+    hovered = message;
+    hover.textContent = message;
+    hover.style.borderLeftColor = getComputedStyle(mark).getPropertyValue("--chimera-squiggle-color");
+    hover.hidden = false;
+    var width = hover.offsetWidth;
+    var height = hover.offsetHeight;
+    var left = Math.max(8, Math.min(x + 4, innerWidth - width - 8));
+    var top = y + 18 + height > innerHeight ? y - height - 10 : y + 18;
+    hover.style.left = left + "px";
+    hover.style.top = Math.max(8, top) + "px";
+  }
+  function mark_at(target) {
+    return target && target.closest ? target.closest(".chimera-squiggle[data-message]") : null;
+  }
+  document.addEventListener("mouseover", function (event) {
+    var mark = mark_at(event.target);
+    if (mark) show_hover(mark, event.clientX, event.clientY);
+  });
+  document.addEventListener("mouseout", function (event) {
+    if (mark_at(event.target) && !mark_at(event.relatedTarget)) hide_timer = setTimeout(hide_hover, 150);
+  });
+  document.addEventListener("scroll", hide_hover, true);
+  document.addEventListener("click", function (event) {
+    close_menus(event.target);
+    var mark = mark_at(event.target);
+    if (mark) {
+      hovered = null;
+      show_hover(mark, event.clientX, event.clientY);
+    } else if (!(hover && hover.contains(event.target))) {
+      hide_hover();
+    }
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      close_menus();
+      hide_hover();
+    }
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    sync(current());
+    if (chosen) carry(chosen);
+  });
+})();</script>
+</head>
+<body>
+  <header>
+    <nav data-element="Menu" class="chimera-menu">
+      <a data-element="PageLink" data-page="index.html" href="index.html" aria-current="page" class="chimera-brand">chimera</a>
+      <a data-element="PageLink" data-page="index.html" href="index.html" aria-current="page">Home</a>
+      <a data-element="PageLink" data-page="guide.html" href="guide.html">Guide</a>
+      <a data-element="PageLink" data-page="luwu/index.html" href="luwu/index.html">Luwu</a>
+      <details data-element="Dropdown" class="chimera-dropdown">
+        <summary>More</summary>
+        <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a></div>
+      </details>
+      <details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary aria-label="Change theme" title="Change theme"><svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></summary><div class="chimera-theme-options" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-latte" onclick="chimera.setTheme('catppuccin-latte')"><span class="chimera-theme-swatch"><span style="background: #eff1f5"></span><span style="background: #8839ef"></span><span style="background: #fe640b"></span></span>Catppuccin Latte</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-mocha" onclick="chimera.setTheme('catppuccin-mocha')"><span class="chimera-theme-swatch"><span style="background: #1e1e2e"></span><span style="background: #cba6f7"></span><span style="background: #fab387"></span></span>Catppuccin Mocha</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-macchiato" onclick="chimera.setTheme('catppuccin-macchiato')"><span class="chimera-theme-swatch"><span style="background: #24273a"></span><span style="background: #c6a0f6"></span><span style="background: #f5a97f"></span></span>Catppuccin Macchiato</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-frappe" onclick="chimera.setTheme('catppuccin-frappe')"><span class="chimera-theme-swatch"><span style="background: #303446"></span><span style="background: #ca9ee6"></span><span style="background: #ef9f76"></span></span>Catppuccin Frappé</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="light" onclick="chimera.setTheme('light')"><span class="chimera-theme-swatch"><span style="background: #ffffff"></span><span style="background: #3b5bdb"></span><span style="background: #e8590c"></span></span>Light</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="dark" onclick="chimera.setTheme('dark')"><span class="chimera-theme-swatch"><span style="background: #121214"></span><span style="background: #7b9cff"></span><span style="background: #ffa94d"></span></span>Dark</button></div></details>
+    </nav>
+  </header>
+  <main>
+    <section data-element="Hero">
+      <span class="eyebrow">Luwu · static sites</span>
+      <h1>Static sites as <span class="gradient">classes.</span></h1>
+      <p class="tagline">Compose typed elements, theme them with tokens, and parse the HTML back.</p>
+      <div data-element="Row" class="chimera-row actions" style="justify-content: center; gap: 0.75rem"><a data-element="PageLink" data-page="guide.html" href="guide.html" class="action primary">Read the guide</a><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer" class="action">View source</a></div>
+    </section>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block showcase" style="--chimera-code-columns: 78"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> home = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Home"</span>, <span class="hljs-title class_">Hero</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>, <span class="hljs-string">"index.html"</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-keyword">const</span> guide = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Guide"</span>, <span class="chimera-bracket-2">{</span> <span class="hljs-title function_ invoke__">h1</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Guide"</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-3">(</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title function_ invoke__">h2</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Install"</span><span class="chimera-bracket-3">)</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
+
+<span class="hljs-comment">-- Every page gets a menu of the site's pages, a theme switcher and a footer.</span>
+<span class="hljs-title class_">Site</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"chimera"</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">default_dark_theme</span><span class="chimera-bracket-1">(</span>catppuccin.<span class="hljs-title class_">Mocha</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">add_page</span><span class="chimera-bracket-1">(</span>home, guide<span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">build</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"site"</span><span class="chimera-bracket-1">)</span></code></pre>
+    <section class="chimera-grid" style="--chimera-grid-min: 15rem; margin-top: 4rem">
+      <div data-element="Card" class="chimera-card">
+        <h3>Typed</h3>
+        <p>A list item outside a list, or a padding of "1rx", is a type error.</p>
+      </div>
+      <div data-element="Card" class="chimera-card">
+        <h3>Themeable</h3>
+        <p>Every style reads theme tokens. Switch flavors and the whole page follows.</p>
+      </div>
+      <div data-element="Card" class="chimera-card">
+        <h3>Roundtrips</h3>
+        <p>Parse the generated HTML and get the same objects back.</p>
+      </div>
+    </section>
+    <div data-element="Column" class="chimera-column" style="align-items: center; margin-top: 3rem">
+      <button data-element="Toggle" type="button" aria-controls="chimera-1" onclick="chimera.toggle('chimera-1')">Tell me a secret</button>
+      <p id="chimera-1" hidden>Every element on this page is a Luwu object that gets typechecked before becoming HTML</p>
+    </div>
+  </main>
+  <footer data-element="SiteFooter" class="chimera-footer">
+    <div data-element="Grid" class="chimera-grid chimera-footer-columns" style="--chimera-grid-min: 10rem; gap: 1.5rem 2rem">
+      <div>
+        <p class="chimera-footer-title">Learn</p>
+        <ul>
+          <li><a data-element="PageLink" data-page="guide.html" href="guide.html">Guide</a></li>
+          <li><a data-element="PageLink" data-page="guide/sites-and-pages.html" href="guide/sites-and-pages.html">Sites and pages</a></li>
+          <li><a data-element="PageLink" data-page="guide/theming.html" href="guide/theming.html">Theming</a></li>
+          <li><a data-element="PageLink" data-page="luwu/index.html" href="luwu/index.html">Luwu</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="chimera-footer-title">Project</p>
+        <ul>
+          <li><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a></li>
+          <li><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a></li>
+          <li><a href="https://github.com/seal-runtime/seal" target="_blank" rel="noopener noreferrer">seal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div data-element="Row" class="chimera-row chimera-footer-bar" style="justify-content: space-between; align-items: center">
+      <p class="chimera-footer-copyright">© 2026 seal-runtime. Built with chimera in Luwu.</p>
+      <div data-element="Row" class="chimera-row chimera-footer-legal" style="gap: 1.25rem"><a href="https://github.com/seal-runtime/chimera/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a></div>
+    </div>
+  </footer>
+</body>
+</html>

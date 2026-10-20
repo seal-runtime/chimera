@@ -1,0 +1,291 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Component, Container } = require("@core/markup")
+const properties = require("@style/properties")
+type .{ Content } = markup
+type .{ Length, ItemAlignment, ContentAlignment } = properties
+
+const ARRANGEMENTS = { "chimera-row", "chimera-column", "chimera-grid" }
+
+--[=[
+    A container that arranges its children in a row, a column or a grid, with the theme's spacing between them.
+    Every built-in container element implements it, and [Row][layout.Row], [Column][layout.Column] and
+    [Grid][layout.Grid] start arranged. Implement it in your own containers to give them the same methods.
+
+    ## Usage
+
+    ```luwu
+    Div({ Card("Fast"), Card("Typed"), Card("Themeable") }):grid("15rem")
+    Footer({ copyright, links })
+        :row()
+        :justify("space-between")
+        :align("center")
+    ```
+
+    Implementing it in a component:
+
+    ```luwu
+    class Toolbar implements Component, Layout
+        function tag(): string
+            return "div"
+        end
+
+        function __init(self, content: Content?)
+            self
+                :add(content)
+                :row()
+                :gap("0.5rem")
+        end
+    end
+    ```
+
+    [layout = require("@components/layout")]
+]=]
+export trait Layout needs Container
+    --- Swaps the element's arrangement class for `style_class`.
+    private function arrange(self, style_class: string): Self
+        for _, name in ARRANGEMENTS do
+            self:remove_style_class(name)
+        end
+        return self:add_style_class(style_class)
+    end
+
+    --[=[
+        Lays the children out left to right, wrapping onto new lines when they run out of room.
+
+        ## Usage
+
+        ```luwu
+        Div({ Button("Save"), Button("Cancel") }):row()
+        ```
+    ]=]
+    public function row(self): Self
+        return self:arrange("chimera-row")
+    end
+
+    --[=[
+        Stacks the children top to bottom.
+
+        ## Usage
+
+        ```luwu
+        Aside({ h3("Related"), link_list }):column()
+        ```
+    ]=]
+    public function column(self): Self
+        return self:arrange("chimera-column")
+    end
+
+    --[=[
+        Lays the children out in a grid with as many columns as fit, each at least `min_width` wide
+        (`"12rem"` by default).
+
+        ## Usage
+
+        ```luwu
+        Section({ Card("One"), Card("Two"), Card("Three") }):grid("15rem")
+        ```
+    ]=]
+    public function grid(self, min_width: Length?): Self
+        self:arrange("chimera-grid")
+        if min_width ~= nil then
+            self:style({ ["--chimera-grid-min"] = min_width })
+        end
+        return self
+    end
+
+    --[=[
+        The space between children, in place of the theme's spacing.
+
+        ## Usage
+
+        ```luwu
+        Row({ a, b }):gap("2rem")
+        ```
+    ]=]
+    public function gap(self, size: Length): Self
+        return self:style({ gap = size })
+    end
+
+    --[=[
+        Whether a row wraps onto new lines when its children run out of room. Rows wrap by default.
+
+        ## Usage
+
+        ```luwu
+        Row({ logo, menu }):wrap(false)
+        ```
+    ]=]
+    public function wrap(self, on: boolean = true): Self
+        return self:style({ flex_wrap = if on then "wrap" else "nowrap" })
+    end
+
+    --[=[
+        Where children sit across the arrangement: vertically in a row, horizontally in a column.
+
+        ## Usage
+
+        ```luwu
+        Row({ avatar, name }):align("center")
+        ```
+    ]=]
+    public function align(self, alignment: ItemAlignment): Self
+        return self:style({ align_items = alignment })
+    end
+
+    --[=[
+        How children share the space along the arrangement, like `"space-between"` to push them to the ends.
+
+        ## Usage
+
+        ```luwu
+        Row({ copyright, links }):justify("space-between")
+        ```
+    ]=]
+    public function justify(self, distribution: ContentAlignment): Self
+        return self:style({ justify_content = distribution })
+    end
+end
+
+--[=[
+    A `"div"` element that groups content with no meaning of its own, usually for layout or styling.
+
+    ```luwu
+    Div { Heading.h2("Pricing"), Paragraph("Pay once, keep forever.") }:add_style_class("card")
+    ```
+]=]
+export class Div implements Component, Layout
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"section"` element that groups one part of a page, usually under a heading.
+export class Section implements Component, Layout
+    function tag(): string
+        return "section"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- An `"article"` element that holds self-contained content, like a post or a card.
+export class Article implements Component, Layout
+    function tag(): string
+        return "article"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- An `"aside"` element that holds content beside the main flow, like a sidebar.
+export class Aside implements Component, Layout
+    function tag(): string
+        return "aside"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"header"` element that introduces a page or section, usually with its title and navigation.
+export class Header implements Component, Layout
+    function tag(): string
+        return "header"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"footer"` element that closes a page or section, usually with credits or links.
+export class Footer implements Component, Layout
+    function tag(): string
+        return "footer"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"main"` element that holds the page's main content; a page should have one.
+export class Main implements Component, Layout
+    function tag(): string
+        return "main"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"nav"` element that holds navigation links. See [Menu][components.Menu] for a styled navigation bar.
+--- [components = require("@components/components")]
+export class Navigation implements Component, Layout
+    function tag(): string
+        return "nav"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"figure"` element that holds an illustration, diagram or code listing, with an optional [FigureCaption].
+export class Figure implements Component, Layout
+    function tag(): string
+        return "figure"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"figcaption"` element that captions a [Figure].
+export class FigureCaption implements Component, Container
+    function tag(): string
+        return "figcaption"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--[=[
+    An `"img"` element that embeds an image. `alt` describes it for screen readers and when it fails to load.
+
+    ```luwu
+    Image("/cat.png", "A cat asleep on a keyboard"):attr("width", 320)
+    ```
+]=]
+export class Image implements Component
+    function tag(): string
+        return "img"
+    end
+
+    function __init(self, src: string?, alt: string?)
+        self
+            :attr("src", src)
+            :attr("alt", alt)
+    end
+end
+
+for _, cls in { Div, Section, Article, Aside, Header, Footer, Main, Navigation, Figure, FigureCaption, Image } do
+    Element.register_class(cls)
+end

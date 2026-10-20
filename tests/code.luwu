@@ -1,0 +1,286 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ equal, contains, excludes, truthy } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    Parser,
+    Document,
+    elements.{ Div, Paragraph },
+    components.{ CodeBlock, Code, Squiggle },
+    style.{ Palette, Color },
+    themes.{ catppuccin },
+} = chimera
+
+const tests: { [string]: () -> () } = {
+    ["luwu code is highlighted at build time"] = function()
+        const html = CodeBlock("const x = print(\"hi\") -- note"):to_html()
+        contains(html, `<pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block"`)
+        contains(html, `style="--chimera-code-columns: 29">`)
+        contains(html, `<code class="hljs language-luwu" data-highlighted="yes">`)
+        contains(html, `<span class="hljs-keyword">const</span> x = `)
+        contains(html, `invoke__">print</span><span class="chimera-bracket-1">(</span>`)
+        contains(html, `<span class="hljs-string">"hi"</span><span class="chimera-bracket-1">)</span>`)
+        contains(html, `<span class="hljs-comment">-- note</span>`)
+    end,
+
+    ["the highlighter knows luwu's syntax"] = function()
+        const html = CodeBlock([====[class Cat implements Named
+    function meow(self) return `{self.name}` .. 0x1F .. none end
+end]====]):to_html()
+        contains(html, `<span class="hljs-keyword">class</span> <span class="hljs-title class_">Cat</span>`)
+        contains(html, `<span class="hljs-keyword">implements</span>`)
+        contains(html, `<span class="hljs-title function_">meow</span><span class="chimera-bracket-1">(</span>`)
+        contains(html, `<span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>`)
+        contains(html, `<span class="hljs-string">\`</span><span class="hljs-subst">\{`)
+        contains(html, `<span class="hljs-literal">self</span>.name}</span>`)
+        contains(html, `<span class="hljs-number">0x1F</span>`)
+        contains(html, `<span class="hljs-literal">none</span>`)
+    end,
+
+    ["as is a keyword and brackets are colored by depth"] = function()
+        const html = CodeBlock("const .{ name, role as job } = f({ [1] = (2) })"):to_html()
+        contains(html, `role <span class="hljs-keyword">as</span> job`)
+        contains(html, `<span class="chimera-bracket-1">.\{</span> name`)
+        contains(html, `<span class="chimera-bracket-2">\{</span> <span class="chimera-bracket-3">[</span>`)
+        contains(html, `<span class="chimera-bracket-3">(</span><span class="hljs-number">2</span>`)
+        contains(html, `<span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>`)
+    end,
+
+    ["table types color their keys and values as types"] = function()
+        const html = CodeBlock("const prices: { [string]: number } = { [key] = 1 }"):to_html()
+        contains(html, `<span class="chimera-bracket-2">[</span><span class="hljs-type">string</span>`)
+        contains(html, `<span class="hljs-type">number</span> <span class="chimera-bracket-1">}</span>`)
+        contains(html, `<span class="chimera-bracket-2">[</span>key<span class="chimera-bracket-2">]</span>`)
+    end,
+
+    ["interpolations are highlighted as code"] = function()
+        const html = CodeBlock("print(`{name} has {#items} items`)"):to_html()
+        contains(html, `<span class="hljs-string">\`</span><span class="hljs-subst">\{name}</span>`)
+        contains(html, `<span class="hljs-string"> has </span><span class="hljs-subst">\{#items}</span>`)
+        contains(html, `<span class="hljs-string"> items\`</span>`)
+    end,
+
+    ["annotations are highlighted as types"] = function()
+        const source = "local function f(a: number, b: Map<string, Cat>): (string, boolean) -> () end"
+        const html = CodeBlock(source):to_html()
+        contains(html, `a: <span class="hljs-type">number</span>, b:`)
+        contains(html, `<span class="hljs-title class_">Map</span>&lt;<span class="hljs-type">string</span>, `)
+        contains(html, `<span class="hljs-type">string</span>, <span class="hljs-type">boolean</span>`)
+        contains(html, `<span class="hljs-type">boolean</span><span class="chimera-bracket-1">)</span>`)
+        excludes(CodeBlock("{ left: string }"):to_html(), `<span class="hljs-type">left</span>`)
+    end,
+
+    ["methods and libraries aren't types"] = function()
+        const html = CodeBlock("self:attr(string.format(\"%d\", 1))"):to_html()
+        contains(html, `<span class="hljs-title function_ invoke__">attr</span>`)
+        contains(html, `<span class="hljs-built_in">string</span>.`)
+        contains(html, `.<span class="hljs-title function_ invoke__">format</span>`)
+    end,
+
+    ["highlighted code is escaped"] = function()
+        contains(CodeBlock("if a < b then end"):to_html(), "a &lt; b")
+        contains(CodeBlock("x = \"<b>\"", "luau"):to_html(), `<span class="hljs-string">"&lt;b&gt;"</span>`)
+    end,
+
+    ["blocks know their longest line"] = function()
+        equal(CodeBlock("a\nlonger line\nb"):columns(), 11)
+        equal(CodeBlock("héllo"):columns(), 5)
+    end,
+
+    ["other languages are left to the browser"] = function()
+        const block = CodeBlock("echo hi", "bash")
+        equal(block:language(), "bash")
+        contains(block:to_html(), `<code class="hljs language-bash">echo hi</code>`)
+        excludes(block:to_html(), "data-highlighted")
+    end,
+
+    ["pages load highlight.js once, only when needed"] = function()
+        const plain = Document()
+            :add(CodeBlock("print(1)"))
+            :to_html()
+        excludes(plain, "highlight.min.js")
+        const html = Document()
+            :add(CodeBlock("echo a", "bash"), CodeBlock("ls", "shell"))
+            :to_html()
+        const _, count = string.gsub(html, "highlight%.min%.js", "")
+        equal(count, 1)
+        contains(html, "hljs.highlightElement(code)")
+    end,
+
+    ["inline code highlights like code blocks"] = function()
+        equal(
+            Code("seal test"):to_html(),
+            `<code data-language="luwu" data-highlighted="yes" class="chimera-code">seal test</code>`
+        )
+        contains(Code("nil"):to_html(), `<span class="hljs-literal">nil</span>`)
+        equal(
+            Code("echo hi", "bash"):to_html(),
+            `<code data-language="bash" class="chimera-code language-bash">echo hi</code>`
+        )
+        equal(Code("x"):is_inline(), true)
+    end,
+
+    ["plain code skips syntax colors and parses back"] = function()
+        equal(
+            Code("nil"):plain():to_html(),
+            `<code data-language="luwu" data-plain class="chimera-code">nil</code>`
+        )
+        equal(
+            Code("echo hi", "bash"):plain():to_html(),
+            `<code data-language="bash" data-plain class="chimera-code">echo hi</code>`
+        )
+        const block = CodeBlock("local x = nil")
+            :plain()
+            :to_html()
+        contains(block, "<code>local x = nil</code>")
+        excludes(block, "hljs")
+        excludes(
+            Document()
+                :add(CodeBlock("echo a", "bash"):plain())
+                :to_html(),
+            "highlight.min.js"
+        )
+        const back = Parser():parse(block)[1]
+        equal(back:to_html(), block)
+        if class.isinstance(back, CodeBlock) then
+            equal(back:is_plain(), true)
+            equal(back:language(), "luwu")
+        end
+        contains(
+            CodeBlock("nil")
+                :plain()
+                :plain(false)
+                :to_html(),
+            "hljs-literal"
+        )
+    end,
+
+    ["line numbers render one gutter row per line and parse back"] = function()
+        const html = CodeBlock("local x = 1\nprint(x)\n")
+            :line_numbers()
+            :to_html()
+        contains(
+            html,
+            `<span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span></span>`
+        )
+        const back = Parser():parse(html)[1]
+        equal(back:to_html(), html)
+        if class.isinstance(back, CodeBlock) then
+            equal(back.source, "local x = 1\nprint(x)\n")
+        end
+        excludes(
+            CodeBlock("x")
+                :line_numbers()
+                :line_numbers(false)
+                :to_html(),
+            "chimera-line-numbers"
+        )
+    end,
+
+    ["squiggles wrap error ranges across highlight spans and parse back"] = function()
+        const block = CodeBlock("local name = \"Ada\"\nprint(nmae)")
+            :squiggle(
+                Squiggle.error("2.7-2.10", "Typo 'nmae': \"name\"?"),
+                Squiggle({ "1.7-1.10" }, Color.hex("#808080"), "used once")
+            )
+        const html = block:to_html()
+        contains(
+            html,
+            `<span class="chimera-squiggle" style="--chimera-squiggle-color: var(--chimera-syntax-error)"`
+                .. ` data-message="Typo 'nmae': &quot;name&quot;?">nmae</span>`
+        )
+        contains(html, `style="--chimera-squiggle-color: #808080" data-message="used once">name</span>`)
+        const whole_line = CodeBlock("local x = 1")
+            :squiggle(Squiggle.warning("1.1-1.11"))
+            :to_html()
+        contains(whole_line, `<span class="hljs-keyword"><span class="chimera-squiggle" style=`)
+        const back = Parser():parse(html)[1]
+        equal(back:to_html(), html)
+        if class.isinstance(back, CodeBlock) then
+            equal(back.source, "local name = \"Ada\"\nprint(nmae)")
+            const squiggles = back:squiggles()
+            equal(#squiggles, 2)
+            equal(squiggles[2].color, Color.hex("#808080"))
+            equal(squiggles[1].message, "Typo 'nmae': \"name\"?")
+        end
+        const multiline = CodeBlock("x")
+            :squiggle(Squiggle.error("1.1-1.1", "first line\n\tsecond \\ line"))
+            :to_html()
+        const reparsed = Parser():parse(multiline)[1]
+        if class.isinstance(reparsed, CodeBlock) then
+            equal(reparsed:squiggles()[1].message, "first line\n\tsecond \\ line")
+        end
+        const ok, problem = pcall(function()
+            return CodeBlock("x"):squiggle(Squiggle.info("2:7"))
+        end)
+        equal(ok, false)
+        contains(tostring(problem), "should look like")
+    end,
+
+    ["copyable blocks get a copy button that parsing skips"] = function()
+        const html = CodeBlock("seal setup", "bash")
+            :copyable()
+            :to_html()
+        contains(html, `<button type="button" class="chimera-copy" aria-label="Copy code"`)
+        contains(html, `onclick="chimera.copy(this)">Copy</button><code`)
+        const back = Parser():parse(html)[1]
+        equal(back:to_html(), html)
+        if class.isinstance(back, CodeBlock) then
+            equal(back.source, "seal setup")
+        end
+        excludes(
+            CodeBlock("x")
+                :copyable()
+                :copyable(false)
+                :to_html(),
+            "chimera-copy"
+        )
+        contains(Document():to_html(), "copy: function (button)")
+    end,
+
+    ["any code tag parses back as Code"] = function()
+        const parsed = Parser():parse("<p>Run <code>seal test</code>.</p>")
+        equal(parsed[1]:to_html(), "<p>Run <code>seal test</code>.</p>")
+        const code = Parser():parse(Code("x", "bash"):to_html())[1]
+        truthy(class.isinstance(code, Code), "expected a Code")
+        if class.isinstance(code, Code) then
+            equal(code:language(), "bash")
+        end
+    end,
+
+    ["code roundtrips through the parser"] = function()
+        const page = Div({
+            CodeBlock("local t = { 1, \"two\" } -- a < b"),
+            Paragraph({ "Run ", Code("seal test"), "." }),
+            CodeBlock("echo hi", "bash"),
+        })
+        const html = page:to_html()
+        const nodes = Parser():parse(html)
+        equal(nodes[1]:to_html(), html)
+        if const div = nodes[1] when class.isinstance(div, Div) when const block = div.children[1] then
+            truthy(class.isinstance(block, CodeBlock), "expected a CodeBlock")
+            if class.isinstance(block, CodeBlock) then
+                equal(block.source, "local t = { 1, \"two\" } -- a < b")
+            end
+        else
+            error("expected a Div holding a CodeBlock")
+        end
+    end,
+
+    ["palettes carry syntax colors"] = function()
+        const variables = Palette():variables()
+        truthy(variables:get("--chimera-syntax-keyword"), "expected a keyword color")
+        equal(catppuccin.Mocha():palette().syntax_keyword:to_hex(), "#cba6f7")
+        equal(catppuccin.Latte():palette().syntax_string:to_hex(), "#40a02b")
+    end,
+
+    ["links carry the theme between pages"] = function()
+        const html = Document():to_html()
+        contains(html, "url.searchParams.set(\"theme\", name)")
+        contains(html, "new URLSearchParams(location.search).get(\"theme\")")
+    end,
+}
+
+return tests

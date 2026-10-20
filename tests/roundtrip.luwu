@@ -1,0 +1,140 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ equal, truthy } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    Parser,
+    Document,
+    Component,
+    core.{ Element, Raw },
+    elements.{
+        Div,
+        Main,
+        Header,
+        Navigation,
+        Image,
+        Heading,
+        Paragraph,
+        Link,
+        Strong,
+        UnorderedList,
+        OrderedList,
+        Form,
+        Input,
+        Select,
+        TextArea,
+        Button,
+        Table,
+        Details,
+    },
+    components.{ Menu, Dropdown, ThemeSwitcher, Card, Toggle, Code },
+    themes.{ Light, Dark },
+} = chimera
+
+--- A user-defined leaf element registered under its own tag.
+class Rating implements Component
+    function tag(): string
+        return "x-rating"
+    end
+
+    function __init(self, stars: number?)
+        self:attr("stars", stars)
+    end
+end
+
+Element.register_class(Rating)
+
+const ratings_header = Table.header()
+    :column("Name")
+    :column("Stars")
+const rating = Table.row_for(ratings_header)
+
+const function sample(): Document
+    const answer = Paragraph("Forty-two.")
+    return Document("Roundtrip")
+        :default_dark_theme(Dark)
+        :offer_theme(Light)
+        :describe("A page that survives parsing")
+        :css("p { margin: 0 }")
+        :style_every(Button, { border_radius = "999px" })
+        :add(
+            Header {
+                Menu {
+                    Link("Home", "/"),
+                    Dropdown("More", { Link("About", "/about") }),
+                    ThemeSwitcher(),
+                },
+            },
+            Main {
+                Heading.h1("Hello & <welcome>"),
+                Paragraph { "Use ", Code("chimera"), ", it's ", Strong("typed"), "." },
+                Image("/cat.png", "A cat"),
+                UnorderedList { "one", "two" },
+                OrderedList({ "first" }):start(2),
+                Card("Card", Paragraph("body")),
+                Table(ratings_header)
+                    :row(rating("chimera", Rating(5)))
+                    :caption("Ratings")
+                    :table_style({ striped = true }),
+                Details("Question?", answer):open(),
+                Toggle("Hide", answer),
+                Form({
+                    Input("text", "q"):placeholder("Search"),
+                    Select("kind", { "a", "b" }):select("b"),
+                    TextArea("notes", "a < b"),
+                    Button("Go", "submit"),
+                }, "/search"),
+                Navigation { Raw("<!-- raw -->") },
+            }:style_inside(Link, { color = "red" })
+        )
+        :script("console.log('done')")
+end
+
+const tests: { [string]: () -> () } = {
+    ["compact html survives parse and render"] = function()
+        const parser = Parser()
+        const html = sample():to_html()
+        const again = parser
+            :parse_document(html)
+            :to_html()
+        equal(#parser.warnings, 0, `warnings: {table.concat(parser.warnings, "; ")}`)
+        equal(again, html)
+    end,
+
+    ["pretty html parses to the same document"] = function()
+        const document = sample()
+        equal(
+            Parser()
+                :parse_document(document:to_html(true))
+                :to_html(),
+            document:to_html()
+        )
+    end,
+
+    ["parsed documents keep their classes and themes"] = function()
+        const document = Parser():parse_document(sample():to_html())
+        equal(if const dark = document.dark_theme then dark.name else nil, "dark")
+        equal(document.light_theme, nil)
+        equal(#document.themes, 2)
+        equal(document:get_title(), "Roundtrip")
+        equal(#document.rules, 2)
+        if const main = document.body.children[2] when class.isinstance(main, Main) then
+            truthy(class.isinstance(main.children[6], Card), "expected Card")
+        else
+            error("expected Main")
+        end
+    end,
+
+    ["user elements come back as their class"] = function()
+        const nodes = Parser():parse(Div(Rating(3)):to_html())
+        if const div = nodes[1] when class.isinstance(div, Div) then
+            truthy(class.isinstance(div.children[1], Rating), "expected Rating")
+        else
+            error("expected Div")
+        end
+    end,
+}
+
+return tests

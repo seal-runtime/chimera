@@ -1,0 +1,108 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code, CodeBlock },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2, h3 } = Heading
+
+return Page("Library Extensions", {
+    h1("Library Extensions"),
+    Paragraph("Luwu's standard library is Luau's, with a few additions. Most of them fix a real problem."),
+    TableOfContents(),
+
+    h2("table.drop"),
+    Paragraph({ Code("table.drop"), " removes items from a list by value. It returns how many it removed." }),
+    Paragraph("It exists to fix one of Luau's most common bugs."),
+
+    h3("The table.remove footgun"),
+    Paragraph({
+        "Luau added ", Code("table.find"), " to get the index of a value in a list. ",
+        "Pairing it with ", Code("table.remove"), " looks like the obvious way to remove a value:",
+    }),
+    CodeBlock([====[local party = { "Ada", "Grace", "Alan" }
+table.remove(party, table.find(party, "Linus"))
+print(#party, party[3]) -- 2, nil]====], "luau"),
+    Paragraph({
+        Code("table.find"), " gives nil for Linus, who isn't in the party. ",
+        "Given nil as its index, ", Code("table.remove"), " removes the last item instead. ",
+        "Alan is gone, and nothing reports an error.",
+    }),
+    Paragraph({
+        "The bug only shows up when the value is missing. That makes it easy to miss in testing. ",
+        "Luau doesn't warn about it. The safe version needs an if around every removal.",
+    }),
+
+    h3("Removing by value"),
+    Paragraph({ Code("table.drop"), " takes the value itself. A missing value removes nothing:" }),
+    luwu([====[
+        const party = { "Ada", "Grace", "Alan" }
+
+        print(table.drop(party, "Linus"), #party)
+        print(table.drop(party, "Grace"), #party)
+    ]====]),
+    Paragraph("The return value says how many items were removed. Check it when a missing value matters:"),
+    luwu([====[
+        const inventory = { "sword", "potion" }
+
+        if table.drop(inventory, "key") == 0 then
+            print("You don't have a key.")
+        end
+    ]====]),
+    Paragraph("By default, every match is removed. Pass a count to remove only the first few:"),
+    luwu([====[
+        const queue = { "retry", "retry", "retry", "done" }
+
+        table.drop(queue, "retry", 2)
+        print(#queue, queue[1], queue[2])
+    ]====]),
+
+    h3("The lint"),
+    Paragraph({
+        "Luwu also warns when ", Code("table.remove"), " gets an index that might be nil. ",
+        "The old pattern is underlined, with this message:",
+    }),
+    CodeBlock([====[If this is `nil`, `table.remove` will remove the last element of the array.
+Consider using `table.drop` instead. If order is not important, use a key/value table for better performance.]====],
+        "plaintext"),
+    Paragraph({ "Passing nil on purpose, like ", Code("table.remove(t, nil)"), ", doesn't warn." }),
+
+    h3("Things to know"),
+    UnorderedList({
+        ListItem({
+            Code("table.drop"), " compares values like ", Code("table.find"), ", including ", Code("__eq"), ".",
+        }),
+        ListItem("The items after a removed one shift down. The list never gets holes."),
+        ListItem("Dropping from a read-only table is an error. So is a count of zero or less."),
+        ListItem("If order doesn't matter, a set (a table of values mapped to true) removes faster."),
+    }),
+
+    h2("buffer.isfrozen"),
+    Paragraph({
+        "Programs that embed Luwu can hand it read-only buffers. ",
+        Code("buffer.isfrozen"), " tells you whether a buffer is one of them.",
+    }),
+    Paragraph("Writing to a frozen buffer is an error. Buffers you create in Luwu are never frozen:"),
+    luwu([====[
+        const bytes = buffer.create(8)
+        buffer.writeu8(bytes, 0, 255)
+
+        print(buffer.isfrozen(bytes))
+    ]====]),
+    Paragraph("Only the runtime can freeze a buffer, by creating it as a read-only external buffer."),
+
+    h2("The class library"),
+    Paragraph({ "The ", Code("class"), " library works with classes and objects:" }),
+    UnorderedList({
+        ListItem({ Code("class.isinstance(value, Class)"), " checks whether a value is an object of a class." }),
+        ListItem({ Code("class.implements(value, Trait)"), " checks whether its class implements a trait." }),
+        ListItem({ Code("class.of(object)"), " gives an object's class." }),
+        ListItem({ Code("class.name(Class)"), " gives a class's name." }),
+        ListItem({ Code("class.fields(object)"), " gives an object's public fields as a table." }),
+    }),
+    Paragraph("They're covered with examples on the Classes and Traits page."),
+}, "library-extensions.html")

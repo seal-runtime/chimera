@@ -1,0 +1,151 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code, CodeBlock },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2, h3 } = Heading
+
+return Page("External Buffers and Strings", {
+    h1("External Buffers and Strings"),
+    Paragraph({
+        "If an embedder wants to expose a 2 GB archive or dozens of 400 MB .flac files to a Luau script, ",
+        "it has to clone the entire file in memory. In Luwu, it can use an external buffer instead.",
+    }),
+    Paragraph({
+        "External buffers and strings are backed by embedder-defined memory, but work seamlessly with the existing ",
+        Code("buffer"), " and ", Code("string"), " libraries. ",
+        "Like regular buffers, external buffers are mutable by default. ",
+        "Like regular strings, external strings are always immutable.",
+    }),
+    TableOfContents(),
+
+    h2("External buffers"),
+    Paragraph("An external buffer is a regular buffer whose bytes live in host memory."),
+    Paragraph({
+        "The whole ", Code("buffer"), " library works on it, at full speed, including the native code fast paths. ",
+        "Wrapping host data in a userdata instead would lose all of that.",
+    }),
+    Paragraph({
+        "seal uses them for bytes it builds in Rust, like archive contents and websocket frames. ",
+        "The Rust allocation becomes the buffer, instead of being copied into one.",
+    }),
+
+    h3("Frozen buffers"),
+    Paragraph({
+        "The host decides whether scripts may write to an external buffer. ",
+        "A read-only one is frozen. Writing to it is an error.",
+    }),
+    Paragraph({
+        "That makes it safe to share memory the host must not see change, like a reference-counted file. ",
+        "Scripts check with ", Code("buffer.isfrozen"), ":",
+    }),
+    luwu([====[
+        const function patch(bytes: buffer, offset: number, value: number)
+            if buffer.isfrozen(bytes) then
+                error("this buffer is read-only")
+            end
+            buffer.writeu8(bytes, offset, value)
+        end
+
+        const bytes = buffer.create(4)
+        patch(bytes, 0, 42)
+        print(buffer.readu8(bytes, 0))
+    ]====]),
+
+    h3("The C API"),
+    CodeBlock([====[#define LUA_BLUAU 0
+#define LUA_BHOST_IMMUTABLE 1
+#define LUA_BHOST_MUTABLE 2
+
+typedef void (*lua_BufferFree)(lua_State* L, void* data, size_t sz, void* userdata);
+
+LUA_API void* lua_newexternalbuffer(
+    lua_State* L, size_t sz, void* data, void* userdata, lua_BufferFree free_cb, int mode);
+LUA_API int lua_getbuffermode(lua_State* L, int idx);
+LUA_API void* lua_getbufferuserdata(lua_State* L, int idx);]====], "c"),
+    UnorderedList({
+        ListItem({
+            Code("lua_newexternalbuffer"), " wraps ", Code("sz"), " bytes at ", Code("data"), ". ",
+            "The mode is ", Code("LUA_BHOST_MUTABLE"), " or ", Code("LUA_BHOST_IMMUTABLE"), " (frozen).",
+        }),
+        ListItem({
+            Code("free_cb"), " is optional. The VM calls it with ", Code("userdata"), " when the buffer is collected.",
+        }),
+        ListItem({
+            Code("lua_getbuffermode"), " gives a buffer's mode. Buffers made by ", Code("lua_newbuffer"),
+            " are ", Code("LUA_BLUAU"), ".",
+        }),
+        ListItem({
+            Code("lua_getbufferuserdata"), " gives back the ", Code("userdata"), " pointer, or NULL for a VM buffer. ",
+            "Use it to find your own resource when a script passes the buffer back.",
+        }),
+    }),
+    Paragraph({
+        "From Rust, mluau has ", Code("create_external_buffer"), " (frozen) and ",
+        Code("create_external_buffer_mut"), ".",
+    }),
+
+    h2("External strings"),
+    Paragraph({
+        "An external string is a string whose bytes live in host memory. ",
+        "Scripts can't tell it apart from any other string.",
+    }),
+    Paragraph({
+        "It works with the ", Code("string"), " library, concatenation, and string patterns. ",
+        "It can be a table key. It compares equal to the same text made any other way.",
+    }),
+    Paragraph({
+        "Use one when a script expects a string, not a buffer. Error tracebacks, file contents and ",
+        "strings inside JSON are all strings by convention. Lua 5.5 has external strings too.",
+    }),
+
+    h3("The C API"),
+    CodeBlock([====[typedef void (*lua_StringFree)(lua_State* L, const char* data, size_t sz, void* userdata);
+
+LUA_API const char* lua_pushexternalstring(
+    lua_State* L, const char* data, size_t len, void* userdata, lua_StringFree free_cb);
+LUA_API int lua_isstringexternal(lua_State* L, int idx);
+LUA_API void* lua_getstringexternaluserdata(lua_State* L, int idx);]====], "c"),
+    UnorderedList({
+        ListItem({
+            Code("data"), " must end in a null byte, at ", Code("data[len]"), ". ",
+            Code("len"), " doesn't count it. C code reading the string with ", Code("lua_tostring"), " relies on it.",
+        }),
+        ListItem({
+            Code("lua_isstringexternal"), " and ", Code("lua_getstringexternaluserdata"),
+            " find your resource again, like with buffers.",
+        }),
+        ListItem({ "From Rust, mluau has ", Code("create_external_string"), "." }),
+    }),
+
+    h3("Interning"),
+    Paragraph({
+        "Luwu interns strings: it keeps one copy of each distinct string and compares strings by pointer. ",
+        "External strings are interned like any other. That has two effects on when your memory gets freed:",
+    }),
+    UnorderedList({
+        ListItem({
+            "If the VM already has the same text, you get the existing string back. ",
+            "Your ", Code("free_cb"), " runs before ", Code("lua_pushexternalstring"), " returns.",
+        }),
+        ListItem({
+            "The VM may keep a string alive after scripts drop it, for example as a fast lookup key. ",
+            "Its ", Code("free_cb"), " can run later than you expect.",
+        }),
+    }),
+
+    h2("Things to know"),
+    UnorderedList({
+        ListItem("Strings are immutable. Changing the bytes under a live external string is undefined behavior."),
+        ListItem("If the host needs to change shared memory, use a mutable external buffer instead."),
+        ListItem({
+            "External buffers and strings are behind the ", Code("LuwuExternallyManagedBuffers"), ", ",
+            Code("LuwuBufferIsFrozen"), " and ", Code("LuwuExternalString"), " flags.",
+        }),
+    }),
+}, "external-buffers-and-strings.html")

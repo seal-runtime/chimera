@@ -1,0 +1,223 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const chimera = require("@chimera")
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = chimera
+type .{ Content } = chimera.core
+const luwu = require("./sample")
+const .{ h1, h2 } = Heading
+
+--- One lint in a list: its name, then what it catches.
+const function lint(name: string, description: Content): ListItem
+    return ListItem({ Code(name), ": " }):add(description)
+end
+
+return Page("Lints", {
+    h1("Lints"),
+    Paragraph({
+        "Luwu expands Luau's built-in lint system with more than 40 new lints for Luau and Luwu code. ",
+        "They help you write more idiomatic and performant code, and catch mistakes the type checker can't see.",
+    }),
+    TableOfContents(),
+
+    h2("Lint control"),
+    Paragraph({
+        "Most lints are on by default. Turn one off for a file with ", Code("--!nolint Name"),
+        ", or for one statement with ", Code("@[nolint(Name)]"), " above it. ",
+        "Turn on a lint that's off by default with ", Code("--!lint Name"), ":",
+    }),
+    luwu([====[
+        --!lint ConstLocal
+
+        local total = 0
+        for _, price in { 4, 8, 15 } do
+            total += price
+        end
+        print(total)
+    ]====]),
+    Paragraph({
+        Code("ConstLocal"), " flags any ", Code("local"), " that's never reassigned, ",
+        "so it can be ", Code("const"), ". ", Code("total"), " is reassigned here, so nothing is reported.",
+    }),
+    UnorderedList({
+        ListItem({
+            Code("All"), " (not a lint): the name for every lint, as in ", Code("--!nolint All"), " or ",
+            Code("@[nolint(All)]"), ", to turn them all off on purpose.",
+        }),
+        lint("BareNolint", {
+            Code("--!nolint"), " or ", Code("@nolint"), " with no lint names, ",
+            "which silences everything, probably by accident.",
+        }),
+    }),
+
+    h2("Optimization hints"),
+    Paragraph({
+        Code("OptimizationHint"), " is the parent of every hint below: code the compiler could optimize better if it ",
+        "were written differently. Turning it off turns them all off.",
+    }),
+    UnorderedList({
+        lint("LoopConcat", {
+            "a string grown with ", Code(".."), " inside a loop, which copies the whole string every iteration. ",
+            "It reports the cost for the loop nest (O(n²), O(n⁴), ...).",
+        }),
+        lint("InefficientTableInsert", {
+            Code("table.insert(t, 1, v)"), " in a loop, which shifts every element on each insert.",
+        }),
+        lint("InefficientTableRemove", {
+            Code("table.remove(t, 1)"), " in a loop, which shifts every element on each removal.",
+        }),
+        lint("MethodsNotInlined", {
+            "code that keeps the compiler from proving an object's class, so its method calls can't be inlined:",
+            UnorderedList({
+                ListItem({
+                    Code("if cat then"), " on a class-typed binding is only a nil check. ",
+                    Code("if class.isinstance(cat, Cat) then"), " proves the class for the branch.",
+                }),
+                ListItem({
+                    Code("assert(cat)"), " is only a nil check. ", Code("assert(class.isinstance(cat, Cat))"),
+                    " proves the class for the rest of the block.",
+                }),
+                ListItem({
+                    "several method calls through the same field (", Code("self.pos:add(...)"), "). ",
+                    "A field can't be proven in place: hoist it into a local and prove that once.",
+                }),
+            }),
+        }),
+        lint("FloorDivision", {
+            Code("math.floor(a / b)"), ", which is a division plus a call. ", Code("a // b"), " is one instruction.",
+        }),
+        lint("FenvDeoptimization", {
+            Code("getfenv"), " or ", Code("setfenv"), ", which turn off optimizations for the entire module.",
+        }),
+    }),
+
+    h2("Loops"),
+    UnorderedList({
+        lint("RemoveWhileIterating", {
+            Code("table.remove(t, i)"), " while iterating ", Code("t"), " forwards by ", Code("i"),
+            ", which skips the element after each removal.",
+        }),
+        lint("LoopVariableWrite", "a loop variable that's written to but never read afterwards."),
+        lint("IteratedTableWrite", {
+            "adding or changing keys other than the current one while iterating a table, ",
+            "which can skip or repeat entries.",
+        }),
+        lint("ForeverLoop", {
+            "a ", Code("while"), " or ", Code("repeat"), " loop whose condition nothing inside the loop can change.",
+        }),
+        lint("UselessLoop", {
+            "a loop that only ever iterates once, because every path through it ", Code("break"),
+            "s (or errors) on the first iteration. Loops that leave by ", Code("return"), " aren't reported, ",
+            "and neither is a ", Code("for"), " loop that leaves on its first iteration after using a loop variable.",
+        }),
+    }),
+
+    h2("Values"),
+    UnorderedList({
+        lint("StringIndexZero", {
+            "string functions called with index 0 (", Code("string.byte(s, 0)"), ", ", Code("string.sub(s, 0, n)"),
+            "). Strings start at 1.",
+        }),
+        lint("NewValueComparison", {
+            "comparing against a table or function literal (", Code("x == {}"), "), which is always false.",
+        }),
+        lint("TableTruthiness", {
+            "testing a table's truthiness to check whether it's empty (", Code("if t then"), "). ",
+            "Tables are always truthy.",
+        }),
+        lint("DiscardedResult", {
+            "a builtin function, or a function marked ", Code("@nodiscard"), ", whose return values weren't used ",
+            "or explicitly discarded with ", Code("_"), ".",
+        }),
+        lint("NilNoneComparison", {
+            "comparing with ", Code("nil"), " where only ", Code("none"), " is possible, or the reverse.",
+        }),
+        lint("FloatIndex", {
+            Code("xs[#xs / 2]"), ", an index computed with ", Code("/"), ", which gives a float.",
+        }),
+        lint("VarargCast", { Code("f(... :: T)"), ", which passes only the first value." }),
+        lint("LuaAndOr", {
+            Code("a and b or c"), ", which only acts like ", Code("if a then b else c"), " when ", Code("b"),
+            " is truthy.",
+        }),
+        lint("SelfAssignment", { Code("x = x"), ", which does nothing." }),
+        lint("DeadStore", "a computed value that's overwritten before anything reads it."),
+        lint("DeclareMismatch", {
+            Code("declare x: T"), " giving a global from the loaded definitions a different type.",
+        }),
+    }),
+
+    h2("Expressive control flow"),
+    UnorderedList({
+        lint("ReturnOnNextLine", {
+            "a ", Code("return"), " in a ", Code("do"), " expression whose value starts on the next line, ",
+            "where it's easy to misread.",
+        }),
+        lint("OrContinue", {
+            Code("x or continue"), " in a module that uses ", Code("continue"), " as a name, ",
+            "where it reads that binding instead of continuing.",
+        }),
+        lint("OrReturnComma", {
+            Code("f(x or return a, b)"), ", where ", Code("b"), " is the next argument, not a second return value.",
+        }),
+        lint("BindingSwallowsCondition", {
+            Code("if local x = f() and x > 1"), ", where the ", Code("and"), " is part of the bound value.",
+        }),
+    }),
+
+    h2("Names"),
+    UnorderedList({
+        lint("KeywordShadow", {
+            "a binding named after a contextual keyword (", Code("continue"), ", ", Code("class"), ", ",
+            Code("implements"), ", ", Code("declare"), ", ", Code("export"), ", ", Code("const"), ").",
+        }),
+        lint("BuiltinShadow", {
+            "a binding that hides a builtin global (", Code("type"), ", ", Code("typeof"), ", ", Code("table"),
+            ", ...).",
+        }),
+        lint("ReturnSelf", {
+            "a trait method returning ", Code("self"), " typed as the trait, instead of ", Code("Self"), ".",
+        }),
+    }),
+
+    h2("Idiomatic Luwu"),
+    UnorderedList({
+        lint("ConstLocal", {
+            "off by default. A ", Code("local"), " that's never reassigned, and could be ", Code("const"), ".",
+        }),
+        lint("LuaIterators", {
+            Code("pairs(t)"), " and ", Code("ipairs(t)"), ", which generalized iteration replaces. ",
+            Code("Pairs"), " and ", Code("Ipairs"), " turn off each one on its own.",
+        }),
+        lint("LuaGuard", {
+            Code("if not x then return end"), " on one line, which Luwu can write as ", Code("x or return"), ".",
+        }),
+        lint("LuwuOnlyApi", {
+            "a Luwu-only library function, like ", Code("table.drop"), ", used in a ", Code(".luau"), " file.",
+        }),
+    }),
+
+    h2("Style"),
+    Paragraph({
+        Code("Style"), " is the group of layout lints. Turning it off turns all of them off, including ",
+        Code("ConstLocal"), ", ", Code("SameLineStatement"), " and ", Code("MultiLineStatement"), ".",
+    }),
+    UnorderedList({
+        lint("OneLineStatement", {
+            Code("if x then y end"), ", ", Code("while c do f() end"), " or ", Code("function f() return 1 end"),
+            " written on one line.",
+        }),
+        lint("OneLineGuard", { Code("if not x then return end"), " on one line, in a Luau file." }),
+        lint("InlineOrLeave", {
+            Code("x or return"), " ending a line much longer than the lines around it.",
+        }),
+        lint("MisleadingIndentation", {
+            "a ", Code("do"), " expression's block reaching lines indented like the code after it.",
+        }),
+    }),
+}, "lints.html")

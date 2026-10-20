@@ -1,0 +1,107 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ equal, contains } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    style.{ Style, Rule, token },
+} = chimera
+
+const tests: { [string]: () -> () } = {
+    ["snake_case keys render kebab-case"] = function()
+        equal(Style({ font_size = "12px" }):to_css(), "font-size: 12px")
+    end,
+
+    ["custom properties keep their name"] = function()
+        equal(
+            Style()
+                :set("--my_var", "1")
+                :to_css(),
+            "--my_var: 1"
+        )
+    end,
+
+    ["vendor-prefixed keys get their leading dash"] = function()
+        equal(Style({ webkit_background_clip = "text" }):to_css(), "-webkit-background-clip: text")
+        equal(
+            Style()
+                :set("moz_appearance", "none")
+                :to_css(),
+            "-moz-appearance: none"
+        )
+    end,
+
+    ["declarations keep insertion order"] = function()
+        const style = Style()
+            :set("z_index", 2)
+            :set("color", "red")
+            :set("margin", 0)
+        equal(style:to_css(), "z-index: 2; color: red; margin: 0")
+    end,
+
+    ["setting nil removes a declaration"] = function()
+        const style = Style({ color = "red", margin = "0" }):set("color", nil)
+        equal(style:to_css(), "margin: 0")
+        equal(style:get("color"), nil)
+    end,
+
+    ["merge overwrites in place"] = function()
+        const style = Style()
+            :set("color", "red")
+            :set("margin", "0")
+        style:merge(Style({ color = "blue" }))
+        equal(style:to_css(), "color: blue; margin: 0")
+    end,
+
+    ["inline style parses"] = function()
+        const style = Style.parse(" color: red ;background:url(a.png); ")
+        equal(style:get("color"), "red")
+        equal(style:get("background"), "url(a.png)")
+    end,
+
+    ["tokens are css variables"] = function()
+        equal(token("primary_text"):to_css(), "var(--chimera-primary-text)")
+        equal(
+            token("radius")
+                :times(1.5)
+                :to_css(),
+            "calc(var(--chimera-radius) * 1.5)"
+        )
+        equal(
+            token("primary")
+                :mix(token("muted"), 40)
+                :to_css(),
+            "color-mix(in srgb, var(--chimera-primary) 40%, var(--chimera-muted))"
+        )
+    end,
+
+    ["rules render compact and pretty"] = function()
+        const rule = Rule("a", { color = "red" })
+        equal(rule:to_css(), "a{color: red}")
+        equal(rule:to_css(true), "a {\n  color: red;\n}")
+    end,
+
+    ["at-rules nest rules"] = function()
+        const media = Rule("@media (max-width: 600px)", {}, {
+            Rule("nav", { display = "none" }),
+        })
+        equal(media:to_css(), "@media (max-width: 600px){nav{display: none}}")
+    end,
+
+    ["stylesheets parse with comments, at-rules and statements"] = function()
+        const rules = Rule.parse([====[
+            @import url("x.css");
+            /* a comment */
+            a { color: red; }
+            @media print { a { color: black } p { margin: 0 } }
+        ]====])
+        equal(#rules, 3)
+        equal(rules[1]:to_css(), '@import url("x.css");')
+        equal(rules[2].style:get("color"), "red")
+        equal(if const nested = rules[3].rules then #nested else 0, 2)
+        contains(rules[3]:to_css(), "p{margin: 0}")
+    end,
+}
+
+return tests

@@ -1,0 +1,516 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code, CodeBlock },
+    site.{ Page, PageLink, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const performance = require("@self/performance")
+const .{ h1, h2, h3 } = Heading
+
+return Page("Classes and Traits", {
+    h1("Classes and Traits"),
+    Paragraph("A class describes a kind of object. It lists the data each object holds and what each object can do."),
+    Paragraph("An object is one value made from a class. Each object has its own data."),
+    Paragraph("A trait describes behavior that many classes share."),
+    Paragraph({
+        "Classes and objects are primitives in Luwu, like numbers and strings. ",
+        Code("type()"), " of a class is ", Code("\"class\""), ". ",
+        Code("type()"), " of an object is ", Code("\"object\""), ".",
+    }),
+    TableOfContents(),
+
+    h2("From metatables to classes"),
+    Paragraph("In Luau, objects are usually tables with a metatable. Each one needs some setup code:"),
+    CodeBlock([====[const Account = {}
+Account.__index = Account
+
+function Account.new(owner: string)
+    return setmetatable({ owner = owner, balance = 0 }, Account)
+end
+
+export type Account = typeof(Account.new(...))
+
+function Account.deposit(self: Account, amount: number)
+    self.balance += amount
+end
+
+const account = Account.new("Ada")
+account:deposit(50)
+print(account.balance)]====], "luau"),
+    Paragraph({
+        "That's well-typed Luau. The type comes from ", Code("typeof(Account.new(...))"), ". ",
+        "Each method takes ", Code("self: Account"), " by hand.",
+    }),
+    Paragraph("In Luwu, the same thing is a class:"),
+    luwu([====[
+        class Account(owner: string)
+            balance = 0
+
+            function deposit(self, amount: number)
+                self.balance += amount
+            end
+        end
+
+        const account = Account("Ada")
+        account:deposit(50)
+        print(account.balance)
+    ]====]),
+
+    h3("Type checking"),
+    Paragraph({
+        "Metatables are hard for the type checker to follow. Types and autocomplete often break. ",
+        "A class has no such problem. The checker knows every field and method of every object. ",
+        "A misspelled field is a type error instead of a silent nil.",
+    }),
+    Paragraph({
+        "Classes and traits are nominally typed: what matters is the name, not the shape. ",
+        "Two classes with the same fields are still different types, ",
+        "and one can't be passed where the other is expected. ",
+        "A trait's name is a type too, and an object of any class that implements the trait fits it.",
+    }),
+    Paragraph({
+        "Metatables still work, and Luwu doesn't ask you to give them up. ",
+        "Tables with metatables stay structurally typed, as in Luau, ",
+        "and Luwu's type checker handles them better than Luau's does, ",
+        "with improvements like type references and method calls on union types.",
+    }),
+
+    h3("Performance"),
+    Paragraph({
+        "Classes are also faster than metatable objects. ",
+        "Objects take less memory than tables, and reading or writing a field skips the key lookup a table needs. ",
+        "At ", Code("--!optimize 2"), ", Luwu can also copy small methods straight into the code that calls them. ",
+        "You don't need to do anything special to get this: write classes, and the compiler does the rest.",
+    }),
+    Paragraph({ PageLink(performance, "See Performance Innovations →") }),
+
+    h3("Inheritance through traits"),
+    Paragraph({
+        "Upstream Luau is adding classical inheritance, with ", Code("open class"), " and ", Code("extends"), ". ",
+        "Luwu keeps the useful parts of inheritance and calls them traits. ",
+        "A trait gives classes shared methods with default implementations they can override, ",
+        "lists members each class is expected to provide, and can build on other traits.",
+    }),
+    Paragraph({
+        "What Luwu leaves out is the confusing part of classical inheritance. ",
+        "Building an object only ever runs its own class's constructor, with no chain of parent constructors. ",
+        "There's no is-a identity either: an object belongs to exactly one class, and ",
+        Code("class.isinstance"), " checks that class alone. ",
+        "Whether an object has some trait's behavior is a separate question, answered by ",
+        Code("class.implements"), ". Traits are covered further down.",
+    }),
+
+    h2("Classes"),
+
+    h3("Your first class"),
+    Paragraph("The parameters after the class name are its primary constructor."),
+    Paragraph("Each parameter becomes a field of the object."),
+    Paragraph({ "Functions that take ", Code("self"), " are methods. You call them with ", Code(":"), "." }),
+    luwu([====[
+        class Dog(name: string, age: number)
+            function bark(self)
+                print(`{self.name} barked!`)
+            end
+
+            function birthday(self)
+                self.age += 1
+            end
+        end
+
+        const oreo = Dog("Oreo", 3)
+        oreo:bark()
+        oreo:birthday()
+        print(oreo.age)
+    ]====]),
+    Paragraph("Calling a class like a function builds a new object."),
+    Paragraph("Passing the wrong number or type of arguments is a type error."),
+
+    h3("Plain old data (POD) classes"),
+    Paragraph({
+        "Some classes just hold data, like a named table or a struct. Luwu calls these plain old data (POD) classes. ",
+        "Give each field a default value, and leave out the constructor.",
+    }),
+    Paragraph("Then build objects from a table with the POD constructor. Fields you leave out keep their defaults."),
+    luwu([====[
+        class Settings
+            volume = 0.8
+            fullscreen = false
+            player_name = "Player"
+        end
+
+        const defaults = Settings()
+        const custom = Settings { fullscreen = true, player_name = "Ada" }
+        print(defaults.volume, custom.fullscreen, custom.player_name)
+    ]====]),
+    Paragraph({
+        "Default values are created fresh for every object. ",
+        "Two objects never share a default table by accident.",
+    }),
+    luwu([====[
+        class Inventory
+            items: { string } = {}
+        end
+
+        const a = Inventory()
+        const b = Inventory()
+        table.insert(a.items, "sword")
+        print(#a.items, #b.items)
+    ]====]),
+
+    h3("Static functions"),
+    Paragraph({ "A function without ", Code("self"), " belongs to the class itself. Call it with a dot." }),
+    Paragraph("Static functions are a good place for alternative ways to build an object."),
+    luwu([====[
+        class Temperature(celsius: number)
+            function from_fahrenheit(fahrenheit: number): Temperature
+                return Temperature((fahrenheit - 32) * 5 / 9)
+            end
+
+            function describe(self): string
+                return `{self.celsius}°C`
+            end
+        end
+
+        print(Temperature.from_fahrenheit(212):describe())
+    ]====]),
+
+    h3("Computed fields"),
+    Paragraph({
+        "A field's default can use the constructor's parameters. ",
+        "That's how you clean up or derive data on the way in.",
+    }),
+    luwu([====[
+        class Username(raw: string)
+            text = string.lower((string.gsub(raw, "%s+", "_")))
+        end
+
+        const name = Username("Ada Lovelace")
+        print(name.text, name.raw)
+    ]====]),
+    Paragraph({ "The parameter stays a field too: ", Code("name.raw"), " is still there." }),
+
+    h3("Constructors with __init"),
+    Paragraph({
+        "Add an ", Code("__init"), " function when building an object needs custom logic. ",
+        "Luwu creates the object, then calls ", Code("__init"), " with it and your arguments. Reach for it when:",
+    }),
+    UnorderedList({
+        ListItem("the constructor takes parameters that shouldn't become fields"),
+        ListItem("fields are computed from the arguments over several steps"),
+        ListItem("construction calls other functions, or validates its input"),
+        ListItem("the constructor needs to yield, like waiting on a file or a network request"),
+    }),
+    Paragraph("This point is built from text like \"3,4\". It keeps x and y, but not the text:"),
+    luwu([====[
+        class Point
+            x: number
+            y: number
+
+            function __init(self, text: string)
+                const x, y = string.match(text, "^(%-?%d+),(%-?%d+)$")
+                self.x = tonumber(x) or 0
+                self.y = tonumber(y) or 0
+            end
+        end
+
+        const point = Point("3,4")
+        print(point.x, point.y)
+    ]====]),
+    Paragraph({ "A class has either a primary constructor or ", Code("__init"), ", not both." }),
+
+    h3("Public, private and const"),
+    Paragraph({ "Mark a member ", Code("private"), " to keep it inside the class." }),
+    Paragraph("Code outside the class can't read or change it. Trying is a type error, and an error at runtime."),
+    Paragraph({ "Mark a field ", Code("const"), " when it should never change after the object is built." }),
+    Paragraph("Once one member has public or private, every member needs one. Classes stay easy to read that way."),
+    luwu([====[
+        class BankAccount(
+            public const owner: string,
+            private balance: number = 0
+        )
+            public function deposit(self, amount: number)
+                if amount > 0 then
+                    self.balance += amount
+                end
+            end
+
+            public function get_balance(self): number
+                return self.balance
+            end
+        end
+
+        const account = BankAccount("Ada")
+        account:deposit(50)
+        account:deposit(-10)
+        print(account.owner, account:get_balance())
+    ]====]),
+    Paragraph("Only the class's own methods can change the balance. Every deposit goes through the same check."),
+
+    h3("Giving values rules"),
+    Paragraph("A plain number can't stop itself from going below zero. A class can wrap it and enforce the rules."),
+    Paragraph("Here, health can never drop below zero or rise above its max:"),
+    luwu([====[
+        class Health(current: number, max: number)
+            function damage(self, amount: number): Health
+                return Health(math.max(self.current - amount, 0), self.max)
+            end
+
+            function heal(self, amount: number): Health
+                return Health(math.min(self.current + amount, self.max), self.max)
+            end
+
+            function is_alive(self): boolean
+                return self.current > 0
+            end
+        end
+
+        local health = Health(30, 100)
+        health = health:heal(500)
+        print(health.current)
+        health = health:damage(999)
+        print(health.current, health:is_alive())
+    ]====]),
+    Paragraph("Code using Health can't break those rules by accident. The rules live in one place."),
+    Paragraph("Other classes can then hold a Health instead of a bare number."),
+
+    h3("Operators on objects"),
+    Paragraph({
+        "Metamethods let your objects work with operators like ", Code("+"), " and ", Code("=="),
+        ". Name a method after the metamethod.",
+    }),
+    luwu([====[
+        class Vector2(x: number, y: number)
+            function __add(self, other: Vector2): Vector2
+                return Vector2(self.x + other.x, self.y + other.y)
+            end
+
+            function __eq(self, other: Vector2): boolean
+                return self.x == other.x and self.y == other.y
+            end
+
+            function __tostring(self): string
+                return `({self.x}, {self.y})`
+            end
+        end
+
+        const position = Vector2(1, 2) + Vector2(3, 4)
+        print(`{position}`)
+        print(position == Vector2(4, 6))
+    ]====]),
+
+    h3("Checking what an object is"),
+    Paragraph({ Code("class.isinstance"), " tells you whether a value is an object of a class." }),
+    Paragraph("Inside the check, Luwu knows the value's type."),
+    luwu([====[
+        class Circle(radius: number) end
+        class Square(side: number) end
+
+        const function area(shape: Circle | Square): number
+            if class.isinstance(shape, Circle) then
+                return math.pi * shape.radius ^ 2
+            end
+            return shape.side ^ 2
+        end
+
+        print(area(Circle(1)), area(Square(3)))
+        print(class.name(Square(3)))
+    ]====]),
+
+    h2("Traits"),
+    Paragraph("Traits are how classes inherit behavior in Luwu."),
+    Paragraph("A trait lists what it expects from a class, and what it gives the class in return."),
+    Paragraph("A class can implement as many traits as it needs."),
+
+    h3("Sharing behavior"),
+    Paragraph({
+        "Here, ", Code("Lootable"), " gives any class a working ", Code("drop"), " method. ",
+        "It only asks the class for a ", Code("loot"), " list.",
+    }),
+    luwu([====[
+        trait Lootable
+            expect loot: { string }
+
+            function drop(self): { string }
+                const dropped = self.loot
+                self.loot = {}
+                return dropped
+            end
+        end
+
+        class Chest(loot: { string }) implements Lootable end
+        class Slime(hp: number, loot: { string }) implements Lootable end
+
+        const chest = Chest({ "gold", "map" })
+        const slime = Slime(5, { "goo" })
+        print(#chest:drop(), #chest:drop(), slime:drop()[1])
+    ]====]),
+    Paragraph("Both classes get the trait's methods. Neither writes them again."),
+
+    h3("Expected members"),
+    Paragraph({ Code("expect"), " lists what an implementing class must provide: fields, functions or both." }),
+    Paragraph("Leaving one out is a type error, and an error when the class is created."),
+    luwu([====[
+        trait Describable
+            expect const name: string
+            expect function details(self): string
+
+            function describe(self): string
+                return `{self.name}: {self:details()}`
+            end
+        end
+
+        class Sword implements Describable
+            const name = "Iron sword"
+            damage = 7
+
+            function details(self): string
+                return `deals {self.damage} damage`
+            end
+        end
+
+        print(Sword():describe())
+    ]====]),
+
+    h3("Overriding a trait's function"),
+    Paragraph("A class can replace a trait's function with its own version."),
+    Paragraph({
+        "The class can still reach the trait's version with ", Code("Trait.function(self)"), ".",
+    }),
+    luwu([====[
+        trait Greeting
+            function greet(self): string
+                return "Hello!"
+            end
+        end
+
+        class Pirate implements Greeting
+            function greet(self): string
+                return Greeting.greet(self) .. " Arr!"
+            end
+        end
+
+        print(Pirate():greet())
+    ]====]),
+    Paragraph("The override must take the same arguments the trait's version does. Extra arguments must be optional."),
+
+    h3("Building on other traits"),
+    Paragraph({ "A trait can ", Code("needs"), " another trait. Implementing it implements both." }),
+    luwu([====[
+        trait Named
+            expect const name: string
+        end
+
+        trait Speaker needs Named
+            function introduce(self): string
+                return `I'm {self.name}.`
+            end
+        end
+
+        class Robot implements Speaker
+            const name = "R2"
+        end
+
+        print(Robot():introduce())
+    ]====]),
+
+    h3("Final members"),
+    Paragraph({ "Mark a trait's member ", Code("final"), " when classes must not replace it." }),
+    Paragraph("A final function without self is a static function on the trait. It's a good home for helpers."),
+    luwu([====[
+        trait Shape
+            expect function area(self): number
+
+            final function total_area(shapes: { Shape }): number
+                local total = 0
+                for _, shape in shapes do
+                    total += shape:area()
+                end
+                return total
+            end
+        end
+
+        class Rectangle(width: number, height: number) implements Shape
+            function area(self): number
+                return self.width * self.height
+            end
+        end
+
+        class Circle(radius: number) implements Shape
+            function area(self): number
+                return math.pi * self.radius ^ 2
+            end
+        end
+
+        print(Shape.total_area({ Rectangle(2, 3), Circle(1) }))
+    ]====]),
+
+    h3("Traits with parameters"),
+    Paragraph({
+        "A trait can take parameters, like a class's constructor. ",
+        "The class passes them when it implements the trait.",
+    }),
+    luwu([====[
+        trait Stackable(max_stack: number = 64)
+            count = 1
+
+            function add(self, amount: number): number
+                const room = self.max_stack - self.count
+                const added = math.min(room, amount)
+                self.count += added
+                return amount - added
+            end
+        end
+
+        class Arrow implements Stackable end
+        class Potion implements Stackable(8) end
+
+        print(Arrow():add(100), Potion():add(100))
+    ]====]),
+
+    h3("Working with any implementer"),
+    Paragraph({
+        "A trait is also a type. ", Code("{ Shape }"), " is a list of anything that implements ", Code("Shape"), ".",
+    }),
+    Paragraph({
+        Code("class.implements"), " checks a value at runtime. ",
+        Code("class<Trait>"), " is the type of a class that implements it.",
+    }),
+    Paragraph("Together they make registries: look up a class by name, then build it."),
+    luwu([====[
+        trait Spawnable
+            expect function __init(self)
+            expect const kind: string
+        end
+
+        class Zombie() implements Spawnable
+            const kind = "zombie"
+        end
+
+        class Skeleton() implements Spawnable
+            const kind = "skeleton"
+        end
+
+        const spawners: { [string]: class<Spawnable>? } = {}
+        for _, cls in { Zombie, Skeleton } do
+            spawners[cls().kind] = cls
+        end
+
+        if const spawn = spawners["skeleton"] then
+            const mob = spawn()
+            print(mob.kind, class.implements(mob, Spawnable))
+        end
+    ]====]),
+
+    h2("Things to know"),
+    UnorderedList({
+        ListItem("Classes and traits are defined at the top level of a file."),
+        ListItem("Objects have exactly the fields their class lists. Reading a missing field is an error."),
+        ListItem({ "Objects compare by identity unless the class defines ", Code("__eq"), "." }),
+        ListItem("A class's name is also a type: an object of that class."),
+    }),
+}, "classes-and-traits.html")
+    :add_page(performance)

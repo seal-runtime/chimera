@@ -1,0 +1,1542 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const colors = require("@std/colors")
+const style_module = require("@style/style")
+const Style = style_module.Style
+const Rule = style_module.Rule
+type .{ StyleInput } = style_module
+
+--- An attribute value: `true` renders a bare boolean attribute, `false` removes it.
+export type AttributeValue = string | number | boolean
+
+--[=[
+    What a [Container] holds, and what [Container:add] and container constructors take: a string or number (shown
+    as [Text]), any [Child] element, or an array of those. An array can hold `none` for an item that's left out,
+    and `nil` is accepted wherever content is optional.
+
+    ## Usage
+
+    ```luwu
+    const intro: Content = { Heading.h1("Welcome"), "Static sites as classes.", Image("/logo.svg", "chimera") }
+    Div(intro)
+    Div({ if signed_in then Link("Account", "/me") else none, Link("Help", "/help") })
+    Paragraph("Just text")
+    ```
+]=]
+export type Content = string | number | Child | { read string | number | Child | none }
+
+const INLINE_TAGS: { [string]: boolean } = {
+    a = true,
+    abbr = true,
+    b = true,
+    br = true,
+    button = true,
+    cite = true,
+    code = true,
+    em = true,
+    i = true,
+    img = true,
+    input = true,
+    kbd = true,
+    label = true,
+    mark = true,
+    q = true,
+    s = true,
+    select = true,
+    small = true,
+    span = true,
+    strong = true,
+    sub = true,
+    sup = true,
+    textarea = true,
+    time = true,
+    u = true,
+}
+
+const TEXT_ESCAPES: { [string]: string } = {
+    ["&"] = "&amp;",
+    ["<"] = "&lt;",
+    [">"] = "&gt;",
+}
+const ATTRIBUTE_ESCAPES: { [string]: string } = {
+    ["&"] = "&amp;",
+    ["<"] = "&lt;",
+    [">"] = "&gt;",
+    ['"'] = "&quot;",
+}
+
+const function escape_text(text: string): string
+    return (string.gsub(text, "[&<>]", TEXT_ESCAPES))
+end
+
+const function escape_attribute(text: string): string
+    return (string.gsub(text, '[&<>"]', ATTRIBUTE_ESCAPES))
+end
+
+--- A theme as a theme picker shows it: its name, its label, and CSS colors previewing it.
+export type ThemeOption = {
+    name: string,
+    label: string,
+    swatches: { string },
+}
+
+--- A heading on the page, for elements that list them, like a table of contents.
+export type HeadingEntry = {
+    level: number,
+    text: string,
+    id: string,
+}
+
+--- A page of the site, with its path from the site's root and its child pages.
+export type PageEntry = {
+    title: string,
+    path: string,
+    children: { PageEntry },
+}
+
+--[=[
+    Collects rendered HTML. Pretty mode puts block-level children on their own indented lines.
+
+    ```luwu
+    const writer = Writer(true)
+    page:render(writer)
+    fs.writefile("index.html", writer:finish())
+    ```
+]=]
+export class Writer(pretty = false, indent = "  ")
+    parts: { string } = {}
+    level = 0
+    --- The themes the document offers, for components that let readers pick one.
+    themes: { ThemeOption } = {}
+    --- The rendered page's path from the site's root, like `"docs/install.html"`; empty outside a site.
+    location = ""
+    --- The page's headings, when an element on it [lists headings][Element.lists_headings].
+    headings: { HeadingEntry } = {}
+    --- The site's pages, top level first; empty outside a site.
+    pages: { PageEntry } = {}
+
+    --[=[
+        The link from the page being rendered to `path`, a path from the site's root. The link is relative and
+        works from any folder and over `file://`. On `docs/install.html`, `"index.html"` becomes `"../index.html"`.
+
+        ## Usage
+
+        ```luwu
+        out:write(`<a href="{out:href_to(page:path())}">{Text.escape(page.title)}</a>`)
+        ```
+    ]=]
+    function href_to(self, path: string): string
+        const from = { for part in string.gmatch(self.location, "[^/]+") give part }
+        table.remove(from)
+        const to = { for part in string.gmatch(path, "[^/]+") give part }
+        local shared = 0
+        while shared < #from and shared < #to - 1 and from[shared + 1] == to[shared + 1] do
+            shared += 1
+        end
+        const parts: { string } = {}
+        for _ = shared + 1, #from do
+            table.insert(parts, "..")
+        end
+        for index = shared + 1, #to do
+            table.insert(parts, to[index])
+        end
+        return table.concat(parts, "/")
+    end
+
+    --[=[
+        Appends text to the output exactly as given. Nothing is escaped: a `render` method escapes what it needs.
+
+        ## Usage
+
+        ```luwu
+        function render(self, out: Writer)
+            out:write(`<time datetime="{self.iso}">{self.label}</time>`)
+        end
+        ```
+    ]=]
+    function write(self, text: string)
+        table.insert(self.parts, text)
+    end
+
+    --[=[
+        In pretty mode, starts a new line indented to the current depth (`out.level` times `out.indent`). Does
+        nothing in compact mode. `render` methods can call it either way.
+
+        ## Usage
+
+        ```luwu
+        out:write("<ul>")
+        out.level += 1
+        out:newline() -- "\n  " when pretty, "" when compact
+        out:write("<li>one</li>")
+        out.level -= 1
+        out:newline()
+        out:write("</ul>")
+        ```
+    ]=]
+    function newline(self)
+        if self.pretty then
+            table.insert(self.parts, "\n" .. string.rep(self.indent, self.level))
+        end
+    end
+
+    --[=[
+        Everything written so far, joined into one string.
+
+        ## Usage
+
+        ```luwu
+        const out = Writer(true)
+        page:render(out)
+        fs.writefile("index.html", out:finish())
+        ```
+    ]=]
+    function finish(self): string
+        return table.concat(self.parts)
+    end
+end
+
+--[=[
+    An element's attributes, in order. Classes and inline style have their own methods on [Element].
+
+    ```luwu
+    const attributes = Attributes()
+        :set("href", "/")
+        :set("hidden", true)
+    print(attributes:get("href"))
+    ```
+]=]
+export class Attributes
+    names: { string } = {}
+    values: { [string]: string | boolean } = {}
+
+    --[=[
+        Sets an attribute. A string or number renders as `name="value"` (escaped), `true` as a bare `name`, and
+        `nil` or `false` removes it. New attributes render after existing ones; changing one keeps its place.
+
+        ## Usage
+
+        ```luwu
+        const attributes = Attributes()
+            :set("href", "/")
+            :set("hidden", true)
+        -- renders as: href="/" hidden
+        ```
+    ]=]
+    function set(self, name: string, value: AttributeValue?): Attributes
+        if value == nil or value == false then
+            if self.values[name] ~= nil then
+                self.values[name] = nil
+                table.drop(self.names, name, 1)
+            end
+            return self
+        end
+        if self.values[name] == nil then
+            table.insert(self.names, name)
+        end
+        self.values[name] = if type(value) == "number" then tostring(value) else value
+        return self
+    end
+
+    --[=[
+        The attribute's value: its text, `true` for a bare boolean attribute, or nil when it isn't set.
+
+        ## Usage
+
+        ```luwu
+        Attributes()
+            :set("width", 320)
+            :get("width")
+        ```
+    ]=]
+    function get(self, name: string): (string | boolean)?
+        return self.values[name]
+    end
+
+    --[=[
+        Whether the attribute is set.
+
+        ## Usage
+
+        ```luwu
+        Attributes()
+            :set("disabled", true)
+            :has("disabled")
+        ```
+    ]=]
+    function has(self, name: string): boolean
+        return self.values[name] ~= nil
+    end
+
+    --[=[
+        Removes every attribute.
+
+        ## Usage
+
+        ```luwu
+        attributes:clear() -- renders as nothing
+        ```
+    ]=]
+    function clear(self)
+        table.clear(self.names)
+        table.clear(self.values)
+    end
+
+    --[=[
+        Writes the attributes in order, each preceded by a space, the way they appear inside an opening tag.
+
+        ## Usage
+
+        ```luwu
+        out:write("<input")
+        Attributes()
+            :set("type", "checkbox")
+            :set("checked", true)
+            :render(out)
+        out:write(">") -- <input type="checkbox" checked>
+        ```
+    ]=]
+    function render(self, out: Writer)
+        for _, name in self.names do
+            const value = self.values[name]
+            if value == true then
+                out:write(` {name}`)
+            elseif type(value) == "string" then
+                out:write(` {name}="{escape_attribute(value)}"`)
+            end
+        end
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        const parts = { for _, name in self.names give `{name}={tostring(self.values[name])}` }
+        return `Attributes({table.concat(parts, ", ")})`
+    end
+
+    function __tostring(self): string
+        return self:display()
+    end
+end
+
+const function display_children(node: Markup, prefix: string, lines: { string })
+    const children = node:child_nodes()
+    for index, child in children do
+        const last = index == #children
+        const branch = colors.style.dim(if last then "└─ " else "├─ ")
+        table.insert(lines, prefix .. branch .. child:outline())
+        display_children(child, prefix .. colors.style.dim(if last then "   " else "│  "), lines)
+    end
+end
+
+const VOID_TAGS: { [string]: boolean } = {
+    area = true,
+    base = true,
+    br = true,
+    col = true,
+    embed = true,
+    hr = true,
+    img = true,
+    input = true,
+    link = true,
+    meta = true,
+    source = true,
+    track = true,
+    wbr = true,
+}
+
+const NO_CHILDREN: { Markup } = {}
+table.freeze(NO_CHILDREN)
+
+const function render_children(out: Writer, children: { read Markup })
+    if out.pretty then
+        for _, child in children do
+            if not child:is_inline() then
+                out.level += 1
+                for _, block_child in children do
+                    out:newline()
+                    block_child:render(out)
+                end
+                out.level -= 1
+                out:newline()
+                return
+            end
+        end
+    end
+    for _, child in children do
+        child:render(out)
+    end
+end
+
+const function append_content(children: { Child }, content: (Content | none)?)
+    if content == nil or content == none then
+        return
+    elseif type(content) == "string" then
+        table.insert(children, Text(content))
+    elseif type(content) == "number" then
+        table.insert(children, Text(tostring(content)))
+    elseif type(content) == "table" then
+        for _, item in content do
+            append_content(children, item)
+        end
+    else
+        table.insert(children, content)
+    end
+end
+
+--[=[
+    Anything that renders to HTML, and the root of every node in a chimera tree. Gives every node
+    [Markup:to_html] to serialize it, and `display` and `__tostring` so `print(node)` shows a tree in the terminal.
+
+    ## Usage
+
+    Implement `render` to write the node's HTML; everything else has a default. Most code implements [Component]
+    instead. It renders the tag for you. Implement [Markup] (through [Child]) for content that isn't a tag:
+
+    ```luwu
+    class Timestamp(seconds: number) implements chimera.core.Child
+        function render(self, out: chimera.core.Writer)
+            out:write(os.date("%Y-%m-%d", self.seconds))
+        end
+
+        function outline(self): string
+            return `Timestamp({self.seconds})`
+        end
+    end
+
+    Paragraph { "Posted on ", Timestamp(os.time()) }
+    ```
+]=]
+export trait Markup
+    expect function render(self, out: Writer)
+
+    --[=[
+        Serializes the node and everything inside it to HTML. Compact output has no added whitespace; `pretty` puts
+        block-level children on their own indented lines and keeps inline content (text, links, `code`, ...) on one
+        line.
+
+        ## Usage
+
+        ```luwu
+        const card = Div { Heading.h2("Pricing"), Paragraph({ "Pay ", Strong("once"), "." }) }
+        card:to_html()
+        card:to_html(true)
+        ```
+
+        ```html
+        <div><h2>Pricing</h2><p>Pay <strong>once</strong>.</p></div>
+
+        <div>
+          <h2>Pricing</h2>
+          <p>Pay <strong>once</strong>.</p>
+        </div>
+        ```
+    ]=]
+    function to_html(self, pretty: boolean?): string
+        const writer = Writer(pretty == true)
+        self:render(writer)
+        return writer:finish()
+    end
+
+    --[=[
+        The node's direct children, in order: what `display` walks and what renders between its tags. Leaves have
+        none.
+
+        ## Usage
+
+        ```luwu
+        for _, child in Div({ "a", Strong("b") }):child_nodes() do
+            print(child) -- "a", then Strong
+        end
+        ```
+    ]=]
+    function child_nodes(self): { read Markup }
+        return NO_CHILDREN
+    end
+
+    --[=[
+        Whether pretty printing keeps this node on its parent's line instead of starting a new one. True for text and
+        inline tags like `a`, `strong` and `code`.
+
+        ## Usage
+
+        An inline node keeps its parent compact even when pretty printing:
+
+        ```luwu
+        Paragraph({ "Hi ", Link("there", "/") }):to_html(true)
+        ```
+
+        ```html
+        <p>Hi <a href="/">there</a></p>
+        ```
+    ]=]
+    function is_inline(self): boolean
+        return false
+    end
+
+    --[=[
+        A one-line summary of the node, shown by `print` and string interpolation. Elements show their class, tag,
+        id, classes and attribute names: `Div():id("main"):add_style_class("card")` prints as `Div#main.card`.
+
+        ## Usage
+
+        ```luwu
+        print(`{Div():id("main"):add_style_class("card")}`)
+        ```
+    ]=]
+    function outline(self): string
+        return class.name(self)
+    end
+
+    --[=[
+        A tree of the node and its children for the terminal, built from each node's [Markup:outline]. `print(node)`
+        calls it. Use it to inspect a page without serializing it.
+
+        ## Usage
+
+        ```luwu
+        print(Div { Paragraph("hi"), Image("x.png") }:id("box"))
+        -- Div#box
+        -- ├─ Paragraph<p>
+        -- │  └─ "hi"
+        -- └─ Image<img> src
+        ```
+    ]=]
+    function display(self, depth: number?, options: unknown?): string
+        const lines = { self:outline() }
+        display_children(self, "", lines)
+        return table.concat(lines, "\n")
+    end
+
+    function __tostring(self): string
+        return self:outline()
+    end
+end
+
+--[=[
+    Content that can go inside a [Container]: text, paragraphs, links, images and the like.
+
+    ## Usage
+
+    Custom elements get it from [Component]. Implement it directly, with `render`, for content that isn't a tag,
+    like [Text] or [Raw]:
+
+    ```luwu
+    class Shortcode(name: string) implements chimera.core.Child
+        function render(self, out: chimera.core.Writer)
+            out:write(`[{self.name}]`)
+        end
+    end
+
+    Paragraph { "Press ", Shortcode("enter"), " to continue" }
+    ```
+]=]
+export trait Child needs Markup end
+
+const element_factories: { [string]: () -> Element } = {}
+const component_factories: { [string]: () -> Element } = {}
+const component_names: { [class]: string } = {}
+const selectors: { [class]: string } = {}
+local last_auto_id = 0
+
+--[=[
+    Names the HTML tag a class renders as, through a static `tag` function. Every element class implements it.
+    Registering a class reads it without creating an instance.
+
+    ## Usage
+
+    ```luwu
+    class Callout implements chimera.Component, chimera.Container
+        function tag(): string
+            return "aside"
+        end
+    end
+
+    Callout.tag()
+    ```
+]=]
+export trait Tagged
+    expect function tag(): string
+end
+
+--[=[
+    An HTML tag with attributes, classes and inline style, named by its `tag` field. Gives every element its
+    chainable methods ([Element:id], [Element:add_style_class], [Element:style], [Element:on], ...) and renders its
+    tags.
+
+    ## Usage
+
+    Custom elements implement [Component]. It includes [Element]. Leave [Child] out, implementing [Element] or
+    [Container] alone, only for a part that belongs inside one parent, like a [ListItem][lists.ListItem] in a list.
+    Implement the static `tag`, and give the class a constructor that works with no arguments: the
+    [Parser][parser.Parser] calls it.
+
+    ```luwu
+    --- A tab of a `Tabs` element; a `Div` can't hold one.
+    class Tab implements chimera.Container
+        function tag(): string
+            return "section"
+        end
+
+        function __init(self, label: string?, content: chimera.Content?)
+            self
+                :attr("aria-label", label)
+                :add(content)
+        end
+    end
+    ```
+
+    [lists = require("@elements/lists")]
+    [parser = require("@parse/parser")]
+]=]
+export trait Element needs Markup, Tagged
+    expect function __init(self)
+    -- LUWU FIXME: repeated from Tagged so `class<Element>` sees it (luwu CLASS_TRAIT_BUGS.CLAUDE.md, bug 1).
+    expect function tag(): string
+
+    attributes: Attributes = Attributes()
+    style_classes: { string } = {}
+    inline_style: Style? = nil
+    --- Rules that apply only inside this element, rendered by the document as `#id selector { ... }`.
+    inside_rules: { Rule }? = nil
+
+    --[=[
+        Sets the element's `id` attribute. Links, scripts and CSS find the element by it.
+
+        ## Usage
+
+        ```luwu
+        Section { h2("Pricing") }:id("pricing")
+        Link("See pricing", "#pricing")
+        ```
+    ]=]
+    function id(self, id: string): Self
+        self.attributes:set("id", id)
+        return self
+    end
+
+    --[=[
+        The element's `id` attribute, or nil when it has none.
+
+        ## Usage
+
+        ```luwu
+        Section()
+            :id("pricing")
+            :get_id()
+        ```
+    ]=]
+    function get_id(self): string?
+        const id = self.attributes:get("id")
+        return if type(id) == "string" then id else nil
+    end
+
+    --[=[
+        The element's `id`, first giving it a unique `chimera-<n>` id if it has none. For linking elements to each
+        other, like a toggle and the element it shows.
+
+        ## Usage
+
+        ```luwu
+        const answer = Paragraph("42")
+        const id = answer:ensure_id()
+        Button("Show"):on("click", `chimera.toggle('{id}')`)
+        ```
+    ]=]
+    function ensure_id(self): string
+        if const existing = self:get_id() then
+            return existing
+        end
+        last_auto_id += 1
+        const id = `chimera-{last_auto_id}`
+        self:id(id)
+        return id
+    end
+
+    --[=[
+        Adds CSS classes to the element's `class` attribute. Stylesheet rules for those classes then apply to it.
+        Takes any number of strings, each holding one or more space-separated class names. A class the element
+        already has isn't added twice.
+
+        This is about styling. To put content inside an element, use [Container:add].
+
+        ## Usage
+
+        ```luwu
+        Div(Paragraph("Saved!")):add_style_class("notice", "notice-success")
+        Button("Delete"):add_style_class("danger wide")
+
+        page:style_every(".notice", { padding = "1rem" })
+        ```
+    ]=]
+    function add_style_class(self, ...: string): Self
+        for _, names in { ... } do
+            for name in string.gmatch(names, "%S+") do
+                if not table.find(self.style_classes, name) then
+                    table.insert(self.style_classes, name)
+                end
+            end
+        end
+        return self
+    end
+
+    --[=[
+        Removes a CSS class from the element's `class` attribute; the attribute disappears once no classes are left.
+
+        ## Usage
+
+        ```luwu
+        Div()
+            :add_style_class("card active")
+            :remove_style_class("active") -- <div class="card"></div>
+        ```
+    ]=]
+    function remove_style_class(self, name: string): Self
+        table.drop(self.style_classes, name, 1)
+        return self
+    end
+
+    --[=[
+        Whether the element's `class` attribute includes `name`.
+
+        ## Usage
+
+        ```luwu
+        Div()
+            :add_style_class("card")
+            :has_style_class("card")
+        ```
+    ]=]
+    function has_style_class(self, name: string): boolean
+        return table.find(self.style_classes, name) ~= nil
+    end
+
+    --[=[
+        Sets an HTML attribute. `nil` or `false` removes it, `true` writes a bare boolean attribute like `disabled`,
+        and numbers are written as text. Setting `class` replaces the style classes; setting `style` replaces the
+        inline style.
+
+        ## Usage
+
+        ```luwu
+        Image("/cat.png", "A cat")
+            :attr("width", 320)
+            :attr("loading", "lazy")
+        Input("checkbox", "agree"):attr("checked", true)
+        Link("Docs", "/docs"):attr("title", nil) -- removes the title
+        ```
+    ]=]
+    function attr(self, name: string, value: AttributeValue?): Self
+        const lowered = string.lower(name)
+        if lowered == "class" then
+            table.clear(self.style_classes)
+            if type(value) == "string" then
+                self:add_style_class(value)
+            end
+        elseif lowered == "style" then
+            self.inline_style = if type(value) == "string" then Style.parse(value) else nil
+        else
+            self.attributes:set(lowered, value)
+        end
+        return self
+    end
+
+    --[=[
+        The attribute `name` as text, `true` for a bare boolean attribute, or nil when it isn't set. `class` reads
+        the style classes and `style` the inline style, as they'd render.
+
+        ## Usage
+
+        ```luwu
+        const button = Button("Go")
+            :attr("disabled", true)
+            :add_style_class("wide")
+        button:get_attr("type")
+        button:get_attr("disabled")
+        ```
+    ]=]
+    function get_attr(self, name: string): (string | boolean)?
+        const lowered = string.lower(name)
+        if lowered == "class" then
+            return if #self.style_classes > 0 then table.concat(self.style_classes, " ") else nil
+        elseif lowered == "style" then
+            const style = self.inline_style
+            return if style and not style:is_empty() then style:to_css() else nil
+        end
+        return self.attributes:get(lowered)
+    end
+
+    --[=[
+        Sets a `data-*` attribute, for scripts and CSS selectors to read.
+
+        ## Usage
+
+        ```luwu
+        Div():data("user-id", 42) -- data-user-id="42"
+        ```
+    ]=]
+    function data(self, key: string, value: AttributeValue?): Self
+        return self:attr(`data-{key}`, value)
+    end
+
+    --[=[
+        Runs inline JavaScript when a DOM event fires on the element. `event` is the event's name without `on`.
+
+        ## Usage
+
+        ```luwu
+        Button("Save"):on("click", "save()")
+        Input("text", "q"):on("input", "search(this.value)")
+        ```
+    ]=]
+    function on(self, event: string, script: string): Self
+        return self:attr(`on{event}`, script)
+    end
+
+    --[=[
+        Sets inline CSS on this element only, through its `style` attribute. Keys may be snake_case; values may be
+        strings, numbers or [Color][color.Color]s. Later calls add to or overwrite earlier ones.
+
+        To style many elements at once, use [Document:style_every][document.Document.style_every] or
+        [Element:style_inside].
+
+        ## Usage
+
+        ```luwu
+        Div("Careful!"):style({
+            background = Color.named("lightyellow"),
+            border_left = `4px solid {token("accent")}`,
+            padding = "0.5rem 1rem",
+        })
+        ```
+
+        [color = require("@style/color")]
+        [document = require("@document/document")]
+    ]=]
+    function style(self, input: StyleInput): Self
+        const style = self.inline_style or Style()
+        style:merge(input)
+        self.inline_style = style
+        return self
+    end
+
+    --[=[
+        Hides the element with the `hidden` attribute; `hidden(false)` shows it again. A [Toggle][components.Toggle]
+        lets
+        readers show it from the page.
+
+        [components = require("@components/components")]
+    ]=]
+    function hidden(self, is_hidden: boolean?): Self
+        return self:attr("hidden", is_hidden ~= false)
+    end
+
+    --[=[
+        Styles the elements matching `target` inside this element, leaving the rest of the page alone. `target` is a CSS
+        selector or an element class. The element gets an id if it has none, since the rule is written as `#id
+        selector`.
+
+        ## Usage
+
+        ```luwu
+        Footer { Paragraph("Built with chimera"), Link("Source", "/src") }
+            :style_inside(Link, { color = token("muted") })
+            :style_inside("p", { font_size = "0.9rem" })
+        ```
+    ]=]
+    function style_inside(self, target: string | class<Element>, input: StyleInput): Self
+        const id = self:ensure_id()
+        const selector = if type(target) == "string" then target else Element.style_selector_of(target)
+        const rules = self.inside_rules or {}
+        table.insert(rules, Rule(`#{id} {selector}`, input))
+        self.inside_rules = rules
+        return self
+    end
+
+    --[=[
+        The tag this element renders as. Defaults to the class's static `tag`; override it for classes whose
+        tag depends on the element, like a `Heading`'s level.
+
+        ## Usage
+
+        ```luwu
+        Heading("Setup", 3):current_tag()
+        ```
+    ]=]
+    function current_tag(self): string
+        return self.tag()
+    end
+
+    --[=[
+        The CSS selector matching every element of this one's class. Registered components get an attribute
+        selector on the `data-element` they render with. Their rules skip other elements with the same tag.
+        Other elements get their tag.
+
+        ## Usage
+
+        ```luwu
+        class Callout implements Component, Container
+            function tag(): string
+                return "aside"
+            end
+
+            function default_styles(self): { Rule }
+                return { Rule(self:style_selector(), { padding = "1rem" }) }
+            end
+        end
+        Component.register(Callout)
+        ```
+
+        ```css
+        [data-element="Callout"]{padding: 1rem}
+        ```
+    ]=]
+    function style_selector(self): string
+        if const component = component_names[class.of(self)] then
+            return `[data-element="{component}"]`
+        end
+        return self:current_tag()
+    end
+
+    --[=[
+        Runs `edit` on this element and returns the element, for imperative steps in the middle of a chain.
+
+        ## Usage
+
+        ```luwu
+        const list = UnorderedList()
+            :add_style_class("tags")
+            :tap(function(list)
+                for _, tag in post.tags do
+                    list:add(tag)
+                end
+            end)
+        ```
+    ]=]
+    function tap(self, edit: (Self) -> ()): Self
+        edit(self)
+        return self
+    end
+
+    --[=[
+        The CSS every element of this class needs, like a component's own look; nil (the default) when it needs none.
+        A [Document][document.Document] includes these rules once per class on the page, after the theme's base
+        styles. [Document:style_every][document.Document.style_every] can still override them.
+
+        ## Usage
+
+        ```luwu
+        class Callout implements Component, Container
+            function tag(): string
+                return "aside"
+            end
+
+            function default_styles(self): { Rule }
+                return {
+                    Rule(self:style_selector(), {
+                        border_left = `4px solid {token("accent")}`,
+                        padding = "1rem",
+                    }),
+                    Rule(`{self:style_selector()} p`, { margin = "0" }),
+                }
+            end
+        end
+        ```
+
+        [document = require("@document/document")]
+    ]=]
+    function default_styles(self): { Rule }?
+        return nil
+    end
+
+    --[=[
+        Elements this element needs in its page's `<head>`, like a script it loads; nil (the default) when it needs
+        none. A [Document][document.Document] adds each one once, however many elements ask for it.
+
+        ## Usage
+
+        ```luwu
+        function head_elements(self): { Metadata }?
+            return { Script(nil, "https://cdn.example.com/widget.js"):defer() }
+        end
+        ```
+
+        [document = require("@document/document")]
+    ]=]
+    function head_elements(self): { Metadata }?
+        return nil
+    end
+
+    --[=[
+        Whether this element lists the page's headings, like a table of contents. When one does, its
+        [Document][document.Document] gives every heading an id and passes them on in the [Writer]'s `headings`.
+
+        ## Usage
+
+        ```luwu
+        function lists_headings(self): boolean
+            return true
+        end
+        ```
+
+        [document = require("@document/document")]
+    ]=]
+    function lists_headings(self): boolean
+        return false
+    end
+
+    --[=[
+        Takes a parsed node as a child, for the [Parser][parser.Parser]. Returns false when this element can't hold it.
+        Override it in elements with their own kind of children.
+        [parser = require("@parse/parser")]
+    ]=]
+    function adopt(self, node: Markup): boolean
+        return false
+    end
+
+    --[=[
+        Removes all of the element's children; does nothing on elements without children, like an `Image`. Attributes
+        and style classes stay.
+
+        ## Usage
+
+        ```luwu
+        Div({ Paragraph("old") })
+            :id("box")
+            :clear() -- <div id="box"></div>
+        ```
+    ]=]
+    function clear(self): Self
+        return self
+    end
+
+    --[=[
+        Empties the element completely: attributes, style classes, inline style, scoped rules and children. The class
+        and tag stay. The parser resets each element before filling it from HTML.
+
+        ## Usage
+
+        ```luwu
+        Div({ "x" })
+            :id("box")
+            :add_style_class("card")
+            :reset() -- <div></div>
+        ```
+    ]=]
+    final function reset(self): Self
+        self.attributes:clear()
+        table.clear(self.style_classes)
+        self.inline_style = nil
+        self.inside_rules = nil
+        return self:clear()
+    end
+
+    function is_inline(self): boolean
+        return INLINE_TAGS[self:current_tag()] == true
+    end
+
+    function outline(self): string
+        const id = self:get_id()
+        const class_name: string = class.name(self)
+        const tag = self:current_tag()
+        const parts = { if string.lower(class_name) == tag then class_name else `{class_name}<{tag}>` }
+        if id then
+            table.insert(parts, colors.yellow(`#{id}`))
+        end
+        for _, name in self.style_classes do
+            table.insert(parts, colors.green(`.{name}`))
+        end
+        for _, name in self.attributes.names do
+            if name ~= "id" then
+                table.insert(parts, colors.style.dim(` {name}`))
+            end
+        end
+        return table.concat(parts)
+    end
+
+    final function render_open(self, out: Writer)
+        out:write(`<{self:current_tag()}`)
+        if const component = component_names[class.of(self)] then
+            out:write(` data-element="{component}"`)
+        end
+        self.attributes:render(out)
+        if #self.style_classes > 0 then
+            out:write(` class="{escape_attribute(table.concat(self.style_classes, " "))}"`)
+        end
+        if const style = self.inline_style when not style:is_empty() then
+            out:write(` style="{escape_attribute(style:to_css())}"`)
+        end
+        out:write(">")
+    end
+
+    --[=[
+        Writes the element's HTML: the opening tag with its attributes, the children, then the closing tag. Void tags
+        such as `img` and `br` have no children and no closing tag. Override it for elements whose content isn't child
+        nodes.
+
+        ## Usage
+
+        ```luwu
+        Div({ Image("/a.png") }):to_html()
+        ```
+
+        ```html
+        <div><img src="/a.png"></div>
+        ```
+    ]=]
+    function render(self, out: Writer)
+        self:render_open(out)
+        if VOID_TAGS[self:current_tag()] then
+            return
+        end
+        render_children(out, self:child_nodes())
+        out:write(`</{self:current_tag()}>`)
+    end
+
+    --[=[
+        Makes the parser build `cls` for its tag, replacing any class registered for that tag before.
+        Custom elements usually use [Component.register] instead. It leaves common tags like `div` to their elements.
+
+        ```luwu
+        Element.register_class(MyButton)
+        ```
+    ]=]
+    final function register_class(cls: class<Element>)
+        element_factories[cls.tag()] = function()
+            return cls()
+        end
+    end
+
+    --[=[
+        Makes the parser call `create` for `tag`. For classes whose tag depends on constructor arguments.
+
+        ```luwu
+        Element.register_tag("h2", function()
+            return Heading(nil, 2)
+        end)
+        ```
+    ]=]
+    final function register_tag(tag: string, create: () -> Element)
+        element_factories[tag] = create
+    end
+
+
+    --[=[
+        Creates an empty element the way the parser does: the class registered for the component name or tag, or a
+        [Tag] for anything unregistered.
+
+        ## Usage
+
+        ```luwu
+        Element.create("p")
+        Element.create("div", "Callout")
+        Element.create("x-widget")
+        ```
+    ]=]
+    final function create(tag: string, component: string?): Element
+        if const create = if component then component_factories[component] else nil then
+            return create()
+        elseif const factory = element_factories[string.lower(tag)] then
+            return factory()
+        end
+        return Tag(string.lower(tag))
+    end
+
+    --[=[
+        Whether `tag` is a void tag: one with no children and no closing tag, like `img`, `br`, `input` or `meta`.
+
+        ## Usage
+
+        ```luwu
+        Element.is_void("img")
+        ```
+    ]=]
+    final function is_void(tag: string): boolean
+        return VOID_TAGS[tag] == true
+    end
+
+    --[=[
+        The CSS selector matching every element of `cls`: its `data-element` for components,
+        otherwise every tag registered for it (`h1, h2, ...` for headings).
+    ]=]
+    final function style_selector_of(cls: class<Element>): string
+        if const cached = selectors[cls] then
+            return cached
+        end
+        const selector = do
+            if const component = component_names[cls] then
+                give `[data-element="{component}"]`
+            end
+            const tags = {
+                for tag, factory in element_factories
+                when class.of(factory()) == cls
+                give tag
+            }
+            if #tags == 0 then
+                give cls.tag()
+            end
+            table.sort(tags)
+            give table.concat(tags, ", ")
+        selectors[cls] = selector
+        return selector
+    end
+end
+
+--[=[
+    An element that holds child content, like a [Div][layout.Div] or a [Paragraph][text.Paragraph]. Gives it
+    [Container:add] and friends, and renders the children between its opening and closing tags.
+
+    ## Usage
+
+    Implement it next to [Component] for your own elements that hold children. Set `tag`, and fill the element
+    from its constructor:
+
+    ```luwu
+    class Panel implements chimera.Component, chimera.Container
+        function tag(): string
+            return "section"
+        end
+
+        function __init(self, title: string?, content: chimera.Content?)
+            self:add_style_class("panel")
+            if title then
+                self:add(Heading.h2(title))
+            end
+            self:add(content)
+        end
+    end
+
+    Panel("Settings", { Paragraph("Nothing here yet.") })
+    ```
+
+    [layout = require("@elements/layout")]
+    [text = require("@elements/text")]
+]=]
+export trait Container needs Element
+    children: { Child } = {}
+
+    --[=[
+        Appends [Content] to the end of the container. Takes any number of arguments, each any kind of [Content]:
+
+        - strings and numbers become [Text], escaped when the page renders;
+        - any [Child], like a [Paragraph][text.Paragraph] or an [Image][layout.Image];
+        - arrays of the above, flattened in order;
+        - `nil` adds nothing. Pass optional content straight through.
+
+        Constructors of containers take the same [Content]. `Div { ... }` and `Div():add(...)` are equivalent.
+
+        ## Usage
+
+        ```luwu
+        const notes = Article()
+        notes:add(Heading.h1("Release notes"))
+        notes:add("Version ", 2, " is out.") -- three Text nodes
+        notes:add({ Paragraph("Faster builds."), Paragraph("Fewer bugs.") })
+        notes:add(if show_thanks then Paragraph("Thanks!") else nil)
+        ```
+
+        [text = require("@elements/text")]
+        [layout = require("@elements/layout")]
+    ]=]
+    function add(self, ...: Content?): Self
+        for index = 1, select("#", ...) do
+            append_content(self.children, select(index, ...))
+        end
+        return self
+    end
+
+    --[=[
+        Inserts `child` at position `index` among the children, moving later children back.
+
+        ## Usage
+
+        ```luwu
+        Div({ Paragraph("second") }):insert(1, Paragraph("first")) -- <div><p>first</p><p>second</p></div>
+        ```
+    ]=]
+    function insert(self, index: number, child: Child): Self
+        table.insert(self.children, index, child)
+        return self
+    end
+
+    --[=[
+        Removes `child` from the container, if it's there.
+
+        ## Usage
+
+        ```luwu
+        const banner = Paragraph("Sale!")
+        const page_body = Main({ banner, Paragraph("Products") })
+        page_body:remove(banner) -- <main><p>Products</p></main>
+        ```
+    ]=]
+    function remove(self, child: Child): Self
+        table.drop(self.children, child, 1)
+        return self
+    end
+
+    --[=[
+        Removes all children; the element and its attributes stay.
+
+        ## Usage
+
+        ```luwu
+        Main({ Paragraph("old") })
+            :clear()
+            :add(Paragraph("new")) -- <main><p>new</p></main>
+        ```
+    ]=]
+    function clear(self): Self
+        table.clear(self.children)
+        return self
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.implements(node, Child) then
+            table.insert(self.children, node)
+            return true
+        end
+        return false
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.children
+    end
+end
+
+--[=[
+    A custom element that can go anywhere content goes: inside any [Container], or in a page's body. The trait to
+    implement for your own elements.
+
+    ## Usage
+
+    Set `tag` to the HTML tag the element renders as, give it a constructor whose arguments are all optional, and
+    add [Container] when it holds children. Register the class so parsing its HTML gives it back, and give it CSS
+    with [Element:default_styles].
+
+    ```luwu
+    const .{ Component, Container, style.{ Rule } } = chimera
+
+    class Badge implements Component
+        function tag(): string
+            return "span"
+        end
+
+        function __init(self, label: string?)
+            self
+                :add_style_class("badge")
+                :attr("title", label)
+        end
+    end
+
+    class Callout implements Component, Container
+        function tag(): string
+            return "aside"
+        end
+
+        function __init(self, content: chimera.Content?)
+            self
+                :add_style_class("callout")
+                :add(content)
+        end
+
+        function default_styles(self): { Rule }
+            return { Rule(self:style_selector(), { border_left = "4px solid orange" }) }
+        end
+    end
+
+    Component.register(Badge)
+    Component.register(Callout)
+    ```
+]=]
+export trait Component needs Element, Child
+    expect function __init(self)
+
+    --[=[
+        Makes `cls` survive parsing. Its elements render with `data-element="ClassName"`, and the parser builds
+        `cls` for them even though their tag is a common one like `div`.
+
+        ```luwu
+        chimera.Component.register(Card)
+        ```
+    ]=]
+    final function register(cls: class<Component>)
+        const name: string = class.name(cls)
+        component_factories[name] = function()
+            return cls()
+        end
+        component_names[cls] = name
+    end
+end
+
+--[=[
+    Content for a page's `<head>`: its title, meta tags, resource links, scripts and stylesheets.
+
+    ## Usage
+
+    Implement it for your own head elements, setting `tag`:
+
+    ```luwu
+    class Canonical implements chimera.core.Metadata
+        function tag(): string
+            return "link"
+        end
+
+        function __init(self, href: string?)
+            self
+                :attr("rel", "canonical")
+                :attr("href", href)
+        end
+    end
+
+    page:add_head(Canonical("https://example.com/"))
+    ```
+]=]
+export trait Metadata needs Element end
+
+--[=[
+    Plain text, escaped when rendered.
+
+    ```luwu
+    Paragraph { "Use ", Code("<div>"), " for blocks" }
+    ```
+]=]
+export class Text(content: string) implements Child
+    --[=[
+        Escapes `&`, `<` and `>` so `text` shows as written in HTML. Text nodes do this when they render; use it
+        when writing raw HTML yourself.
+
+        ## Usage
+
+        ```luwu
+        Text.escape("a < b")
+        ```
+
+        ```html
+        a &lt; b
+        ```
+    ]=]
+    function escape(text: string): string
+        return escape_text(text)
+    end
+
+    function render(self, out: Writer)
+        out:write(escape_text(self.content))
+    end
+
+    function is_inline(self): boolean
+        return true
+    end
+
+    function outline(self): string
+        const short = if #self.content > 40 then string.sub(self.content, 1, 37) .. "..." else self.content
+        return colors.style.dim(string.format("%q", short))
+    end
+end
+
+--[=[
+    HTML written out exactly as given, without escaping. Only use it with trusted markup.
+
+    ```luwu
+    Div { Raw("<svg>...</svg>") }
+    ```
+]=]
+export class Raw(html: string) implements Child
+    function render(self, out: Writer)
+        out:write(self.html)
+    end
+
+    function is_inline(self): boolean
+        return true
+    end
+
+    function outline(self): string
+        return `Raw({#self.html} bytes)`
+    end
+end
+
+--- An HTML comment.
+export class Comment(text: string) implements Child
+    function render(self, out: Writer)
+        out:write(`<!--{string.gsub(self.text, "%-%-", "- -")}-->`)
+    end
+
+    function outline(self): string
+        return colors.style.dim(`<!-- {self.text} -->`)
+    end
+end
+
+--[=[
+    Several children without a wrapping tag, for components that produce more than one node.
+
+    ```luwu
+    const function field(label: string, name: string): Fragment
+        return Fragment { Label(label, name), Input("text", name) }
+    end
+    ```
+]=]
+export class Fragment implements Child
+    children: { Child } = {}
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+
+    --[=[
+        Appends [Content], the same way [Container:add] does. The fragment itself renders no tag.
+
+        ## Usage
+
+        ```luwu
+        Div(Fragment():add(Label("Name", "name"), Input("text", "name")))
+        -- <div><label for="name">Name</label><input type="text" name="name"></div>
+        ```
+    ]=]
+    function add(self, ...: Content?): Fragment
+        for index = 1, select("#", ...) do
+            append_content(self.children, select(index, ...))
+        end
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.children
+    end
+
+    function render(self, out: Writer)
+        for index, child in self.children do
+            if index > 1 and not child:is_inline() then
+                out:newline()
+            end
+            child:render(out)
+        end
+    end
+end
+
+--[=[
+    An element for any tag without a dedicated class, named by its first argument. The parser creates one for each
+    unregistered tag.
+
+    ```luwu
+    Tag("dialog", { Paragraph("Are you sure?") }):attr("open", true)
+    ```
+]=]
+export class Tag implements Component, Container
+    tag_name = "div"
+
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, tag: string?, content: Content?)
+        if tag then
+            self.tag_name = string.lower(tag)
+        end
+        self:add(content)
+    end
+
+    function current_tag(self): string
+        return self.tag_name
+    end
+end
+

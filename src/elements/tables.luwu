@@ -1,0 +1,531 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Component, Container } = require("@core/markup")
+type .{ Content, Markup } = markup
+
+--- A `"td"` element that holds one data cell of a [TableRow].
+export class TableCell implements Container
+    function tag(): string
+        return "td"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"th"` element that labels a column or row from inside a [TableRow].
+export class TableHeaderCell implements Container
+    function tag(): string
+        return "th"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--[=[
+    A `"tr"` element that holds one row of cells in a [Table], [TableHead] or [TableBody]. Content that isn't a cell
+    becomes a [TableCell].
+
+    ```luwu
+    TableRow { TableHeaderCell("Name"), "Taz", 14 }
+    ```
+]=]
+export class TableRow implements Element
+    function tag(): string
+        return "tr"
+    end
+    cells: { TableHeaderCell | TableCell } = {}
+
+    function __init(self, cells: { read TableHeaderCell | TableCell | Content }?)
+        for _, cell in cells or {} do
+            self:add(cell)
+        end
+    end
+
+    --[=[
+        Appends cells. [TableHeaderCell]s and [TableCell]s are kept as they are; any other [Content] becomes a
+        [TableCell] holding it.
+
+        ## Usage
+
+        ```luwu
+        TableRow()
+            :add(TableHeaderCell("Name"), "Taz", 14)
+            :to_html()
+        ```
+
+        ```html
+        <tr><th>Name</th><td>Taz</td><td>14</td></tr>
+        ```
+    ]=]
+    function add(self, ...: TableHeaderCell | TableCell | Content): TableRow
+        for index = 1, select("#", ...) do
+            const cell = select(index, ...)
+            if class.isinstance(cell, TableHeaderCell) or class.isinstance(cell, TableCell) then
+                table.insert(self.cells, cell)
+            else
+                table.insert(self.cells, TableCell(cell))
+            end
+        end
+        return self
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, TableHeaderCell) or class.isinstance(node, TableCell) then
+            table.insert(self.cells, node)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): TableRow
+        table.clear(self.cells)
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.cells
+    end
+end
+
+--- A `"thead"` element that groups a [Table]'s header rows.
+export class TableHead implements Element
+    function tag(): string
+        return "thead"
+    end
+    rows: { TableRow } = {}
+
+    function __init(self, rows: { TableRow }?)
+        self.rows = rows or {}
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, TableRow) then
+            table.insert(self.rows, node)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): TableHead
+        table.clear(self.rows)
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.rows
+    end
+end
+
+--- A `"tbody"` element that groups a [Table]'s body rows.
+export class TableBody implements Element
+    function tag(): string
+        return "tbody"
+    end
+    rows: { TableRow } = {}
+
+    function __init(self, rows: { TableRow }?)
+        self.rows = rows or {}
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, TableRow) then
+            table.insert(self.rows, node)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): TableBody
+        table.clear(self.rows)
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.rows
+    end
+end
+
+--- A `"caption"` element that titles a [Table].
+export class TableCaption implements Container
+    function tag(): string
+        return "caption"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+export type TablePart = TableCaption | TableHead | TableBody | TableRow
+
+--[=[
+    How a [Table] looks, applied with [Table:table_style]. Every field is optional:
+
+    - `striped`: shade every other body row ("zebra" rows);
+    - `bold_header`: `false` drops the bold from header cells;
+    - `borders`: `"rows"` (lines between rows, the default), `"grid"` (around every cell) or `"none"`;
+    - `compact`: tighter cell padding;
+    - `hover`: highlight the body row under the pointer.
+
+    Each option renders as a `chimera-table-*` style class from the theme's base styles. Options follow theme
+    switches and survive parsing.
+]=]
+export type TableStyle = {
+    striped: boolean?,
+    bold_header: boolean?,
+    borders: ("rows" | "grid" | "none")?,
+    compact: boolean?,
+    hover: boolean?,
+}
+
+const TABLE_STYLE_PREFIX = "chimera-table-"
+
+type function StringletonFromType(t: type, what: string): string | Primitive
+    if not t:is("singleton") then
+        return types.error("expected a literal string for the " .. what)
+    end
+    const value = t:value()
+    if type(value) ~= "string" then
+        return types.error("expected a literal string for the " .. what)
+    end
+    return value
+end
+
+--[=[
+    Checks a table column name at the call: a literal string without `|`. A [TableHeader]'s type joins its
+    names with `|`.
+
+    ## Usage
+
+    ```luwu
+    Table.header():column("Name") -- ok
+    Table.header():column("A|B")  -- type error: a column name can't contain '|' (got 'A|B')
+    ```
+]=]
+export type function ColumnName(name: type): type
+    const value = StringletonFromType(name, "column name")
+    type(value) == "string" or return value
+    if string.find(value, "|", 1, true) then
+        return types.error("a column name can't contain '|' (got '" .. value .. "')")
+    end
+    return name
+end
+
+--- The headings of a [TableHeader] with one more column: `AppendColumn<"Name", "Age">` is `"Name|Age"`.
+export type function AppendColumn(headings: type, name: type): type
+    const left = StringletonFromType(headings, "headings")
+    type(left) == "string" or return left
+    const right = StringletonFromType(name, "column name")
+    type(right) == "string" or return right
+    return types.singleton(if left == "" then right else left .. "|" .. right)
+end
+
+--[=[
+    The type of one hand-written row: a field per column. `Row<"Name|Age", Content>` is
+    `{ Name: Content, Age: Content }`. A missing or misspelled column is a type error.
+]=]
+export type function Row(headings: type, value: type): type
+    const columns = StringletonFromType(headings, "headings")
+    type(columns) == "string" or return columns
+    const fields = {
+        for name in string.gmatch(columns, "[^|]+")
+        give [types.singleton(name)] = value
+    }
+    return types.newtable(fields)
+end
+
+--[=[
+    The column names of a [Table], in order. Each [TableHeader:column] call adds one. The header's type
+    records them, and rows are checked against it. Build one with [Table.header].
+
+    ## Usage
+
+    ```luwu
+    const header = Table.header()
+        :column("Name")
+        :column("Age") -- TableHeader<"Name|Age">
+    ```
+]=]
+export class TableHeader<Headings = "">()
+    columns: { string } = {}
+
+    --[=[
+        Adds a column after the existing ones. The name must be a literal string without `|`.
+
+        ## Usage
+
+        ```luwu
+        Table.header()
+            :column("Name")
+            :column("Age")
+            :names()
+        ```
+    ]=]
+    function column<N>(self, name: ColumnName<literal<N>>): TableHeader<AppendColumn<Headings, N>>
+        table.insert(self.columns, tostring(name))
+        return self
+    end
+
+    --[=[
+        A copy of the column names, in order.
+
+        ## Usage
+
+        ```luwu
+        Table.header()
+            :column("Name")
+            :names()
+        ```
+    ]=]
+    function names(self): { string }
+        return table.clone(self.columns)
+    end
+end
+
+--[=[
+    One row made by a [Table.row_for] factory: the values in column order, for a table with `Headings`.
+    [Table:row] accepts it only for a table with the same headings.
+]=]
+export class TableRecord<Headings>(values: { Content }) end
+
+--[=[
+    A `"table"` element that lays out data in rows and columns, with optional headings and caption.
+
+    Describe the columns with a [TableHeader]. Rows are checked against its headings: a hand-written row is a
+    record with one field per column, and [Table.row_for] makes rows from positional values.
+
+    ## Usage
+
+    ```luwu
+    const header = Table.header()
+        :column("Name")
+        :column("Age")
+    const cat = Table.row_for(header)
+
+    Table(header)
+        :row({ Name = "Taz", Age = 14 })
+        :row(cat("Oreo", 3))
+        :caption("Cats")
+        :table_style({ striped = true })
+
+    Table(header):row({ Name = "Mochi" }) -- type error: missing property 'Age'
+    ```
+
+    ```html
+    <table class="chimera-table-striped"><caption>Cats</caption>
+    <thead><tr><th>Name</th><th>Age</th></tr></thead>
+    <tbody><tr><td>Taz</td><td>14</td></tr><tr><td>Oreo</td><td>3</td></tr></tbody></table>
+    ```
+]=]
+export class Table<Headings = ""> implements Component
+    function tag(): string
+        return "table"
+    end
+    parts: { TablePart } = {}
+    columns: { string } = {}
+
+    function __init(self, header: TableHeader<Headings>?)
+        if class.isinstance(header, TableHeader) then
+            self.columns = header:names()
+            const cells = { for _, name in self.columns give TableHeaderCell(name) }
+            table.insert(self.parts, TableHead({ TableRow(cells) }))
+        end
+    end
+
+    --[=[
+        A new, empty [TableHeader].
+
+        ## Usage
+
+        ```luwu
+        const header = Table.header()
+            :column("Name")
+            :column("Age")
+        ```
+    ]=]
+    function header(): TableHeader<"">
+        return TableHeader()
+    end
+
+    --[=[
+        A row factory for tables with `header`'s columns: call it with one value per column, in column order,
+        and it returns a [TableRecord] for [Table:row]. Raises when the number of values doesn't match.
+
+        ## Usage
+
+        ```luwu
+        const cat = Table.row_for(Table.header()
+            :column("Name")
+            :column("Age")
+        )
+        Table(header):row(cat("Taz", 14))
+        cat("Taz") -- raises: expected 2 values (Name, Age), got 1
+        ```
+    ]=]
+    function row_for<H>(header: TableHeader<H>): (...Content) -> TableRecord<H>
+        const columns = header:names()
+        return function(...: Content): TableRecord<H>
+            const count = select("#", ...)
+            if count ~= #columns then
+                error(
+                    "expected " .. tostring(#columns) .. " values (" .. table.concat(columns, ", ") .. "), got "
+                        .. tostring(count),
+                    2
+                )
+            end
+            return TableRecord<<H>>({ ... })
+        end
+    end
+
+    --[=[
+        Appends a row to the table's body, its cells in the table's column order. Takes a record with one field
+        per column, checked against the table's headings, or a [TableRecord] from [Table.row_for]. Raises on a
+        table made without a header.
+
+        ## Usage
+
+        ```luwu
+        const header = Table.header()
+            :column("Name")
+            :column("Age")
+        Table(header):row({ Name = "Taz", Age = 14 })
+        ```
+
+        ```html
+        ...<tbody><tr><td>Taz</td><td>14</td></tr></tbody>
+        ```
+    ]=]
+    function row(self, record: Row<Headings, Content> | TableRecord<Headings>): Self
+        if #self.columns == 0 then
+            error("this table has no header; create it with Table(header) to add rows", 2)
+        end
+        const cells = do
+            if class.isinstance(record, TableRecord) then
+                give { for _, value in record.values give TableCell(value) }
+            end
+            const fields: { read [string]: Content } = record
+            give {
+                for _, name in self.columns
+                give TableCell(fields[name] or error("row is missing column '" .. name .. "'", 3))
+            }
+        const new_row = TableRow(cells)
+        const last = self.parts[#self.parts]
+        if class.isinstance(last, TableBody) then
+            table.insert(last.rows, new_row)
+        else
+            table.insert(self.parts, TableBody({ new_row }))
+        end
+        return self
+    end
+
+    --[=[
+        Appends several rows, the same way [Table:row] does.
+
+        ## Usage
+
+        ```luwu
+        const cat = Table.row_for(header)
+        Table(header):rows({ cat("Taz", 14), cat("Oreo", 3) })
+        ```
+    ]=]
+    function rows(self, records: { read Row<Headings, Content> | TableRecord<Headings> }): Self
+        for _, record in records do
+            self:row(record)
+        end
+        return self
+    end
+
+    --[=[
+        Sets the table's caption, its title, shown above the table. Replaces any caption it had.
+
+        ## Usage
+
+        ```luwu
+        Table(header):caption("Cats") -- <table><caption>Cats</caption><thead>...</thead>...</table>
+        ```
+    ]=]
+    function caption(self, content: Content): Self
+        if class.isinstance(self.parts[1], TableCaption) then
+            table.remove(self.parts, 1)
+        end
+        table.insert(self.parts, 1, TableCaption(content))
+        return self
+    end
+
+    --[=[
+        Sets how the table looks with a [TableStyle], replacing any table style set before. Other style classes
+        on the table stay.
+
+        ## Usage
+
+        ```luwu
+        Table(header):table_style({ striped = true, hover = true, bold_header = false })
+        ```
+
+        ```html
+        <table class="chimera-table-striped chimera-table-plain-header chimera-table-hover">...</table>
+        ```
+    ]=]
+    function table_style(self, look: TableStyle): Self
+        const kept = {
+            for _, name in self.style_classes
+            when string.sub(name, 1, #TABLE_STYLE_PREFIX) ~= TABLE_STYLE_PREFIX
+            give name
+        }
+        self.style_classes = kept
+        if look.striped then
+            self:add_style_class(TABLE_STYLE_PREFIX .. "striped")
+        end
+        if look.bold_header == false then
+            self:add_style_class(TABLE_STYLE_PREFIX .. "plain-header")
+        end
+        if look.borders == "grid" or look.borders == "none" then
+            self:add_style_class(TABLE_STYLE_PREFIX .. look.borders)
+        end
+        if look.compact then
+            self:add_style_class(TABLE_STYLE_PREFIX .. "compact")
+        end
+        if look.hover then
+            self:add_style_class(TABLE_STYLE_PREFIX .. "hover")
+        end
+        return self
+    end
+
+    function add(self, part: TablePart): Self
+        table.insert(self.parts, part)
+        return self
+    end
+
+    function adopt(self, node: Markup): boolean
+        if
+            class.isinstance(node, TableCaption)
+            or class.isinstance(node, TableHead)
+            or class.isinstance(node, TableBody)
+            or class.isinstance(node, TableRow)
+        then
+            table.insert(self.parts, node)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Self
+        table.clear(self.parts)
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.parts
+    end
+end
+
+for _, cls in { TableCell, TableHeaderCell, TableRow, TableHead, TableBody, TableCaption, Table } do
+    Element.register_class(cls)
+end

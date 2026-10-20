@@ -1,0 +1,95 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const env = require("@std/env")
+const process = require("@std/process")
+const colors = require("@std/colors")
+
+type Case = {
+    label: string,
+    run: () -> (),
+}
+
+type Suite = {
+    name: string,
+    tests: { [string]: () -> () },
+}
+
+const suites: { Suite } = {
+    {
+        name = "style",
+        tests = require("./style"),
+    },
+    {
+        name = "code",
+        tests = require("./code"),
+    },
+    {
+        name = "color",
+        tests = require("./color"),
+    },
+    {
+        name = "markup",
+        tests = require("./markup"),
+    },
+    {
+        name = "elements",
+        tests = require("./elements"),
+    },
+    {
+        name = "parse",
+        tests = require("./parse"),
+    },
+    {
+        name = "document",
+        tests = require("./document"),
+    },
+    {
+        name = "roundtrip",
+        tests = require("./roundtrip"),
+    },
+    {
+        name = "site",
+        tests = require("./site"),
+    },
+}
+
+const filter = env.args[1]
+local passed = 0
+local failed = 0
+
+for _, suite in suites do
+    const cases: { Case } = {
+        for name, run in suite.tests
+            give {
+                label = `{suite.name}: {name}`,
+                run = run,
+            }
+    }
+    table.sort(cases, function(a: Case, b: Case)
+        return a.label < b.label
+    end)
+    for _, case in cases do
+        const label = case.label
+        if filter and not string.find(label, filter, 1, true) then
+            continue
+        end
+        const ok, problem = pcall(function()
+            case.run()
+            return nil
+        end)
+        if ok then
+            passed += 1
+            print(`{colors.green("pass")} {label}`)
+        else
+            failed += 1
+            print(`{colors.red("FAIL")} {label}\n    {tostring(problem)}`)
+        end
+    end
+end
+
+print(`\n{passed} passed, {failed} failed`)
+if failed > 0 then
+    process.exit(1)
+end

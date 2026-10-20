@@ -1,0 +1,285 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2, h3 } = Heading
+
+return Page("Expressive Control Flow", {
+    h1("Expressive Control Flow"),
+    Paragraph("Luwu adds a few control flow tools that Luau doesn't have."),
+    Paragraph({
+        "They let you check a value right where you get it. ",
+        "Code needs fewer nested ifs and fewer temporary variables.",
+    }),
+    TableOfContents(),
+
+    h2("if local"),
+    Paragraph("In Luau, you often get a value, then check that it exists:"),
+    luwu([====[
+        const scores: { [string]: number? } = { ada = 92 }
+
+        local score = scores["ada"]
+        if score then
+            print(`Ada scored {score}`)
+        end
+    ]====]),
+    Paragraph({ "With ", Code("if local"), ", you bind the value inside the condition:" }),
+    luwu([====[
+        const scores: { [string]: number? } = { ada = 92 }
+
+        if local score = scores["ada"] then
+            print(`Ada scored {score}`)
+        end
+    ]====]),
+    Paragraph({
+        "The branch runs when the value is truthy: not ", Code("nil"), ", ", Code("false"), " or ", Code("none"), ".",
+    }),
+    Paragraph({ Code("score"), " only exists inside the branch. It can't leak into the code after it." }),
+    Paragraph({
+        "Use ", Code("if const"), " when the branch won't reassign the value. ",
+        "Most of the time, that's what you want.",
+    }),
+    luwu([====[
+        type User = { name: string }
+        const users: { User } = { { name = "Ada" }, { name = "Grace" } }
+
+        const function find(name: string): User?
+            for _, user in users do
+                if user.name == name then
+                    return user
+                end
+            end
+            return nil
+        end
+
+        if const user = find("Grace") then
+            print(`Found {user.name}`)
+        elseif const fallback = find("Ada") then
+            print(`Using {fallback.name} instead`)
+        else
+            print("Nobody here")
+        end
+    ]====]),
+
+    h3("when chains"),
+    Paragraph({ "Add more checks with ", Code("when"), ". Each clause must pass for the branch to run." }),
+    Paragraph("A clause can be a plain condition or another binding. Later clauses can use earlier bindings."),
+    luwu([====[
+        const players: { [string]: { level: number, guild: string? } } = {
+            ada = { level = 12, guild = "Builders" },
+            grace = { level = 3 },
+        }
+
+        const function invite(id: string)
+            if
+                const player = players[id]
+                when player.level >= 10
+                when const guild = player.guild
+            then
+                print(`{id} can lead raids for {guild}`)
+            else
+                print(`{id} can't lead raids yet`)
+            end
+        end
+
+        invite("ada")
+        invite("grace")
+    ]====]),
+    Paragraph("Clauses run left to right. The first one that fails stops the chain."),
+    Paragraph({ "A binding clause can destructure. Every name it binds must be truthy." }),
+    luwu([====[
+        const function parse_point(text: string): { x: number?, y: number? }
+            const x, y = string.match(text, "^(%-?%d+),(%-?%d+)$")
+            return { x = tonumber(x), y = tonumber(y) }
+        end
+
+        if const .{ x, y } = parse_point("3,4") then
+            print(x + y)
+        end
+    ]====]),
+
+    h3("if const in expressions"),
+    Paragraph("if local and if const also work in if-else expressions."),
+    luwu([====[
+        const nicknames: { [string]: string? } = { grace = "Amazing Grace" }
+
+        const function display_name(id: string): string
+            return if const nickname = nicknames[id] then nickname else id
+        end
+
+        print(display_name("grace"), display_name("ada"))
+    ]====]),
+
+    h2("when in loops"),
+    Paragraph({ "Luwu's loops take ", Code("when"), " chains too. Luau has nothing like it." }),
+
+    h3("while local"),
+    Paragraph({ Code("while local"), " binds a fresh value on every pass. The loop ends as soon as the chain fails." }),
+    luwu([====[
+        const jobs = { "build", "test", "deploy" }
+
+        while const job = table.remove(jobs, 1) do
+            print(`Running {job}`)
+        end
+    ]====]),
+    Paragraph("Add a when clause to stop early:"),
+    luwu([====[
+        const lines = { "name = Ada", "level = 12", "", "ignored = true" }
+        local index = 0
+
+        while const line = lines[index + 1] when line ~= "" do
+            index += 1
+            print(line)
+        end
+    ]====]),
+
+    h3("for ... when"),
+    Paragraph({ "A ", Code("when"), " chain after a for loop's header skips the items that fail it." }),
+    Paragraph("No more wrapping the whole loop body in an if."),
+    luwu([====[
+        const inventory = {
+            { name = "Arrow", count = 24 },
+            { name = "Potion", count = 0 },
+            { name = "Rope", count = 2 },
+        }
+
+        for _, item in inventory when item.count > 0 do
+            print(`{item.name} x{item.count}`)
+        end
+    ]====]),
+    Paragraph("Bindings work here too, and so do numeric loops:"),
+    luwu([====[
+        const prices: { [string]: number? } = { apple = 1.25, pear = 0.8 }
+        const basket = { "apple", "kiwi", "pear" }
+
+        for _, fruit in basket when const price = prices[fruit] do
+            print(`{fruit} costs {price}`)
+        end
+
+        for n = 1, 20 when n % 3 == 0 and n % 2 == 1 do
+            print(n)
+        end
+    ]====]),
+
+    h2("do expressions"),
+    Paragraph({
+        "Sometimes one value takes several statements to work out. A ", Code("do"),
+        " expression runs a block and gives back a value.",
+    }),
+    Paragraph({ Code("give"), " ends the block and produces its value. There's no ", Code("end"), "." }),
+    Paragraph({
+        "The point is to nest the code that computes a value inside the expression that produces it. ",
+        "Temporary values and the logic around them belong in the ", Code("do"), " expression for the value ",
+        "you actually want. This is considered good practice in Luwu.",
+    }),
+    Paragraph("In Luau, the temporaries sit next to the result, and stay in scope for the rest of the function:"),
+    luwu([====[
+        const price, quantity = 4.5, 12
+
+        local subtotal = price * quantity
+        local discount = if quantity >= 10 then subtotal * 0.1 else 0
+        local total = subtotal - discount
+        print(total)
+    ]====]),
+    Paragraph({
+        "With a ", Code("do"), " expression, ", Code("subtotal"), " and ", Code("discount"), " live inside the ",
+        "block that computes ", Code("total"), ". Readers see at a glance that they exist only for it:",
+    }),
+    luwu([====[
+        const price, quantity = 4.5, 12
+
+        const total = do
+            const subtotal = price * quantity
+            const discount = if quantity >= 10 then subtotal * 0.1 else 0
+            give subtotal - discount
+        print(total)
+    ]====]),
+    Paragraph("A loop that builds up one value works the same way:"),
+    luwu([====[
+        const words = { "luwu", "classes", "traits" }
+
+        const longest = do
+            local best = ""
+            for _, word in words do
+                if #word > #best then
+                    best = word
+                end
+            end
+            give best
+
+        print(longest)
+    ]====]),
+    Paragraph({
+        "The temporary ", Code("best"), " stays inside the block. ", Code("longest"), " can be const.",
+    }),
+    Paragraph({
+        "A ", Code("give"), " can also leave the block early, like a ", Code("return"), ". ",
+        "This one stops at the first player who is online, and only falls back to the last line when nobody is:",
+    }),
+    luwu([====[
+        const players = {
+            { name = "Ada", online = false },
+            { name = "Grace", online = true },
+            { name = "Alan", online = true },
+        }
+
+        const host = do
+            for _, player in players do
+                if player.online then
+                    give player.name
+                end
+            end
+            give "nobody"
+        print(host)
+    ]====]),
+
+    h2("or return, or continue, or break"),
+    Paragraph({
+        "Guard clauses check for a missing value and leave early. With ", Code("or return"), ", that's one line.",
+    }),
+    luwu([====[
+        const prices: { [string]: number? } = { apple = 1.25, pear = 0.8 }
+
+        const function total(order: { [string]: number? }): number?
+            local sum = 0
+            for item, count in order do
+                const price = prices[item] or return nil
+                sum += price * count
+            end
+            return sum
+        end
+
+        print(total({ apple = 4 }))
+        print(total({ apple = 1, kiwi = 2 }))
+    ]====]),
+    Paragraph({ "After the guard, Luwu knows ", Code("price"), " isn't nil." }),
+    Paragraph({ Code("or continue"), " and ", Code("or break"), " work the same way inside loops:" }),
+    luwu([====[
+        const entries = { "hp=10", "broken", "mp=4", "stop", "xp=99" }
+
+        for _, entry in entries do
+            if entry == "stop" then
+                break
+            end
+            const key, value = string.match(entry, "^(%a+)=(%d+)$")
+            if not key or not value then
+                continue
+            end
+            print(key, value)
+        end
+
+        for _, entry in entries do
+            entry ~= "stop" or break
+            const key, value = string.match(entry, "^(%a+)=(%d+)$")
+            key and value or continue
+            print(key, value)
+        end
+    ]====]),
+    Paragraph("Both loops print the same thing. The second one reads top to bottom, with every exit at the left edge."),
+}, "expressive-control-flow.html")

@@ -1,0 +1,89 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Component, Container, Child } = require("@core/markup")
+type .{ Content, Markup } = markup
+
+--- A `"summary"` element that heads a [Details], visible while its content is hidden.
+export class Summary implements Container
+    function tag(): string
+        return "summary"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--[=[
+    A `"details"` element that lets the reader expand and hide its content, with no JavaScript.
+
+    ```luwu
+    Details("What does it cost?", Paragraph("Nothing.")):open()
+    ```
+]=]
+export class Details implements Component, Container
+    function tag(): string
+        return "details"
+    end
+    summary: Summary? = nil
+
+    function __init(self, summary: Summary | Content?, content: Content?)
+        if summary ~= nil then
+            self.summary = if class.isinstance(summary, Summary) then summary else Summary(summary)
+        end
+        self:add(content)
+    end
+
+    --[=[
+        Shows the content when the page loads; `open(false)` starts it collapsed again.
+
+        ## Usage
+
+        ```luwu
+        Details("Question?", Paragraph("Answer."))
+            :open()
+            :to_html()
+        ```
+
+        ```html
+        <details open><summary>Question?</summary><p>Answer.</p></details>
+        ```
+    ]=]
+    function open(self, is_open: boolean?): Details
+        return self:attr("open", is_open ~= false)
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Summary) then
+            self.summary = node
+            return true
+        end
+        if class.implements(node, Child) then
+            table.insert(self.children, node)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Details
+        self.summary = nil
+        table.clear(self.children)
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        const summary = self.summary or return self.children
+        const nodes: { Markup } = { summary }
+        for _, child in self.children do
+            table.insert(nodes, child)
+        end
+        return nodes
+    end
+end
+
+for _, cls in { Summary, Details } do
+    Element.register_class(cls)
+end

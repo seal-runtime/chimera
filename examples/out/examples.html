@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html data-themes="catppuccin-latte catppuccin-mocha catppuccin-macchiato catppuccin-frappe light dark" data-theme-light="catppuccin-latte" data-theme-dark="catppuccin-mocha" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Luwu examples · chimera</title>
+  <meta name="description" content="An HTML DSL built from Luwu classes">
+  <style data-chimera="styles">
+    :root[data-theme="catppuccin-latte"] {
+      --chimera-accent: #fe640b;
+      --chimera-background: #eff1f5;
+      --chimera-border: #ccd0da;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #6c6f85;
+      --chimera-primary: #8839ef;
+      --chimera-primary-text: #eff1f5;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(76 79 105 / 0.15);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #e6e9ef;
+      --chimera-syntax-bracket-1: #e64553;
+      --chimera-syntax-bracket-2: #179299;
+      --chimera-syntax-bracket-3: #7287fd;
+      --chimera-syntax-builtin: #d20f39;
+      --chimera-syntax-comment: #7c7f93;
+      --chimera-syntax-constant: #fe640b;
+      --chimera-syntax-function: #1e66f5;
+      --chimera-syntax-keyword: #8839ef;
+      --chimera-syntax-number: #fe640b;
+      --chimera-syntax-string: #40a02b;
+      --chimera-syntax-type: #df8e1d;
+      --chimera-text: #4c4f69;
+      color-scheme: light;
+    }
+    :root[data-theme="catppuccin-mocha"] {
+      --chimera-accent: #fab387;
+      --chimera-background: #1e1e2e;
+      --chimera-border: #313244;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #a6adc8;
+      --chimera-primary: #cba6f7;
+      --chimera-primary-text: #1e1e2e;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(17 17 27 / 0.6);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #181825;
+      --chimera-syntax-bracket-1: #eba0ac;
+      --chimera-syntax-bracket-2: #94e2d5;
+      --chimera-syntax-bracket-3: #b4befe;
+      --chimera-syntax-builtin: #f38ba8;
+      --chimera-syntax-comment: #9399b2;
+      --chimera-syntax-constant: #fab387;
+      --chimera-syntax-function: #89b4fa;
+      --chimera-syntax-keyword: #cba6f7;
+      --chimera-syntax-number: #fab387;
+      --chimera-syntax-string: #a6e3a1;
+      --chimera-syntax-type: #f9e2af;
+      --chimera-text: #cdd6f4;
+      color-scheme: dark;
+    }
+    :root[data-theme="catppuccin-macchiato"] {
+      --chimera-accent: #f5a97f;
+      --chimera-background: #24273a;
+      --chimera-border: #363a4f;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #a5adcb;
+      --chimera-primary: #c6a0f6;
+      --chimera-primary-text: #24273a;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(24 25 38 / 0.5);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #1e2030;
+      --chimera-syntax-bracket-1: #ee99a0;
+      --chimera-syntax-bracket-2: #8bd5ca;
+      --chimera-syntax-bracket-3: #b7bdf8;
+      --chimera-syntax-builtin: #ed8796;
+      --chimera-syntax-comment: #939ab7;
+      --chimera-syntax-constant: #f5a97f;
+      --chimera-syntax-function: #8aadf4;
+      --chimera-syntax-keyword: #c6a0f6;
+      --chimera-syntax-number: #f5a97f;
+      --chimera-syntax-string: #a6da95;
+      --chimera-syntax-type: #eed49f;
+      --chimera-text: #cad3f5;
+      color-scheme: dark;
+    }
+    :root[data-theme="catppuccin-frappe"] {
+      --chimera-accent: #ef9f76;
+      --chimera-background: #303446;
+      --chimera-border: #414559;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #a5adce;
+      --chimera-primary: #ca9ee6;
+      --chimera-primary-text: #303446;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(35 38 52 / 0.5);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #292c3c;
+      --chimera-syntax-bracket-1: #ea999c;
+      --chimera-syntax-bracket-2: #81c8be;
+      --chimera-syntax-bracket-3: #babbf1;
+      --chimera-syntax-builtin: #e78284;
+      --chimera-syntax-comment: #949cbb;
+      --chimera-syntax-constant: #ef9f76;
+      --chimera-syntax-function: #8caaee;
+      --chimera-syntax-keyword: #ca9ee6;
+      --chimera-syntax-number: #ef9f76;
+      --chimera-syntax-string: #a6d189;
+      --chimera-syntax-type: #e5c890;
+      --chimera-text: #c6d0f5;
+      color-scheme: dark;
+    }
+    :root[data-theme="light"] {
+      --chimera-accent: #e8590c;
+      --chimera-background: #ffffff;
+      --chimera-border: #d2d2d7;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #6e6e73;
+      --chimera-primary: #3b5bdb;
+      --chimera-primary-text: #ffffff;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #f5f5f7;
+      --chimera-syntax-bracket-1: #a07c00;
+      --chimera-syntax-bracket-2: #0e8a7d;
+      --chimera-syntax-bracket-3: #c13a8e;
+      --chimera-syntax-builtin: #0550ae;
+      --chimera-syntax-comment: #6e7781;
+      --chimera-syntax-constant: #0550ae;
+      --chimera-syntax-function: #8250df;
+      --chimera-syntax-keyword: #cf222e;
+      --chimera-syntax-number: #0550ae;
+      --chimera-syntax-string: #0a3069;
+      --chimera-syntax-type: #953800;
+      --chimera-text: #1d1d1f;
+      color-scheme: light;
+    }
+    :root[data-theme="dark"] {
+      --chimera-accent: #ffa94d;
+      --chimera-background: #121214;
+      --chimera-border: #33333a;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #9a9aa5;
+      --chimera-primary: #7b9cff;
+      --chimera-primary-text: #0b0b0d;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #1e1e22;
+      --chimera-syntax-bracket-1: #e6c547;
+      --chimera-syntax-bracket-2: #3fbfae;
+      --chimera-syntax-bracket-3: #e37cc1;
+      --chimera-syntax-builtin: #79c0ff;
+      --chimera-syntax-comment: #8b949e;
+      --chimera-syntax-constant: #79c0ff;
+      --chimera-syntax-function: #d2a8ff;
+      --chimera-syntax-keyword: #ff7b72;
+      --chimera-syntax-number: #79c0ff;
+      --chimera-syntax-string: #a5d6ff;
+      --chimera-syntax-type: #ffa657;
+      --chimera-text: #ececf1;
+      color-scheme: dark;
+    }
+    :root:not([data-theme]) {
+      --chimera-accent: #fe640b;
+      --chimera-background: #eff1f5;
+      --chimera-border: #ccd0da;
+      --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      --chimera-muted: #6c6f85;
+      --chimera-primary: #8839ef;
+      --chimera-primary-text: #eff1f5;
+      --chimera-radius: 8px;
+      --chimera-shadow: 0 1px 3px rgb(76 79 105 / 0.15);
+      --chimera-spacing: 1rem;
+      --chimera-surface: #e6e9ef;
+      --chimera-syntax-bracket-1: #e64553;
+      --chimera-syntax-bracket-2: #179299;
+      --chimera-syntax-bracket-3: #7287fd;
+      --chimera-syntax-builtin: #d20f39;
+      --chimera-syntax-comment: #7c7f93;
+      --chimera-syntax-constant: #fe640b;
+      --chimera-syntax-function: #1e66f5;
+      --chimera-syntax-keyword: #8839ef;
+      --chimera-syntax-number: #fe640b;
+      --chimera-syntax-string: #40a02b;
+      --chimera-syntax-type: #df8e1d;
+      --chimera-text: #4c4f69;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme]) {
+        --chimera-accent: #fab387;
+        --chimera-background: #1e1e2e;
+        --chimera-border: #313244;
+        --chimera-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        --chimera-mono-font: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+        --chimera-muted: #a6adc8;
+        --chimera-primary: #cba6f7;
+        --chimera-primary-text: #1e1e2e;
+        --chimera-radius: 8px;
+        --chimera-shadow: 0 1px 3px rgb(17 17 27 / 0.6);
+        --chimera-spacing: 1rem;
+        --chimera-surface: #181825;
+        --chimera-syntax-bracket-1: #eba0ac;
+        --chimera-syntax-bracket-2: #94e2d5;
+        --chimera-syntax-bracket-3: #b4befe;
+        --chimera-syntax-builtin: #f38ba8;
+        --chimera-syntax-comment: #9399b2;
+        --chimera-syntax-constant: #fab387;
+        --chimera-syntax-function: #89b4fa;
+        --chimera-syntax-keyword: #cba6f7;
+        --chimera-syntax-number: #fab387;
+        --chimera-syntax-string: #a6e3a1;
+        --chimera-syntax-type: #f9e2af;
+        --chimera-text: #cdd6f4;
+        color-scheme: dark;
+      }
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      background: var(--chimera-background);
+      color: var(--chimera-text);
+      font-family: var(--chimera-font);
+      font-size: 1.0625rem;
+      line-height: 1.65;
+      margin: 0;
+      transition: background 0.25s, color 0.25s;
+      -webkit-font-smoothing: antialiased;
+    }
+    main {
+      margin: 0 auto;
+      max-width: 64rem;
+      padding: 2rem 1.5rem 4rem;
+    }
+    main > :first-child {
+      margin-top: 0;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 2em 0 0.6em;
+    }
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3rem);
+    }
+    h2 {
+      font-size: 1.75rem;
+    }
+    p {
+      margin: 0 0 1em;
+    }
+    a {
+      color: var(--chimera-primary);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    a:hover {
+      color: var(--chimera-accent);
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+    code, pre {
+      font-family: var(--chimera-mono-font);
+    }
+    code {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: 6px;
+      font-size: 0.9em;
+      padding: 0.15em 0.4em;
+    }
+    pre {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      line-height: 1.55;
+      overflow-x: auto;
+      padding: 1.1rem 1.25rem;
+    }
+    pre code {
+      background: none;
+      border: none;
+      font-size: 0.875rem;
+      padding: 0;
+    }
+    blockquote {
+      border-left: 3px solid var(--chimera-primary);
+      color: var(--chimera-muted);
+      margin: 1.5em 0;
+      padding: 0.25em 0 0.25em 1.25em;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid var(--chimera-border);
+      margin: 2.5em 0;
+    }
+    button {
+      background: var(--chimera-primary);
+      border: none;
+      border-radius: var(--chimera-radius);
+      color: var(--chimera-primary-text);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      padding: 0.6em 1.15em;
+      transition: filter 0.15s, transform 0.15s;
+    }
+    button:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+    }
+    input, select, textarea {
+      background: var(--chimera-background);
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      color: var(--chimera-text);
+      font: inherit;
+      padding: 0.5em 0.7em;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: 2px solid var(--chimera-primary);
+      outline-offset: 1px;
+    }
+    table {
+      border-collapse: collapse;
+      font-size: 0.95rem;
+      margin: 1.5em 0;
+      width: 100%;
+    }
+    th, td {
+      border-bottom: 1px solid var(--chimera-border);
+      padding: 0.65em 0.8em;
+      text-align: left;
+    }
+    th {
+      color: var(--chimera-muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .chimera-table-striped tbody tr:nth-child(even) {
+      background: var(--chimera-surface);
+    }
+    .chimera-table-plain-header th {
+      font-weight: normal;
+    }
+    .chimera-table-grid th, .chimera-table-grid td {
+      border: 1px solid var(--chimera-border);
+    }
+    .chimera-table-none th, .chimera-table-none td {
+      border: none;
+    }
+    .chimera-table-compact th, .chimera-table-compact td {
+      padding: 0.25em 0.5em;
+    }
+    .chimera-table-hover tbody tr:hover {
+      background: var(--chimera-surface);
+    }
+    details {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      margin: 0.75em 0;
+      padding: 0.9em 1.15em;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+    }
+    details[open] > summary {
+      margin-bottom: 0.6em;
+    }
+    details > :last-child {
+      margin-bottom: 0;
+    }
+    .chimera-menu {
+      align-items: center;
+      backdrop-filter: blur(12px);
+      background: color-mix(in srgb, var(--chimera-background) 82%, transparent);
+      border-bottom: 1px solid var(--chimera-border);
+      display: flex;
+      gap: 1.5rem;
+      padding: 0.85rem max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem));
+      position: sticky;
+      top: 0;
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 30;
+    }
+    .chimera-menu a {
+      color: var(--chimera-muted);
+      font-weight: 500;
+    }
+    .chimera-menu a:hover {
+      color: var(--chimera-text);
+      text-decoration: none;
+    }
+    .chimera-menu .chimera-theme-switcher {
+      margin-left: auto;
+    }
+    .chimera-dropdown, .chimera-theme-switcher {
+      background: none;
+      border: none;
+      margin: 0;
+      padding: 0;
+      position: relative;
+    }
+    .chimera-dropdown > summary, .chimera-theme-switcher > summary {
+      list-style: none;
+      margin: 0;
+    }
+    .chimera-dropdown > summary::-webkit-details-marker {
+      display: none;
+    }
+    .chimera-theme-switcher > summary::-webkit-details-marker {
+      display: none;
+    }
+    .chimera-dropdown > summary {
+      color: var(--chimera-muted);
+      font-weight: 500;
+    }
+    .chimera-dropdown > summary::after {
+      content: "▾";
+      font-size: 0.8em;
+      margin-left: 0.35em;
+    }
+    .chimera-dropdown > summary:hover {
+      color: var(--chimera-text);
+    }
+    .chimera-dropdown[open] > summary, .chimera-theme-switcher[open] > summary {
+      margin-bottom: 0;
+    }
+    .chimera-dropdown-items, .chimera-theme-options {
+      background: var(--chimera-background);
+      border: 1px solid var(--chimera-border);
+      border-radius: 8px;
+      box-shadow: var(--chimera-shadow);
+      display: flex;
+      flex-direction: column;
+      font-size: 0.875rem;
+      margin-top: 0.4rem;
+      min-width: 11rem;
+      padding: 0.25rem;
+      position: absolute;
+      z-index: 40;
+    }
+    .chimera-theme-options {
+      right: 0;
+    }
+    .chimera-dropdown-items > * {
+      border-radius: 4px;
+      color: var(--chimera-text);
+      padding: 0.3rem 0.5rem;
+    }
+    .chimera-dropdown-items > *:hover {
+      background: var(--chimera-surface);
+      text-decoration: none;
+    }
+    .chimera-theme-switcher > summary {
+      border: 1px solid var(--chimera-border);
+      border-radius: 999px;
+      color: var(--chimera-text);
+      cursor: pointer;
+      display: grid;
+      height: 2.3rem;
+      place-items: center;
+      transition: color 0.15s, border-color 0.15s, transform 0.3s;
+      width: 2.3rem;
+    }
+    .chimera-theme-switcher > summary:hover {
+      border-color: var(--chimera-primary);
+      color: var(--chimera-primary);
+    }
+    .chimera-theme-switcher[open] > summary {
+      transform: rotate(180deg);
+    }
+    .chimera-theme-options button {
+      align-items: center;
+      background: transparent;
+      border-radius: 4px;
+      color: var(--chimera-text);
+      display: flex;
+      font-size: inherit;
+      font-weight: normal;
+      gap: 0.5rem;
+      line-height: 1.4;
+      padding: 0.3rem 0.5rem;
+      text-align: left;
+      white-space: nowrap;
+      width: 100%;
+    }
+    .chimera-theme-options button:hover {
+      background: var(--chimera-surface);
+      filter: none;
+      transform: none;
+    }
+    .chimera-theme-options button[aria-checked="true"] {
+      background: var(--chimera-surface);
+      color: var(--chimera-primary);
+    }
+    .chimera-theme-options button[aria-checked="true"]::after {
+      content: "✓";
+      font-size: 0.8em;
+      margin-left: auto;
+      padding-left: 0.75rem;
+    }
+    .chimera-theme-swatch {
+      border: 1px solid var(--chimera-border);
+      border-radius: 999px;
+      display: inline-flex;
+      overflow: hidden;
+    }
+    .chimera-theme-swatch > span {
+      display: block;
+      height: 0.9rem;
+      width: 0.45rem;
+    }
+    .chimera-code-block {
+      container-type: inline-size;
+      margin: 1.25em 0;
+      position: relative;
+    }
+    .chimera-copy {
+      background: var(--chimera-background);
+      border: 1px solid var(--chimera-border);
+      border-radius: 6px;
+      color: var(--chimera-muted);
+      font-family: var(--chimera-font);
+      font-size: 0.75rem;
+      font-weight: 500;
+      opacity: 0;
+      padding: 0.2rem 0.55rem;
+      position: absolute;
+      right: 0.5rem;
+      top: 0.5rem;
+      transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .chimera-code-block:hover .chimera-copy, .chimera-copy:focus-visible {
+      opacity: 1;
+    }
+    .chimera-copy:hover {
+      border-color: var(--chimera-primary);
+      color: var(--chimera-text);
+      filter: none;
+      transform: none;
+    }
+    @media (hover: none) {
+      .chimera-copy {
+        opacity: 1;
+      }
+    }
+    .chimera-code-block code {
+      font-size: clamp(0.8rem, calc(100cqw / (var(--chimera-code-columns, 80) * 0.62)), 0.875rem);
+    }
+    .chimera-code {
+      white-space: nowrap;
+    }
+    .hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-meta .hljs-keyword {
+      color: var(--chimera-syntax-keyword);
+    }
+    .hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string {
+      color: var(--chimera-syntax-string);
+    }
+    .hljs-number {
+      color: var(--chimera-syntax-number);
+    }
+    .hljs-literal, .hljs-symbol, .hljs-variable.constant_, .hljs-template-variable {
+      color: var(--chimera-syntax-constant);
+    }
+    .hljs-comment, .hljs-quote {
+      color: var(--chimera-syntax-comment);
+      font-style: italic;
+    }
+    .hljs-title, .hljs-title.function_, .hljs-section, .hljs-attr {
+      color: var(--chimera-syntax-function);
+    }
+    .hljs-title.class_, .hljs-type, .hljs-name, .hljs-selector-class, .hljs-selector-id {
+      color: var(--chimera-syntax-type);
+    }
+    .hljs-built_in, .hljs-deletion, .hljs-variable.language_ {
+      color: var(--chimera-syntax-builtin);
+    }
+    .hljs-meta, .hljs-tag, .hljs-punctuation {
+      color: var(--chimera-muted);
+    }
+    .hljs-subst {
+      color: var(--chimera-text);
+    }
+    .chimera-bracket-1 {
+      color: var(--chimera-syntax-bracket-1);
+    }
+    .chimera-bracket-2 {
+      color: var(--chimera-syntax-bracket-2);
+    }
+    .chimera-bracket-3 {
+      color: var(--chimera-syntax-bracket-3);
+    }
+    .chimera-menu a[aria-current="page"] {
+      color: var(--chimera-text);
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    body > main, body > .chimera-site-layout, body > .chimera-breadcrumbs {
+      width: 100%;
+    }
+    body > main, body > .chimera-site-layout {
+      flex: 1 0 auto;
+    }
+    .chimera-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--chimera-spacing);
+    }
+    .chimera-column {
+      display: flex;
+      flex-direction: column;
+      gap: var(--chimera-spacing);
+    }
+    .chimera-grid {
+      display: grid;
+      gap: var(--chimera-spacing);
+      grid-template-columns: repeat(auto-fit, minmax(min(var(--chimera-grid-min, 12rem), 100%), 1fr));
+    }
+    .chimera-menu .chimera-brand {
+      color: var(--chimera-text);
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .chimera-footer {
+      border-top: 1px solid var(--chimera-border);
+      color: var(--chimera-muted);
+      font-size: 0.9rem;
+      margin-top: 3rem;
+      padding: 2.5rem max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem)) 2rem;
+    }
+    .chimera-footer-columns {
+      margin-bottom: 2rem;
+    }
+    .chimera-footer-title {
+      color: var(--chimera-text);
+      font-weight: 600;
+      margin: 0 0 0.6rem;
+    }
+    .chimera-footer ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .chimera-footer li {
+      margin: 0.35rem 0;
+    }
+    .chimera-footer a {
+      color: var(--chimera-muted);
+    }
+    .chimera-footer a:hover {
+      color: var(--chimera-text);
+    }
+    .chimera-footer-columns + .chimera-footer-bar {
+      border-top: 1px solid var(--chimera-border);
+      padding-top: 1.5rem;
+    }
+    .chimera-footer-copyright {
+      margin: 0;
+    }
+    .chimera-site-layout {
+      display: grid;
+      gap: 3rem;
+      grid-template-columns: 14rem minmax(0, 1fr);
+      margin: 0 auto;
+      max-width: 76rem;
+      padding: 0 1.5rem;
+    }
+    .chimera-site-layout > aside {
+      align-self: start;
+      max-height: calc(100vh - 6rem);
+      overflow-y: auto;
+      padding-top: 2rem;
+      position: sticky;
+      top: 5rem;
+    }
+    .chimera-site-layout main {
+      margin: 0;
+      max-width: 52rem;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    @media (max-width: 800px) {
+      .chimera-site-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .chimera-site-layout > aside {
+        position: static;
+      }
+    }
+    .chimera-toc {
+      font-size: 0.9rem;
+    }
+    .chimera-toc ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .chimera-toc ul ul {
+      border-left: 1px solid var(--chimera-border);
+      margin-left: 0.25rem;
+      padding-left: 0.75rem;
+    }
+    .chimera-toc li {
+      margin: 0.3rem 0;
+    }
+    .chimera-toc a {
+      color: var(--chimera-muted);
+    }
+    .chimera-toc a:hover {
+      color: var(--chimera-text);
+      text-decoration: none;
+    }
+    .chimera-toc a[aria-current="page"] {
+      color: var(--chimera-primary);
+      font-weight: 600;
+    }
+    .chimera-toc-title {
+      color: var(--chimera-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      margin: 0 0 0.5rem;
+      text-transform: uppercase;
+    }
+    main .chimera-toc {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      margin: 1.5rem 0;
+      padding: 0.9rem 1.15rem;
+    }
+    .chimera-toc details {
+      background: none;
+      border: none;
+      margin: 0;
+      padding: 0;
+    }
+    .chimera-toc summary {
+      color: var(--chimera-muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .chimera-toc details[open] > summary {
+      margin-bottom: 0.75rem;
+    }
+    .chimera-toc-columns {
+      display: grid;
+      gap: 0.75rem 2.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    }
+    @media (min-width: 1100px) {
+      main:has(> .chimera-toc) {
+        align-items: start;
+        column-gap: 3.5rem;
+        display: grid;
+        grid-template-columns: minmax(0, 61rem) 15rem;
+        margin: 0;
+        max-width: none;
+        padding-left: max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem));
+      }
+      main:has(> .chimera-toc) > * {
+        grid-column: 1;
+        margin-top: 0;
+      }
+      main:has(> .chimera-toc) > :is(h2, h3, h4, h5, h6) {
+        margin-top: 1.5em;
+      }
+      main:has(> .chimera-toc) > .chimera-toc {
+        background: none;
+        border: none;
+        border-left: 1px solid var(--chimera-border);
+        border-radius: 0;
+        grid-column: 2;
+        grid-row: 1 / span 999;
+        margin: 0;
+        max-height: calc(100vh - 7rem);
+        overflow-y: auto;
+        padding: 0 0 0 1.25rem;
+        position: sticky;
+        top: 5.5rem;
+      }
+      main:has(> .chimera-toc) .chimera-toc-columns {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .chimera-breadcrumbs {
+      color: var(--chimera-muted);
+      font-size: 0.875rem;
+      margin: 0 auto;
+      max-width: 64rem;
+      padding: 1.5rem 1.5rem 0;
+    }
+    .chimera-site-layout .chimera-breadcrumbs {
+      padding: 2rem 0 0;
+    }
+    .chimera-breadcrumbs ol {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .chimera-breadcrumbs li + li::before {
+      color: var(--chimera-border);
+      content: "/";
+      margin-right: 0.4rem;
+    }
+    .chimera-breadcrumbs a {
+      color: var(--chimera-muted);
+    }
+    .chimera-breadcrumbs a:hover {
+      color: var(--chimera-text);
+    }
+    .chimera-breadcrumbs [aria-current="page"] {
+      color: var(--chimera-text);
+    }
+    .chimera-breadcrumbs + main {
+      padding-top: 1.25rem;
+    }
+    .chimera-card {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: calc(var(--chimera-radius) * 1.5);
+      padding: 1.4rem 1.5rem;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .chimera-card:hover {
+      border-color: var(--chimera-primary);
+      box-shadow: var(--chimera-shadow);
+      transform: translateY(-2px);
+    }
+    .chimera-card > h3 {
+      margin-top: 0;
+    }
+    .chimera-card > :last-child {
+      margin-bottom: 0;
+    }
+  </style>
+  <style data-chimera="overrides">
+    .showcase {
+      box-shadow: var(--chimera-shadow);
+      margin: 0 auto;
+      max-width: 54rem;
+    }
+  </style>
+  <script data-chimera="runtime">(function () {
+  var root = document.documentElement;
+  var offered = (root.dataset.themes || "").split(" ");
+  function offers(name) {
+    return !!name && offered.indexOf(name) >= 0;
+  }
+  function sync(name) {
+    document.querySelectorAll("[data-chimera-theme-option]").forEach(function (option) {
+      option.setAttribute("aria-checked", option.dataset.chimeraThemeOption === name ? "true" : "false");
+    });
+  }
+  // Links carry the theme too. Some browsers don't share localStorage between file:// pages.
+  function carry(name) {
+    document.querySelectorAll("a[href]").forEach(function (link) {
+      var href = link.dataset.chimeraHref || link.getAttribute("href");
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.charAt(0) === "#") return;
+      link.dataset.chimeraHref = href;
+      var url = new URL(href, location.href);
+      url.searchParams.set("theme", name);
+      link.setAttribute("href", url.href);
+    });
+  }
+  function close_menus(except) {
+    var menus = document.querySelectorAll("details.chimera-theme-switcher[open], details.chimera-dropdown[open]");
+    menus.forEach(function (menu) {
+      if (!except || !menu.contains(except)) menu.open = false;
+    });
+  }
+  var chosen = new URLSearchParams(location.search).get("theme");
+  if (!offers(chosen)) {
+    try { chosen = localStorage.getItem("chimera-theme"); } catch (e) { chosen = null; }
+  }
+  if (!offers(chosen)) chosen = null;
+  if (chosen) root.dataset.theme = chosen;
+  // Until the reader picks a theme, the stylesheet follows the OS; this only keeps the switcher in step.
+  var os_dark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function current() {
+    var light = root.dataset.themeLight;
+    var dark = root.dataset.themeDark;
+    return chosen || (os_dark && os_dark.matches ? dark || light : light || dark);
+  }
+  if (os_dark && os_dark.addEventListener) {
+    os_dark.addEventListener("change", function () { sync(current()); });
+  }
+  window.chimera = {
+    setTheme: function (name) {
+      chosen = name;
+      root.dataset.theme = name;
+      try { localStorage.setItem("chimera-theme", name); } catch (e) {}
+      var here = new URL(location.href);
+      here.searchParams.set("theme", name);
+      try { history.replaceState(null, "", here.href); } catch (e) {}
+      carry(name);
+      sync(name);
+      close_menus();
+    },
+    toggle: function (id) {
+      var target = document.getElementById(id);
+      if (target) target.hidden = !target.hidden;
+    },
+    copy: function (button) {
+      var code = button.parentElement.querySelector("code");
+      if (!code) return;
+      var text = code.textContent;
+      function copied() {
+        button.textContent = "Copied";
+        setTimeout(function () { button.textContent = "Copy"; }, 1500);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(copied);
+        return;
+      }
+      var area = document.createElement("textarea");
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      copied();
+    },
+  };
+  document.addEventListener("click", function (event) { close_menus(event.target); });
+  document.addEventListener("keydown", function (event) { if (event.key === "Escape") close_menus(); });
+  document.addEventListener("DOMContentLoaded", function () {
+    sync(current());
+    if (chosen) carry(chosen);
+  });
+})();</script>
+</head>
+<body>
+  <header>
+    <nav data-element="Menu" class="chimera-menu">
+      <a data-element="PageLink" data-page="index.html" href="index.html" class="chimera-brand">chimera</a>
+      <a data-element="PageLink" data-page="index.html" href="index.html">Home</a>
+      <a data-element="PageLink" data-page="guide.html" href="guide.html">Guide</a>
+      <a data-element="PageLink" data-page="examples.html" href="examples.html" aria-current="page">Examples</a>
+      <details data-element="Dropdown" class="chimera-dropdown">
+        <summary>More</summary>
+        <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a></div>
+      </details>
+      <details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary aria-label="Change theme" title="Change theme"><svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></summary><div class="chimera-theme-options" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-latte" onclick="chimera.setTheme('catppuccin-latte')"><span class="chimera-theme-swatch"><span style="background: #eff1f5"></span><span style="background: #8839ef"></span><span style="background: #fe640b"></span></span>Catppuccin Latte</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-mocha" onclick="chimera.setTheme('catppuccin-mocha')"><span class="chimera-theme-swatch"><span style="background: #1e1e2e"></span><span style="background: #cba6f7"></span><span style="background: #fab387"></span></span>Catppuccin Mocha</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-macchiato" onclick="chimera.setTheme('catppuccin-macchiato')"><span class="chimera-theme-swatch"><span style="background: #24273a"></span><span style="background: #c6a0f6"></span><span style="background: #f5a97f"></span></span>Catppuccin Macchiato</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-frappe" onclick="chimera.setTheme('catppuccin-frappe')"><span class="chimera-theme-swatch"><span style="background: #303446"></span><span style="background: #ca9ee6"></span><span style="background: #ef9f76"></span></span>Catppuccin Frappé</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="light" onclick="chimera.setTheme('light')"><span class="chimera-theme-swatch"><span style="background: #ffffff"></span><span style="background: #3b5bdb"></span><span style="background: #e8590c"></span></span>Light</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="dark" onclick="chimera.setTheme('dark')"><span class="chimera-theme-swatch"><span style="background: #121214"></span><span style="background: #7b9cff"></span><span style="background: #ffa94d"></span></span>Dark</button></div></details>
+    </nav>
+  </header>
+  <main>
+    <h1 id="luwu-examples">Luwu examples</h1>
+    <p>Luwu is a modern, highly expressive scripting language: object oriented with classes and traits, strictly and gradually typed, and built to embed and hot reload. Every sample here typechecks.</p>
+    <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#classes">Classes</a><ul><li><a href="#primary-constructors">Primary constructors</a></li><li><a href="#plain-data">Plain data</a></li><li><a href="#access-specifiers">Access specifiers</a></li></ul></li><li><a href="#traits">Traits</a><ul><li><a href="#expected-and-provided-members">Expected and provided members</a></li><li><a href="#needs">Needs</a></li></ul></li><li><a href="#destructuring">Destructuring</a></li><li><a href="#control-flow">Control flow</a><ul><li><a href="#if-const-and-when">if const and when</a></li><li><a href="#diverging-or">Diverging or</a></li><li><a href="#do-and-give">do and give</a></li></ul></li><li><a href="#table-comprehensions">Table comprehensions</a></li><li><a href="#type-functions">Type functions</a></li></ul></section></div></details></nav>
+    <h2 id="classes">Classes</h2>
+    <h3 id="primary-constructors">Primary constructors</h3>
+    <p>Parameters after the class name become its fields. Methods take self; metamethods work as usual.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 56"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Point</span><span class="chimera-bracket-1">(</span><span class="hljs-keyword">const</span> x: <span class="hljs-type">number</span>, <span class="hljs-keyword">const</span> y: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">function</span> <span class="hljs-title function_">length</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">number</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">math</span>.<span class="hljs-title function_ invoke__">sqrt</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>.x ^ <span class="hljs-number">2</span> + <span class="hljs-literal">self</span>.y ^ <span class="hljs-number">2</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">end</span>
+
+    <span class="hljs-keyword">function</span> <span class="hljs-title function_">__add</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, other: <span class="hljs-title class_">Point</span><span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Point</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-title class_">Point</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>.x + other.x, <span class="hljs-literal">self</span>.y + other.y<span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">end</span>
+
+    <span class="hljs-keyword">function</span> <span class="hljs-title function_">__tostring</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">string</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-string">`(</span><span class="hljs-subst">{<span class="hljs-literal">self</span>.x}</span><span class="hljs-string">, </span><span class="hljs-subst">{<span class="hljs-literal">self</span>.y}</span><span class="hljs-string">)`</span>
+    <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">const</span> corner = <span class="hljs-title class_">Point</span><span class="chimera-bracket-1">(</span><span class="hljs-number">3</span>, <span class="hljs-number">4</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>corner:<span class="hljs-title function_ invoke__">length</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{corner + <span class="hljs-title class_">Point</span><span class="chimera-bracket-1">(</span><span class="hljs-number">1</span>, <span class="hljs-number">1</span><span class="chimera-bracket-1">)</span>}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span></code></pre>
+    <h3 id="plain-data">Plain data</h3>
+    <p>A class without a constructor is built from a table. Fields left out keep their defaults.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 37"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Settings</span>
+    title = <span class="hljs-string">"Untitled"</span>
+    width = <span class="hljs-number">800</span>
+    tags: <span class="chimera-bracket-1">{</span> <span class="hljs-type">string</span> <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span><span class="chimera-bracket-1">}</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">const</span> settings = <span class="hljs-title class_">Settings</span> <span class="chimera-bracket-1">{</span>
+    title = <span class="hljs-string">"Gallery"</span>,
+    tags = <span class="chimera-bracket-2">{</span> <span class="hljs-string">"photos"</span> <span class="chimera-bracket-2">}</span>,
+<span class="chimera-bracket-1">}</span>
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>settings.title, settings.width<span class="chimera-bracket-1">)</span></code></pre>
+    <h3 id="access-specifiers">Access specifiers</h3>
+    <p>Mark members public or private, and initialize the rest in __init.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 58"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Account</span>
+    <span class="hljs-keyword">public</span> owner: <span class="hljs-type">string</span>
+    <span class="hljs-keyword">private</span> balance = <span class="hljs-number">0</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">__init</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, owner: <span class="hljs-type">string</span>?<span class="chimera-bracket-1">)</span>
+        <span class="hljs-literal">self</span>.owner = owner <span class="hljs-keyword">or</span> <span class="hljs-string">"nobody"</span>
+    <span class="hljs-keyword">end</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">deposit</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, amount: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Account</span>
+        <span class="hljs-literal">self</span>.balance += amount
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">self</span>
+    <span class="hljs-keyword">end</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">total</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">number</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">self</span>.balance
+    <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">const</span> account = <span class="hljs-title class_">Account</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"ada"</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">deposit</span><span class="chimera-bracket-1">(</span><span class="hljs-number">50</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">deposit</span><span class="chimera-bracket-1">(</span><span class="hljs-number">25</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>account:<span class="hljs-title function_ invoke__">total</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
+    <h2 id="traits">Traits</h2>
+    <h3 id="expected-and-provided-members">Expected and provided members</h3>
+    <p>A trait expects members from its classes and provides defaults they can override. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Shape</span>.<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span></code> calls the default from an override; final functions are static.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 61"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Shape</span>
+    <span class="hljs-keyword">expect</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">area</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">number</span>
+    <span class="hljs-keyword">expect</span> <span class="hljs-keyword">const</span> name: <span class="hljs-type">string</span>
+
+    <span class="hljs-keyword">function</span> <span class="hljs-title function_">describe</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">string</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-string">`</span><span class="hljs-subst">{<span class="hljs-literal">self</span>.name}</span><span class="hljs-string"> with area </span><span class="hljs-subst">{<span class="hljs-literal">self</span>:<span class="hljs-title function_ invoke__">area</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>}</span><span class="hljs-string">`</span>
+    <span class="hljs-keyword">end</span>
+
+    <span class="hljs-keyword">final</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">largest</span><span class="chimera-bracket-1">(</span>shapes: <span class="chimera-bracket-2">{</span> <span class="hljs-title class_">Shape</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Shape</span>?
+        <span class="hljs-keyword">local</span> best: <span class="hljs-title class_">Shape</span>? = <span class="hljs-literal">nil</span>
+        <span class="hljs-keyword">for</span> _, shape <span class="hljs-keyword">in</span> shapes <span class="hljs-keyword">do</span>
+            <span class="hljs-keyword">if</span> best == <span class="hljs-literal">nil</span> <span class="hljs-keyword">or</span> shape:<span class="hljs-title function_ invoke__">area</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span> &gt; best:<span class="hljs-title function_ invoke__">area</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">then</span>
+                best = shape
+            <span class="hljs-keyword">end</span>
+        <span class="hljs-keyword">end</span>
+        <span class="hljs-keyword">return</span> best
+    <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Circle</span><span class="chimera-bracket-1">(</span>radius: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Shape</span>
+    <span class="hljs-keyword">const</span> name = <span class="hljs-string">"circle"</span>
+
+    <span class="hljs-keyword">function</span> <span class="hljs-title function_">area</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">number</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">math</span>.pi * <span class="hljs-literal">self</span>.radius ^ <span class="hljs-number">2</span>
+    <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Square</span><span class="chimera-bracket-1">(</span>side: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Shape</span>
+    <span class="hljs-keyword">const</span> name = <span class="hljs-string">"square"</span>
+
+    <span class="hljs-keyword">function</span> <span class="hljs-title function_">area</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">number</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">self</span>.side ^ <span class="hljs-number">2</span>
+    <span class="hljs-keyword">end</span>
+
+    <span class="hljs-keyword">function</span> <span class="hljs-title function_">describe</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">string</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"a square! "</span> .. <span class="hljs-title class_">Shape</span>.<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">const</span> shapes: <span class="chimera-bracket-1">{</span> <span class="hljs-title class_">Shape</span> <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span> <span class="hljs-title class_">Circle</span><span class="chimera-bracket-2">(</span><span class="hljs-number">1</span><span class="chimera-bracket-2">)</span>, <span class="hljs-title class_">Square</span><span class="chimera-bracket-2">(</span><span class="hljs-number">3</span><span class="chimera-bracket-2">)</span> <span class="chimera-bracket-1">}</span>
+<span class="hljs-keyword">for</span> _, shape <span class="hljs-keyword">in</span> shapes <span class="hljs-keyword">do</span>
+    <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>shape:<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-keyword">end</span>
+<span class="hljs-keyword">if</span> <span class="hljs-keyword">const</span> biggest = <span class="hljs-title class_">Shape</span>.<span class="hljs-title function_ invoke__">largest</span><span class="chimera-bracket-1">(</span>shapes<span class="chimera-bracket-1">)</span> <span class="hljs-keyword">then</span>
+    <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`biggest: </span><span class="hljs-subst">{biggest.name}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-keyword">end</span></code></pre>
+    <h3 id="needs">Needs</h3>
+    <p>A trait can build on another. A class implementing it implements both.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 40"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Named</span>
+    <span class="hljs-keyword">expect</span> <span class="hljs-keyword">const</span> name: <span class="hljs-type">string</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">trait</span> <span class="hljs-title class_">Greeter</span> <span class="hljs-keyword">needs</span> <span class="hljs-title class_">Named</span>
+    <span class="hljs-keyword">function</span> <span class="hljs-title function_">greet</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">string</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-string">`Hello from </span><span class="hljs-subst">{<span class="hljs-literal">self</span>.name}</span><span class="hljs-string">!`</span>
+    <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Robot</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Greeter</span>
+    <span class="hljs-keyword">const</span> name = <span class="hljs-string">"R2"</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Robot</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">greet</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
+    <h2 id="destructuring">Destructuring</h2>
+    <p>Bind fields by name, rename them with as, reach into nested tables, and build tables back from names.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 50"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> user = <span class="chimera-bracket-1">{</span>
+    name = <span class="hljs-string">"Ada"</span>,
+    role = <span class="hljs-string">"admin"</span>,
+    address = <span class="chimera-bracket-2">{</span> city = <span class="hljs-string">"London"</span>, country = <span class="hljs-string">"UK"</span> <span class="chimera-bracket-2">}</span>,
+<span class="chimera-bracket-1">}</span>
+
+<span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> name, role <span class="hljs-keyword">as</span> job <span class="chimera-bracket-1">}</span> = user
+<span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> address<span class="chimera-bracket-2">.{</span> city <span class="chimera-bracket-2">}</span> <span class="chimera-bracket-1">}</span> = user
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>name, job, city<span class="chimera-bracket-1">)</span>
+
+<span class="hljs-keyword">const</span> books = <span class="chimera-bracket-1">{</span>
+    <span class="chimera-bracket-2">{</span> title = <span class="hljs-string">"Dune"</span>, year = <span class="hljs-number">1965</span> <span class="chimera-bracket-2">}</span>,
+    <span class="chimera-bracket-2">{</span> title = <span class="hljs-string">"Hyperion"</span>, year = <span class="hljs-number">1989</span> <span class="chimera-bracket-2">}</span>,
+<span class="chimera-bracket-1">}</span>
+<span class="hljs-keyword">for</span> _, <span class="chimera-bracket-1">.{</span> title, year <span class="chimera-bracket-1">}</span> <span class="hljs-keyword">in</span> books <span class="hljs-keyword">do</span>
+    <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{title}</span><span class="hljs-string"> came out in </span><span class="hljs-subst">{year}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">const</span> x, y = <span class="hljs-number">3</span>, <span class="hljs-number">4</span>
+<span class="hljs-keyword">const</span> point = <span class="chimera-bracket-1">.{</span> x, y <span class="chimera-bracket-1">}</span>
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>point.x + point.y<span class="chimera-bracket-1">)</span></code></pre>
+    <h2 id="control-flow">Control flow</h2>
+    <h3 id="if-const-and-when">if const and when</h3>
+    <p>Bind a value in a condition and keep checking it. The branch runs only when every clause holds.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 66"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> users: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="chimera-bracket-2">{</span> active: <span class="hljs-type">boolean</span>, email: <span class="hljs-type">string</span>? <span class="chimera-bracket-2">}</span> <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span>
+    ada = <span class="chimera-bracket-2">{</span> active = <span class="hljs-literal">true</span>, email = <span class="hljs-string">"ada@example.com"</span> <span class="chimera-bracket-2">}</span>,
+<span class="chimera-bracket-1">}</span>
+
+<span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">notify</span><span class="chimera-bracket-1">(</span>id: <span class="hljs-type">string</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">if</span>
+        <span class="hljs-keyword">const</span> user = users<span class="chimera-bracket-1">[</span>id<span class="chimera-bracket-1">]</span>
+        <span class="hljs-keyword">when</span> user.active
+        <span class="hljs-keyword">when</span> <span class="hljs-keyword">const</span> email = user.email
+    <span class="hljs-keyword">then</span>
+        <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`emailing </span><span class="hljs-subst">{email}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">else</span>
+        <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`can't reach </span><span class="hljs-subst">{id}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-title function_ invoke__">notify</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"ada"</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-title function_ invoke__">notify</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"grace"</span><span class="chimera-bracket-1">)</span></code></pre>
+    <h3 id="diverging-or">Diverging or</h3>
+    <p>End a function early when a value is missing, without a separate if.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 65"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> prices: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="hljs-type">number</span> <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span> apple = <span class="hljs-number">1.25</span>, pear = <span class="hljs-number">0.8</span> <span class="chimera-bracket-1">}</span>
+
+<span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">total</span><span class="chimera-bracket-1">(</span>order: <span class="chimera-bracket-2">{</span> <span class="chimera-bracket-3">[</span><span class="hljs-type">string</span><span class="chimera-bracket-3">]</span>: <span class="hljs-type">number</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">number</span>?
+    <span class="hljs-keyword">local</span> sum = <span class="hljs-number">0</span>
+    <span class="hljs-keyword">for</span> item, count <span class="hljs-keyword">in</span> order <span class="hljs-keyword">do</span>
+        <span class="hljs-keyword">const</span> price = prices<span class="chimera-bracket-1">[</span>item<span class="chimera-bracket-1">]</span>
+            <span class="hljs-keyword">or</span> <span class="hljs-keyword">return</span> <span class="hljs-literal">nil</span>
+        sum += price * count
+    <span class="hljs-keyword">end</span>
+    <span class="hljs-keyword">return</span> sum
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">total</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-3">{</span> apple = <span class="hljs-number">4</span> <span class="chimera-bracket-3">}</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">total</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-3">{</span> apple = <span class="hljs-number">1</span>, kiwi = <span class="hljs-number">2</span> <span class="chimera-bracket-3">}</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
+    <h3 id="do-and-give">do and give</h3>
+    <p>Build a value with a block, and keep it const.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 57"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> words = <span class="chimera-bracket-1">{</span> <span class="hljs-string">"luwu"</span>, <span class="hljs-string">"is"</span>, <span class="hljs-string">"luau"</span>, <span class="hljs-string">"with"</span>, <span class="hljs-string">"classes"</span> <span class="chimera-bracket-1">}</span>
+
+<span class="hljs-keyword">const</span> longest = <span class="hljs-keyword">do</span>
+    <span class="hljs-keyword">local</span> best = <span class="hljs-string">""</span>
+    <span class="hljs-keyword">for</span> _, word <span class="hljs-keyword">in</span> words <span class="hljs-keyword">do</span>
+        <span class="hljs-keyword">if</span> #word &gt; #best <span class="hljs-keyword">then</span>
+            best = word
+        <span class="hljs-keyword">end</span>
+    <span class="hljs-keyword">end</span>
+    <span class="hljs-keyword">give</span> best
+
+<span class="hljs-keyword">const</span> label = <span class="hljs-keyword">if</span> #longest &gt; <span class="hljs-number">5</span> <span class="hljs-keyword">then</span> <span class="hljs-string">"long"</span> <span class="hljs-keyword">else</span> <span class="hljs-string">"short"</span>
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>longest, label<span class="chimera-bracket-1">)</span></code></pre>
+    <h2 id="table-comprehensions">Table comprehensions</h2>
+    <p>Map and filter into a new table in one expression, as a list or as keys and values.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 72"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> scores: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="hljs-type">number</span> <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span> ada = <span class="hljs-number">92</span>, alan = <span class="hljs-number">67</span>, grace = <span class="hljs-number">88</span> <span class="chimera-bracket-1">}</span>
+
+<span class="hljs-keyword">const</span> passed = <span class="chimera-bracket-1">{</span>
+    <span class="hljs-keyword">for</span> name, score <span class="hljs-keyword">in</span> scores
+    <span class="hljs-keyword">when</span> score &gt;= <span class="hljs-number">70</span>
+    <span class="hljs-keyword">give</span> name
+<span class="chimera-bracket-1">}</span>
+
+<span class="hljs-keyword">const</span> squares = <span class="chimera-bracket-1">{</span> <span class="hljs-keyword">for</span> i = <span class="hljs-number">1</span>, <span class="hljs-number">5</span> <span class="hljs-keyword">give</span> i * i <span class="chimera-bracket-1">}</span>
+
+<span class="hljs-keyword">const</span> by_length = <span class="chimera-bracket-1">{</span>
+    <span class="hljs-keyword">for</span> _, word <span class="hljs-keyword">in</span> <span class="chimera-bracket-2">{</span> <span class="hljs-string">"a"</span>, <span class="hljs-string">"bb"</span>, <span class="hljs-string">"ccc"</span> <span class="chimera-bracket-2">}</span>
+    <span class="hljs-keyword">give</span> <span class="chimera-bracket-2">[</span>word<span class="chimera-bracket-2">]</span> = #word
+<span class="chimera-bracket-1">}</span>
+
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#passed, squares<span class="chimera-bracket-2">[</span><span class="hljs-number">5</span><span class="chimera-bracket-2">]</span>, by_length.ccc<span class="chimera-bracket-1">)</span></code></pre>
+    <h2 id="type-functions">Type functions</h2>
+    <p>A validator checks literal arguments when the code is typechecked, with your own error messages.</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 89"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">type</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">Percent</span><span class="chimera-bracket-1">(</span>value: <span class="hljs-keyword">type</span><span class="chimera-bracket-1">)</span>: <span class="hljs-keyword">type</span>
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> value:<span class="hljs-title function_ invoke__">is</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"singleton"</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">then</span>
+        <span class="hljs-keyword">return</span> types.<span class="hljs-title function_ invoke__">error</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"expected a literal like \"50%\""</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">end</span>
+    <span class="hljs-keyword">const</span> text = value:<span class="hljs-title function_ invoke__">value</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">const</span> number = <span class="hljs-keyword">typeof</span><span class="chimera-bracket-1">(</span>text<span class="chimera-bracket-1">)</span> == <span class="hljs-string">"string"</span> <span class="hljs-keyword">and</span> <span class="hljs-title function_ invoke__">tonumber</span><span class="chimera-bracket-1">(</span><span class="hljs-built_in">string</span>.<span class="hljs-title function_ invoke__">match</span><span class="chimera-bracket-2">(</span>text, <span class="hljs-string">"^(%d+)%%$"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> number <span class="hljs-keyword">or</span> number &gt; <span class="hljs-number">100</span> <span class="hljs-keyword">then</span>
+        <span class="hljs-keyword">return</span> types.<span class="hljs-title function_ invoke__">error</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`'</span><span class="hljs-subst">{<span class="hljs-title function_ invoke__">tostring</span><span class="chimera-bracket-1">(</span>text<span class="chimera-bracket-1">)</span>}</span><span class="hljs-string">' isn't a percentage from 0% to 100%`</span><span class="chimera-bracket-1">)</span>
+    <span class="hljs-keyword">end</span>
+    <span class="hljs-keyword">return</span> value
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">progress</span><span class="chimera-bracket-1">(</span>done: <span class="hljs-title class_">Percent</span>&lt;<span class="hljs-type">literal</span>&lt;<span class="hljs-type">string</span>&gt;&gt;<span class="chimera-bracket-1">)</span>: <span class="hljs-type">string</span>
+    <span class="hljs-keyword">return</span> <span class="hljs-string">`progress: </span><span class="hljs-subst">{done}</span><span class="hljs-string">`</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">progress</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"75%"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-comment">-- progress("120%") is a type error: '120%' isn't a percentage from 0% to 100%</span></code></pre>
+  </main>
+  <footer data-element="SiteFooter" class="chimera-footer">
+    <div data-element="Grid" class="chimera-grid chimera-footer-columns" style="--chimera-grid-min: 10rem; gap: 1.5rem 2rem">
+      <div>
+        <p class="chimera-footer-title">Learn</p>
+        <ul>
+          <li><a data-element="PageLink" data-page="guide.html" href="guide.html">Guide</a></li>
+          <li><a data-element="PageLink" data-page="guide/sites-and-pages.html" href="guide/sites-and-pages.html">Sites and pages</a></li>
+          <li><a data-element="PageLink" data-page="guide/theming.html" href="guide/theming.html">Theming</a></li>
+          <li><a data-element="PageLink" data-page="examples.html" href="examples.html" aria-current="page">Examples</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="chimera-footer-title">Project</p>
+        <ul>
+          <li><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a></li>
+          <li><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a></li>
+          <li><a href="https://github.com/seal-runtime/seal" target="_blank" rel="noopener noreferrer">seal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div data-element="Row" class="chimera-row chimera-footer-bar" style="justify-content: space-between; align-items: center">
+      <p class="chimera-footer-copyright">© 2026 seal-runtime. Built with chimera in Luwu.</p>
+      <div data-element="Row" class="chimera-row chimera-footer-legal" style="gap: 1.25rem"><a href="https://github.com/seal-runtime/chimera/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a></div>
+    </div>
+  </footer>
+</body>
+</html>

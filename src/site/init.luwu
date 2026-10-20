@@ -1,0 +1,15 @@
+--!strict
+--!optimize 2
+
+export .{
+    Site,
+    Page,
+    PageLink,
+    TableOfContents,
+    Breadcrumbs,
+} = require("@self/site")
+
+const site = require("@self/site")
+export type .{
+    TocScope,
+} = site

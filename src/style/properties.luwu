@@ -1,0 +1,508 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const color = require("@style/color")
+const .{ Color } = color
+const .{ Token } = require("@style/token")
+type .{ NamedColor } = color
+
+--- Keywords every CSS property accepts.
+export type GlobalKeyword = "inherit" | "initial" | "unset" | "revert"
+
+--- A free-form CSS value: text as written, a number, a [Color], or a [Token].
+export type StyleValue = string | number | Color | Token
+
+--- CSS text as written, or a [Token], for properties whose values are too varied to check.
+export type CssText = string | Token
+
+
+--[=[
+    Checks a literal CSS length at the call: every space-separated part is a number with a length unit, `0`, a
+    sizing keyword, or a CSS function such as `calc(...)` or `var(...)`.
+
+    ## Usage
+
+    ```luwu
+    const function gutter(size: CssLength) ... end
+    gutter("1rem 2rem")         -- ok
+    gutter("calc(100% - 2rem)") -- ok
+    gutter("1rx")               -- type error: CSS length '1rx' has the unknown unit 'rx'
+    ```
+]=]
+export type function ValidLength(value: type): type
+    if not value:is("singleton") then
+        return types.error("expected a literal CSS length like \"1rem\"")
+    end
+    const text = value:value()
+    if typeof(text) ~= "string" then
+        return types.error("expected a CSS length string, got " .. tostring(text))
+    end
+    const units: { [string]: boolean } = {
+        px = true, em = true, rem = true, ["%"] = true, vh = true, vw = true, vmin = true, vmax = true,
+        svh = true, lvh = true, dvh = true, svw = true, lvw = true, dvw = true, ch = true, ex = true,
+        lh = true, rlh = true, fr = true, pt = true, pc = true, cm = true, mm = true, ["in"] = true, q = true,
+        cqw = true, cqh = true, cqi = true, cqb = true,
+    }
+    const keywords: { [string]: boolean } = {
+        auto = true, none = true, normal = true, inherit = true, initial = true, unset = true, revert = true,
+        ["min-content"] = true, ["max-content"] = true, ["fit-content"] = true, thin = true, medium = true,
+        thick = true,
+    }
+    local depth = 0
+    local part_start = 1
+    const parts: { string } = {}
+    for index = 1, #text do
+        const char = string.sub(text, index, index)
+        if char == "(" then
+            depth += 1
+        elseif char == ")" then
+            depth -= 1
+        elseif char == " " and depth == 0 then
+            table.insert(parts, string.sub(text, part_start, index - 1))
+            part_start = index + 1
+        end
+    end
+    table.insert(parts, string.sub(text, part_start))
+    if depth ~= 0 then
+        return types.error("CSS length '" .. text .. "' has unbalanced parentheses")
+    end
+    for _, part in parts do
+        if part == "" then
+            return types.error("CSS length '" .. text .. "' has extra spaces")
+        end
+        const number, matched_unit = string.match(part, "^[%+%-]?(%d*%.?%d+)([%a%%]*)$")
+        const unit = matched_unit or ""
+        if number then
+            if unit == "" and tonumber(number) ~= 0 then
+                return types.error("CSS length '" .. part .. "' needs a unit, like '" .. part .. "px'")
+            elseif unit ~= "" and not units[string.lower(unit)] then
+                return types.error("CSS length '" .. part .. "' has the unknown unit '" .. unit .. "'")
+            end
+        elseif not keywords[part] and not string.match(part, "^%-?[%a][%w%-]*%(.*%)$") then
+            return types.error("'" .. part .. "' isn't a CSS length, keyword or function like calc(...)")
+        end
+    end
+    return value
+end
+
+--[=[
+    Checks a literal CSS color at the call: a hex color, a [NamedColor], `"currentColor"`, or a
+    color function such as `rgb(...)`, `color-mix(...)` or `var(...)`.
+
+    ## Usage
+
+    ```luwu
+    const function tint(color: CssColor) ... end
+    tint("#3b5bdb")          -- ok
+    tint("rgb(0 0 0 / 0.5)") -- ok
+    tint("#3b5bd")           -- type error: hex color '#3b5bd' has 5 digits; use 3, 4, 6 or 8
+    tint("rebeccapurpl")     -- type error: 'rebeccapurpl' isn't a CSS color name
+    ```
+]=]
+export type function ValidColor(value: type): type
+    if not value:is("singleton") then
+        return types.error("expected a literal CSS color like \"#3b5bdb\"")
+    end
+    const text = value:value()
+    if typeof(text) ~= "string" then
+        return types.error("expected a CSS color string, got " .. tostring(text))
+    end
+    const functions: { [string]: boolean } = {
+        rgb = true, rgba = true, hsl = true, hsla = true, hwb = true, lab = true, lch = true, oklab = true,
+        oklch = true, color = true, ["color-mix"] = true, ["light-dark"] = true, var = true,
+    }
+    if string.sub(text, 1, 1) == "#" then
+        const digits = string.sub(text, 2)
+        if string.find(digits, "[^%x]") then
+            return types.error("hex color '" .. text .. "' has characters that aren't hex digits")
+        elseif #digits ~= 3 and #digits ~= 4 and #digits ~= 6 and #digits ~= 8 then
+            return types.error("hex color '" .. text .. "' has " .. tostring(#digits) .. " digits; use 3, 4, 6 or 8")
+        end
+        return value
+    end
+    if string.match(text, "^%a+$") then
+        const word = string.lower(text)
+        if word == "currentcolor" or word == "inherit" or word == "initial" or word == "unset" or word == "revert" then
+            return value
+        end
+        for _, member in NamedColor:components() do
+            if member:is("singleton") when member:value() == word then
+                return value
+            end
+        end
+        return types.error("'" .. text .. "' isn't a CSS color name")
+    end
+    const name = string.match(text, "^([%a%-]+)%(.*%)$")
+    if name and functions[string.lower(name)] then
+        return value
+    end
+    return types.error("'" .. text .. "' isn't a CSS color: use a hex color, a color name or a function like rgb(...)")
+end
+
+--- A literal CSS length checked by [ValidLength].
+export type CssLength = ValidLength<literal<string>>
+
+--- A literal CSS color checked by [ValidColor].
+export type CssColor = ValidColor<literal<string>>
+
+--- A size, offset or other length: a [CssLength] like `"1rem"` or `"0 auto"`, a number, or a [Token].
+export type Length = CssLength | number | Token
+
+--- A color: a [Color], a [CssColor] like `"#3b5bdb"` or `"currentColor"`, or a [Token].
+export type ColorValue = CssColor | Color | Token
+
+export type Display =
+    | GlobalKeyword
+    | "none"
+    | "block"
+    | "inline"
+    | "inline-block"
+    | "flex"
+    | "inline-flex"
+    | "grid"
+    | "inline-grid"
+    | "flow-root"
+    | "contents"
+    | "list-item"
+    | "table"
+    | "table-row"
+    | "table-cell"
+
+export type Position = GlobalKeyword | "static" | "relative" | "absolute" | "fixed" | "sticky"
+
+export type Overflow = GlobalKeyword | "visible" | "hidden" | "clip" | "scroll" | "auto"
+
+export type Visibility = GlobalKeyword | "visible" | "hidden" | "collapse"
+
+export type BoxSizing = GlobalKeyword | "content-box" | "border-box"
+
+export type Float = GlobalKeyword | "none" | "left" | "right" | "inline-start" | "inline-end"
+
+export type FlexDirection = GlobalKeyword | "row" | "row-reverse" | "column" | "column-reverse"
+
+export type FlexWrap = GlobalKeyword | "nowrap" | "wrap" | "wrap-reverse"
+
+--- Values of `justify_content` and `align_content`.
+export type ContentAlignment =
+    | GlobalKeyword
+    | "normal"
+    | "start"
+    | "end"
+    | "center"
+    | "flex-start"
+    | "flex-end"
+    | "left"
+    | "right"
+    | "stretch"
+    | "space-between"
+    | "space-around"
+    | "space-evenly"
+
+--- Values of `align_items`, `align_self`, `justify_items` and `justify_self`.
+export type ItemAlignment =
+    | GlobalKeyword
+    | "normal"
+    | "auto"
+    | "start"
+    | "end"
+    | "center"
+    | "flex-start"
+    | "flex-end"
+    | "self-start"
+    | "self-end"
+    | "left"
+    | "right"
+    | "stretch"
+    | "baseline"
+
+export type GridAutoFlow = GlobalKeyword | "row" | "column" | "dense" | "row dense" | "column dense"
+
+export type FontWeight =
+    | GlobalKeyword
+    | "normal"
+    | "bold"
+    | "lighter"
+    | "bolder"
+    | "100"
+    | "200"
+    | "300"
+    | "400"
+    | "500"
+    | "600"
+    | "700"
+    | "800"
+    | "900"
+    | number
+
+export type FontStyle = GlobalKeyword | "normal" | "italic" | "oblique"
+
+export type TextAlign = GlobalKeyword | "start" | "end" | "left" | "right" | "center" | "justify"
+
+export type TextTransform = GlobalKeyword | "none" | "capitalize" | "uppercase" | "lowercase"
+
+export type TextOverflow = GlobalKeyword | "clip" | "ellipsis"
+
+export type WhiteSpace = GlobalKeyword | "normal" | "nowrap" | "pre" | "pre-wrap" | "pre-line" | "break-spaces"
+
+export type WordBreak = GlobalKeyword | "normal" | "break-all" | "keep-all" | "break-word"
+
+export type OverflowWrap = GlobalKeyword | "normal" | "break-word" | "anywhere"
+
+export type Hyphens = GlobalKeyword | "none" | "manual" | "auto"
+
+export type VerticalAlign =
+    | GlobalKeyword
+    | "baseline"
+    | "top"
+    | "middle"
+    | "bottom"
+    | "sub"
+    | "super"
+    | "text-top"
+    | "text-bottom"
+
+export type ListStylePosition = GlobalKeyword | "inside" | "outside"
+
+export type BorderStyle =
+    | GlobalKeyword
+    | "none"
+    | "hidden"
+    | "solid"
+    | "dashed"
+    | "dotted"
+    | "double"
+    | "groove"
+    | "ridge"
+    | "inset"
+    | "outset"
+
+export type BorderCollapse = GlobalKeyword | "collapse" | "separate"
+
+export type TableLayout = GlobalKeyword | "auto" | "fixed"
+
+--- Values of `background_clip`.
+export type Clip = GlobalKeyword | "border-box" | "padding-box" | "content-box" | "text"
+
+export type BackgroundRepeat = GlobalKeyword | "repeat" | "repeat-x" | "repeat-y" | "no-repeat" | "space" | "round"
+
+export type Cursor =
+    | GlobalKeyword
+    | "auto"
+    | "default"
+    | "none"
+    | "pointer"
+    | "text"
+    | "move"
+    | "grab"
+    | "grabbing"
+    | "not-allowed"
+    | "wait"
+    | "progress"
+    | "help"
+    | "crosshair"
+    | "zoom-in"
+    | "zoom-out"
+    | "col-resize"
+    | "row-resize"
+
+export type PointerEvents = GlobalKeyword | "auto" | "none"
+
+export type UserSelect = GlobalKeyword | "auto" | "none" | "text" | "all"
+
+export type ObjectFit = GlobalKeyword | "fill" | "contain" | "cover" | "none" | "scale-down"
+
+export type ScrollBehavior = GlobalKeyword | "auto" | "smooth"
+
+export type Resize = GlobalKeyword | "none" | "both" | "horizontal" | "vertical"
+
+export type Appearance = GlobalKeyword | "none" | "auto"
+
+export type Isolation = GlobalKeyword | "auto" | "isolate"
+
+export type FontSmoothing = GlobalKeyword | "auto" | "none" | "antialiased" | "subpixel-antialiased"
+
+--[=[
+    CSS declarations written as a Luwu table. Keys are CSS properties in snake_case and render as kebab-case;
+    `webkit_` and `moz_` keys get their leading `-`. A value of the wrong kind is a type error, and keyword
+    properties only take their keywords. A misspelled property gets a "did you mean" warning.
+
+    Properties this table doesn't list still work, written as they are in CSS: `["--accent"] = "#f80"`.
+
+    ## Usage
+
+    ```luwu
+    Rule(".card", {
+        display = "flex",
+        padding = "1rem",
+        color = token("primary"),
+        background = Color.named("whitesmoke"),
+        font_weight = "600",
+        opacity = 0.8,
+    })
+
+    Rule(".card", { display = "banana" }) -- type error
+    Rule(".card", { displya = "flex" })   -- warning: did you mean 'display'?
+    Rule(".card", { ["--gap"] = "2rem" }) -- a custom property
+    ```
+]=]
+export type StyleInput = {
+    -- Layout
+    display: Display?,
+    position: Position?,
+    top: Length?,
+    right: Length?,
+    bottom: Length?,
+    left: Length?,
+    inset: Length?,
+    z_index: (string | number)?,
+    float: Float?,
+    clear: Float?,
+    box_sizing: BoxSizing?,
+    overflow: Overflow?,
+    overflow_x: Overflow?,
+    overflow_y: Overflow?,
+    visibility: Visibility?,
+    width: Length?,
+    height: Length?,
+    min_width: Length?,
+    max_width: Length?,
+    min_height: Length?,
+    max_height: Length?,
+    aspect_ratio: (string | number)?,
+
+    -- Spacing
+    margin: Length?,
+    margin_top: Length?,
+    margin_right: Length?,
+    margin_bottom: Length?,
+    margin_left: Length?,
+    margin_inline: Length?,
+    margin_block: Length?,
+    padding: Length?,
+    padding_top: Length?,
+    padding_right: Length?,
+    padding_bottom: Length?,
+    padding_left: Length?,
+    padding_inline: Length?,
+    padding_block: Length?,
+
+    -- Flexbox and grid
+    flex: (string | number)?,
+    flex_direction: FlexDirection?,
+    flex_wrap: FlexWrap?,
+    flex_grow: (string | number)?,
+    flex_shrink: (string | number)?,
+    flex_basis: Length?,
+    order: (string | number)?,
+    justify_content: ContentAlignment?,
+    align_content: ContentAlignment?,
+    justify_items: ItemAlignment?,
+    justify_self: ItemAlignment?,
+    align_items: ItemAlignment?,
+    align_self: ItemAlignment?,
+    place_content: CssText?,
+    place_items: CssText?,
+    place_self: CssText?,
+    gap: Length?,
+    row_gap: Length?,
+    column_gap: Length?,
+    grid_template_columns: CssText?,
+    grid_template_rows: CssText?,
+    grid_template_areas: CssText?,
+    grid_auto_flow: GridAutoFlow?,
+    grid_auto_columns: CssText?,
+    grid_auto_rows: CssText?,
+    grid_column: (string | number)?,
+    grid_row: (string | number)?,
+    grid_area: CssText?,
+
+    -- Text
+    color: ColorValue?,
+    font: CssText?,
+    font_family: CssText?,
+    font_size: Length?,
+    font_weight: FontWeight?,
+    font_style: FontStyle?,
+    font_variant: CssText?,
+    line_height: (string | number)?,
+    letter_spacing: Length?,
+    word_spacing: Length?,
+    text_align: TextAlign?,
+    text_decoration: CssText?,
+    text_decoration_color: ColorValue?,
+    text_underline_offset: Length?,
+    text_transform: TextTransform?,
+    text_overflow: TextOverflow?,
+    text_shadow: CssText?,
+    text_indent: Length?,
+    white_space: WhiteSpace?,
+    word_break: WordBreak?,
+    overflow_wrap: OverflowWrap?,
+    hyphens: Hyphens?,
+    vertical_align: (VerticalAlign | Length)?,
+    list_style: CssText?,
+    list_style_type: CssText?,
+    list_style_position: ListStylePosition?,
+    webkit_font_smoothing: FontSmoothing?,
+
+    -- Backgrounds
+    background: (CssText | Color)?,
+    background_color: ColorValue?,
+    background_image: CssText?,
+    background_size: CssText?,
+    background_position: CssText?,
+    background_repeat: BackgroundRepeat?,
+    background_clip: Clip?,
+    webkit_background_clip: Clip?,
+
+    -- Borders and outlines
+    border: CssText?,
+    border_top: CssText?,
+    border_right: CssText?,
+    border_bottom: CssText?,
+    border_left: CssText?,
+    border_color: ColorValue?,
+    border_bottom_color: ColorValue?,
+    border_width: Length?,
+    border_style: BorderStyle?,
+    border_radius: Length?,
+    border_collapse: BorderCollapse?,
+    border_spacing: Length?,
+    outline: CssText?,
+    outline_color: ColorValue?,
+    outline_style: BorderStyle?,
+    outline_width: Length?,
+    outline_offset: Length?,
+
+    -- Effects and interaction
+    opacity: (string | number)?,
+    box_shadow: CssText?,
+    filter: CssText?,
+    backdrop_filter: CssText?,
+    webkit_backdrop_filter: CssText?,
+    transform: CssText?,
+    transform_origin: CssText?,
+    transition: CssText?,
+    animation: CssText?,
+    cursor: Cursor?,
+    pointer_events: PointerEvents?,
+    user_select: UserSelect?,
+    mix_blend_mode: CssText?,
+    clip_path: CssText?,
+    isolation: Isolation?,
+    object_fit: ObjectFit?,
+    object_position: CssText?,
+    content: CssText?,
+    counter_reset: CssText?,
+    counter_increment: CssText?,
+    appearance: Appearance?,
+    resize: Resize?,
+    scroll_behavior: ScrollBehavior?,
+    accent_color: ColorValue?,
+    caret_color: ColorValue?,
+    color_scheme: CssText?,
+    table_layout: TableLayout?,
+    will_change: CssText?,
+}
+return nil

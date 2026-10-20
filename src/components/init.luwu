@@ -1,0 +1,23 @@
+--!strict
+--!optimize 2
+
+export .{
+    Menu,
+    Dropdown,
+    Toggle,
+    ThemeSwitcher,
+    Card,
+    SiteFooter,
+    Tab,
+    Tabs,
+} = require("@self/components")
+
+export .{
+    Row,
+    Column,
+    Grid,
+} = require("@self/layout")
+
+const code = require("@self/code")
+export .{ CodeBlock, Code, Squiggle } = code
+export type .{ Language } = code

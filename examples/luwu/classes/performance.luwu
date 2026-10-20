@@ -1,0 +1,77 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const .{ h1, h2 } = Heading
+
+return Page("Performance Innovations", {
+    h1("Performance Innovations"),
+    Paragraph("How Luwu makes classes fast, and when each optimization applies."),
+    TableOfContents(),
+
+    h2("Inline fields"),
+    Paragraph({
+        "Objects are built for speed. ",
+        "An object stores its fields inline, in an order its class fixes up front, ",
+        "instead of in a hash table that grows as keys are added. ",
+        "That makes objects smaller too: an object with two number fields takes 88 bytes, ",
+        "where a table holding the same fields takes 128.",
+    }),
+
+    h2("Constant-offset field access"),
+    Paragraph({
+        "Because the order is fixed, the compiler turns a field access into a constant offset. ",
+        "Inside a method, ", Code("self.health"), " compiles to a ", Code("GETOBJECTMEMBER"),
+        " instruction (", Code("SETOBJECTMEMBER"), " for writes) that goes straight to the field's slot, ",
+        "with no key lookup and no cache to check. ",
+        "With native code generation, a field read takes about 0.9 nanoseconds against 2.0 for a table, ",
+        "and a write about 0.3 against 4.5. ",
+        "Reading the same field twice in a row costs one read, since constant propagation reuses the first.",
+    }),
+
+    h2("Proving what self is"),
+    Paragraph({
+        "The compiler only takes these shortcuts when it can prove what ", Code("self"), " is. ",
+        "Every method starts with a self check that raises an error when it's called on the wrong kind of value. ",
+        "Past that check, ", Code("self"), " is proven to be an object of the method's class, ",
+        "as long as the method never reassigns it. ",
+        "Type annotations deliberately don't count as proof, because an annotation can be wrong, ",
+        "and a wrong guess here would read the wrong memory instead of failing with an error.",
+    }),
+
+    h2("Method inlining"),
+    Paragraph({
+        "At optimization level 2 (", Code("--!optimize 2"), "), Luwu also inlines method calls. ",
+        "The compiler copies the body of a small method into its caller and removes the call entirely. ",
+        "This is where most of the speed of classes comes from. ",
+        "Inlining follows the same rule of proof: a call inlines when the compiler can prove the receiver's class. ",
+        "That covers ", Code("self:method()"), " inside a class, an object the same code just constructed, ",
+        "and a value checked with ", Code("class.isinstance"), " in an ", Code("if"), " or an ", Code("assert"), ". ",
+        "An inlined body still runs its self check, and still fails loudly on the wrong kind of object. ",
+        "Hot code runs fastest in the same module as the classes it uses, since methods only inline within a module.",
+    }),
+
+    h2("Trusting type annotations"),
+    Paragraph({
+        "Proving every receiver gets tedious once objects hold other objects. ",
+        "The ", Code("--!trust"), " directive lets a file trust its type annotations instead: ",
+        "a parameter, local or field annotated with a class is then enough to pick the method to inline. ",
+        "Trust never lets wrong code run quietly, ",
+        "because the inlined self check turns a lying annotation into a runtime error. ",
+        Code("--!trust"), " is still experimental, and isn't turned on by default yet.",
+    }),
+
+    h2("Construction and type tests"),
+    Paragraph({
+        "Building and testing objects is cheap too. ",
+        "Constructing an object compiles to a single ", Code("NEWOBJECT"), " instruction, ",
+        "with no temporary table and no function call. ",
+        Code("class.isinstance"), " compiles to one fused test-and-branch instruction, ",
+        "which native code drops entirely when the class is already known.",
+    }),
+}, "performance-innovations.html")

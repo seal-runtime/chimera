@@ -1,0 +1,298 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Component, Container } = require("@core/markup")
+type .{ Content } = markup
+
+--- A `"p"` element that holds a paragraph of text.
+export class Paragraph implements Component, Container
+    function tag(): string
+        return "p"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--[=[
+    A `"h1"` to `"h6"` element that titles a section. `level` 1 is the page's title, down to 6 for the smallest
+    subsection.
+
+    [Heading.h1] to [Heading.h6] build one of each level, and destructure well.
+
+    ```luwu
+    Heading("Welcome")
+    Heading({ "Install ", Code("chimera") }, 2)
+
+    const .{ h1, h2 } = Heading
+    Div { h1("Guide"), h2("Setup") }
+    ```
+]=]
+export class Heading implements Component, Container
+    --- The heading's level, 1 to 6.
+    level = 1
+
+    function tag(): string
+        return "h1"
+    end
+
+    function __init(self, content: Content?, level: number = 1)
+        if level < 1 or level > 6 or level % 1 ~= 0 then
+            error(`heading level must be a whole number from 1 to 6, got {level}`, 2)
+        end
+        self.level = level
+        self:add(content)
+    end
+
+    function current_tag(self): string
+        return `h{self.level}`
+    end
+
+    --[=[
+        A level 1 heading, the page's title.
+
+        ## Usage
+
+        ```luwu
+        const .{ h1 } = Heading
+        h1("Welcome"):to_html()
+        ```
+    ]=]
+    function h1(content: Content?): Heading
+        return Heading(content, 1)
+    end
+
+    --[=[
+        A level 2 heading, for the page's main sections.
+
+        ## Usage
+
+        ```luwu
+        Heading.h2("Pricing"):to_html()
+        ```
+    ]=]
+    function h2(content: Content?): Heading
+        return Heading(content, 2)
+    end
+
+    --[=[
+        A level 3 heading, for subsections.
+
+        ## Usage
+
+        ```luwu
+        Heading.h3("Monthly"):to_html()
+        ```
+    ]=]
+    function h3(content: Content?): Heading
+        return Heading(content, 3)
+    end
+
+    --[=[
+        A level 4 heading.
+
+        ## Usage
+
+        ```luwu
+        Heading.h4("Details"):to_html()
+        ```
+    ]=]
+    function h4(content: Content?): Heading
+        return Heading(content, 4)
+    end
+
+    --[=[
+        A level 5 heading.
+
+        ## Usage
+
+        ```luwu
+        Heading.h5("Notes"):to_html()
+        ```
+    ]=]
+    function h5(content: Content?): Heading
+        return Heading(content, 5)
+    end
+
+    --[=[
+        A level 6 heading, the smallest.
+
+        ## Usage
+
+        ```luwu
+        Heading.h6("Fine print"):to_html()
+        ```
+    ]=]
+    function h6(content: Content?): Heading
+        return Heading(content, 6)
+    end
+end
+
+--- A `"span"` element that marks inline text with no meaning of its own, usually to style it.
+export class Span implements Component, Container
+    function tag(): string
+        return "span"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"strong"` element that marks text as important, usually shown in bold.
+export class Strong implements Component, Container
+    function tag(): string
+        return "strong"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- An `"em"` element that stresses text, usually shown in italics.
+export class Emphasis implements Component, Container
+    function tag(): string
+        return "em"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"small"` element that holds side comments and fine print.
+export class Small implements Component, Container
+    function tag(): string
+        return "small"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"pre"` element that keeps its text's whitespace as written, usually for code blocks.
+export class Preformatted implements Component, Container
+    function tag(): string
+        return "pre"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"blockquote"` element that quotes a passage from another source.
+export class BlockQuote implements Component, Container
+    function tag(): string
+        return "blockquote"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--[=[
+    An `"a"` element that links to another page or location.
+
+    ```luwu
+    Link("Docs", "/docs")
+    Link("Source", "https://github.com/seal-runtime/chimera"):new_tab()
+    ```
+]=]
+export class Link implements Component, Container
+    function tag(): string
+        return "a"
+    end
+
+    function __init(self, content: Content?, href: string?)
+        self
+            :add(content)
+            :attr("href", href)
+    end
+
+    --[=[
+        Sets where the link goes: a URL, a path, or `#id` for an element on the same page.
+
+        ## Usage
+
+        ```luwu
+        Link("Pricing")
+            :href("#pricing")
+            :to_html()
+        ```
+
+        ```html
+        <a href="#pricing">Pricing</a>
+        ```
+    ]=]
+    function href(self, url: string): Link
+        return self:attr("href", url)
+    end
+
+    --[=[
+        Opens the link in a new tab, without giving the new page access to this one.
+
+        ## Usage
+
+        ```luwu
+        Link("Source", "https://example.com")
+            :new_tab()
+            :to_html()
+        ```
+
+        ```html
+        <a href="https://example.com" target="_blank" rel="noopener noreferrer">Source</a>
+        ```
+    ]=]
+    function new_tab(self): Link
+        return self
+            :attr("target", "_blank")
+            :attr("rel", "noopener noreferrer")
+    end
+end
+
+--- A `"br"` element that breaks a line of text.
+export class LineBreak implements Component
+    function tag(): string
+        return "br"
+    end
+
+    function __init(self) end
+end
+
+--- A `"hr"` element that marks a thematic break, drawn as a horizontal rule.
+export class HorizontalRule implements Component
+    function tag(): string
+        return "hr"
+    end
+
+    function __init(self) end
+end
+
+const classes = {
+    Paragraph,
+    Span,
+    Strong,
+    Emphasis,
+    Small,
+    Preformatted,
+    BlockQuote,
+    Link,
+    LineBreak,
+    HorizontalRule,
+}
+for _, cls in classes do
+    Element.register_class(cls)
+end
+
+for level = 1, 6 do
+    Element.register_tag(`h{level}`, function()
+        return Heading(nil, level)
+    end)
+end

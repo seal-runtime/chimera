@@ -1,0 +1,150 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Component, Container } = require("@core/markup")
+type .{ Content, Markup } = markup
+
+--- A `"li"` element that holds one item of an [UnorderedList] or [OrderedList].
+export class ListItem implements Container
+    function tag(): string
+        return "li"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--[=[
+    The items of an [UnorderedList] or [OrderedList]. Lists hold only [ListItem]s; plain strings added to a list
+    become list items.
+
+    ## Usage
+
+    Implement it with [Component] for your own kinds of list:
+
+    ```luwu
+    class Checklist implements chimera.Component, chimera.elements.List
+        function tag(): string
+            return "ul"
+        end
+
+        function __init(self, items: { string }?)
+            self:add_style_class("checklist")
+            for _, item in items or {} do
+                self:add(item)
+            end
+        end
+    end
+    ```
+]=]
+export trait List needs Element
+    items: { ListItem } = {}
+
+    --[=[
+        Appends items to the list. A string becomes a [ListItem] holding that text; build the [ListItem] yourself
+        for richer items.
+
+        ## Usage
+
+        ```luwu
+        UnorderedList()
+            :add("Fast", ListItem({ Link("Docs", "/docs") }))
+            :to_html()
+        ```
+
+        ```html
+        <ul><li>Fast</li><li><a href="/docs">Docs</a></li></ul>
+        ```
+    ]=]
+    function add(self, ...: ListItem | string): Self
+        for index = 1, select("#", ...) do
+            const item = select(index, ...)
+            table.insert(self.items, if type(item) == "string" then ListItem(item) else item)
+        end
+        return self
+    end
+
+    --[=[
+        Removes all items.
+
+        ## Usage
+
+        ```luwu
+        UnorderedList({ "a", "b" })
+            :clear()
+            :to_html()
+        ```
+
+        ```html
+        <ul></ul>
+        ```
+    ]=]
+    function clear(self): Self
+        table.clear(self.items)
+        return self
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, ListItem) then
+            table.insert(self.items, node)
+            return true
+        end
+        return false
+    end
+
+    function child_nodes(self): { read Markup }
+        return self.items
+    end
+end
+
+--- A `"ul"` element that lists items with bullets.
+export class UnorderedList implements Component, List
+    function tag(): string
+        return "ul"
+    end
+
+    function __init(self, items: { read ListItem | string }?)
+        for _, item in items or {} do
+            self:add(item)
+        end
+    end
+end
+
+--- An `"ol"` element that lists items with numbers.
+export class OrderedList implements Component, List
+    function tag(): string
+        return "ol"
+    end
+
+    function __init(self, items: { read ListItem | string }?)
+        for _, item in items or {} do
+            self:add(item)
+        end
+    end
+
+    --[=[
+        Starts numbering at `first` instead of 1.
+
+        ## Usage
+
+        ```luwu
+        OrderedList({ "Install", "Run" })
+            :start(3)
+            :to_html()
+        ```
+
+        ```html
+        <ol start="3"><li>Install</li><li>Run</li></ol>
+        ```
+    ]=]
+    function start(self, first: number): OrderedList
+        return self:attr("start", first)
+    end
+end
+
+for _, cls in { ListItem, UnorderedList, OrderedList } do
+    Element.register_class(cls)
+end

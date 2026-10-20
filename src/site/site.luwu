@@ -1,0 +1,870 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const markup = require("@core/markup")
+const .{ Element, Component, Container, Text } = require("@core/markup")
+const .{ Main, Aside, Div, Header } = require("@elements/layout")
+const .{ Menu, ThemeSwitcher, SiteFooter } = require("@components/components")
+const style_module = require("@style/style")
+const .{ Rule } = style_module
+const theme_module = require("@style/theme")
+const document_module = require("@document/document")
+const .{ Document } = document_module
+type .{ Content, Markup, Writer, HeadingEntry, PageEntry } = markup
+type .{ StyleInput } = style_module
+type .{ Theme } = theme_module
+type .{ Document } = document_module
+
+--- A page's default file: its title in lowercase with dashes.
+const function file_name(title: string): string
+    const dashed = string.gsub(string.lower(title), "[^%w]+", "-")
+    const trimmed = string.match(dashed, "^%-*(.-)%-*$") or ""
+    return (if trimmed == "" then "page" else trimmed) .. ".html"
+end
+
+--[=[
+    One page of a [Site]: a title, the content of its `<main>`, and pages nested under it. A page's file sits in
+    its parent's folder. A documentation section is a page holding its chapters.
+
+    ## Usage
+
+    ```luwu
+    const docs = Page("Docs", Paragraph("Start here."), "docs/index.html")
+        :add_page(
+            Page("Install", { h1("Install"), CodeBlock("seal setup", "bash") }), -- docs/install.html
+            Page("Themes", h1("Themes"))                                         -- docs/themes.html
+        )
+    site:add_page(Page("Home", Hero(), "index.html"), docs)
+    ```
+]=]
+export class Page
+    title = ""
+    --- The page's file, relative to its parent's folder: `"guide.html"`, or a path like `"docs/index.html"`.
+    file = ""
+    --- The summary search engines show; the [Site]'s description when nil.
+    description: string? = nil
+    --- The page's content, rendered as its `<main>`.
+    main: Main = Main()
+    children: { Page } = {}
+    parent: Page? = nil
+
+    --- `file` defaults to the title in lowercase with dashes, like `"getting-started.html"`.
+    function __init(self, title: string?, content: Content?, file: string?)
+        self.title = title or ""
+        self.file = file or file_name(self.title)
+        self.main:add(content)
+    end
+
+    --[=[
+        Appends content to the page's `<main>`.
+
+        ## Usage
+
+        ```luwu
+        Page("Guide"):add(h1("Guide"), Paragraph("Start here."))
+        ```
+    ]=]
+    function add(self, ...: Content?): Page
+        self.main:add(...)
+        return self
+    end
+
+    --[=[
+        Nests pages under this one, in its folder. They come after it in a [TableOfContents].
+
+        ## Usage
+
+        ```luwu
+        Page("Docs", nil, "docs/index.html"):add_page(Page("Install")) -- docs/install.html
+        ```
+    ]=]
+    function add_page(self, ...: Page): Page
+        for _, page in { ... } do
+            page.parent = self
+            table.insert(self.children, page)
+        end
+        return self
+    end
+
+    --[=[
+        The pages directly under this one.
+
+        ## Usage
+
+        ```luwu
+        #docs:pages()
+        ```
+    ]=]
+    function pages(self): { Page }
+        return table.clone(self.children)
+    end
+
+    --[=[
+        This page and every page under it, parents before their children.
+
+        ## Usage
+
+        ```luwu
+        for _, page in docs:all_pages() do
+            print(page:path())
+        end
+        ```
+    ]=]
+    function all_pages(self): { Page }
+        const pages = {
+            for _, child in self.children
+            for _, page in child:all_pages()
+            give page
+        }
+        table.insert(pages, 1, self)
+        return pages
+    end
+
+    --[=[
+        The page's path from the site's root.
+
+        ## Usage
+
+        ```luwu
+        Page("Docs", nil, "docs/index.html"):add_page(install)
+        install:path()
+        ```
+    ]=]
+    function path(self): string
+        const parent = self.parent or return self.file
+        return parent:folder() .. self.file
+    end
+
+    --[=[
+        The folder pages under this one go in: the page's own folder for an `index.html`, otherwise a folder named
+        after its file.
+
+        ## Usage
+
+        ```luwu
+        Page("Docs", nil, "docs/index.html"):folder()
+        ```
+    ]=]
+    function folder(self): string
+        const path = self:path()
+        if path == "index.html" then
+            return ""
+        end
+        return string.match(path, "^(.*/)index%.html$") or (string.gsub(path, "%.html$", "") .. "/")
+    end
+
+    --[=[
+        Sets the summary search engines show for this page.
+
+        ## Usage
+
+        ```luwu
+        Page("Install"):describe("Install chimera with seal")
+        ```
+    ]=]
+    function describe(self, description: string): Page
+        self.description = description
+        return self
+    end
+
+    --- The page as a `PageEntry`, with the pages under it, for elements that list pages.
+    function entry(self): PageEntry
+        return {
+            title = self.title,
+            path = self:path(),
+            children = { for _, child in self.children give child:entry() },
+        }
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        return `Page({self.title} → {self:path()}, {#self.children} pages under it)`
+    end
+
+    function __tostring(self): string
+        return `Page({self.title})`
+    end
+end
+
+--[=[
+    An `"a"` element linking to a [Page] of the same [Site]. Its `href` is worked out on each page it's rendered on,
+    so a shared header links correctly from every folder. On the page it links to, it gets `aria-current="page"`.
+
+    ## Usage
+
+    ```luwu
+    site:header(Header { Menu { PageLink(home), PageLink(guide), PageLink(docs, "Documentation") } })
+    -- on docs/install.html: <a data-element="PageLink" data-page="guide.html" href="../guide.html">Guide</a>
+    ```
+]=]
+export class PageLink implements Component, Container
+    target: Page? = nil
+
+    function tag(): string
+        return "a"
+    end
+
+    --- Takes a [Page], or a path from the site's root. The text defaults to the page's title.
+    function __init(self, target: (Page | string)?, content: Content?)
+        if type(target) == "string" then
+            self:attr("data-page", target)
+        elseif target then
+            self.target = target
+        end
+        if content ~= nil then
+            self:add(content)
+        elseif target and type(target) ~= "string" then
+            self:add(target.title)
+        end
+    end
+
+    --- The linked page's path from the site's root.
+    function page_path(self): string?
+        if const page = self.target then
+            return page:path()
+        end
+        const path = self:get_attr("data-page")
+        return if type(path) == "string" then path else nil
+    end
+
+    function render(self, out: Writer)
+        if const path = self:page_path() then
+            self
+                :attr("data-page", path)
+                :attr("href", out:href_to(path))
+                :attr("aria-current", if path == out.location then "page" else nil)
+        end
+        Element.render(self, out)
+    end
+end
+
+--- What a [TableOfContents] lists: `"page"` for the page's headings and the pages under it, `"site"` for every page.
+export type TocScope = "page" | "site"
+
+const function write_link(out: Writer, href: string, text: string, current: boolean)
+    const marker = if current then ` aria-current="page"` else ""
+    out:write(`<a href="{Text.escape(href)}"{marker}>{Text.escape(text)}</a>`)
+end
+
+const function write_pages(out: Writer, entries: { PageEntry }, nested: boolean)
+    out:write("<ul>")
+    for _, entry in entries do
+        out:write("<li>")
+        write_link(out, out:href_to(entry.path), entry.title, entry.path == out.location)
+        if nested and #entry.children > 0 then
+            write_pages(out, entry.children, true)
+        end
+        out:write("</li>")
+    end
+    out:write("</ul>")
+end
+
+--- Headings as nested lists, one level of nesting per heading level.
+const function write_headings(out: Writer, entries: { HeadingEntry })
+    const base = entries[1].level
+    local level = base
+    out:write("<ul>")
+    for index, entry in entries do
+        const target = math.clamp(entry.level, base, level + 1)
+        if index > 1 then
+            if target > level then
+                out:write("<ul>")
+            else
+                out:write("</li>" .. string.rep("</ul></li>", level - target))
+            end
+        end
+        out:write("<li>")
+        write_link(out, "#" .. entry.id, entry.text, false)
+        level = target
+    end
+    out:write("</li>" .. string.rep("</ul></li>", level - base) .. "</ul>")
+end
+
+const function find_entry(entries: { PageEntry }, path: string): PageEntry?
+    for _, entry in entries do
+        if entry.path == path then
+            return entry
+        end
+        if const found = find_entry(entry.children, path) then
+            return found
+        end
+    end
+    return nil
+end
+
+--[=[
+    A `"nav"` element listing the page's headings and the pages under it, or every page of the [Site]. It's built
+    when the page renders and never goes stale. Headings get ids from their text for the links to point to.
+
+    The `"page"` scope shows headings under "On this page" and child pages under "Subpages", in a box readers can
+    collapse. On wide screens it sits in a column beside the page. The `"site"` scope is a plain list, for a sidebar.
+
+    ## Usage
+
+    ```luwu
+    Page("Guide", {
+        h1("Guide"),
+        TableOfContents(), -- h2 and h3 headings, and the guide's child pages
+        h2("Install"),
+        h2("Themes"),
+    })
+    site:sidebar(TableOfContents("site", 3, "Pages"))
+    ```
+]=]
+export class TableOfContents implements Component
+    function tag(): string
+        return "nav"
+    end
+
+    --[=[
+        `depth` is the deepest heading level listed; level 1, the page's title, never is. `title` labels the box,
+        "Contents" by default for the `"page"` scope.
+    ]=]
+    function __init(self, scope: TocScope = "page", depth: number = 3, title: string?)
+        self
+            :attr("data-scope", scope)
+            :attr("data-depth", depth)
+            :attr("aria-label", title)
+        self:add_style_class("chimera-toc")
+    end
+
+    function scope(self): TocScope
+        return if self:get_attr("data-scope") == "site" then "site" else "page"
+    end
+
+    function depth(self): number
+        return tonumber(self:get_attr("data-depth")) or 3
+    end
+
+    function lists_headings(self): boolean
+        return self:scope() == "page"
+    end
+
+    --- Drops the parsed list: it's rebuilt when the page renders.
+    function adopt(self, node: Markup): boolean
+        return true
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        const title = self:get_attr("aria-label")
+        if self:scope() == "site" then
+            if type(title) == "string" then
+                out:write(`<p class="chimera-toc-title">{Text.escape(title)}</p>`)
+            end
+            write_pages(out, out.pages, true)
+            out:write("</nav>")
+            return
+        end
+        const depth = self:depth()
+        const headings = { for _, entry in out.headings when entry.level > 1 and entry.level <= depth give entry }
+        const here = find_entry(out.pages, out.location)
+        const subpages = if here then here.children else {}
+        if #headings > 0 or #subpages > 0 then
+            const label = if type(title) == "string" then title else "Contents"
+            out:write(`<details open><summary>{Text.escape(label)}</summary><div class="chimera-toc-columns">`)
+            if #headings > 0 then
+                out:write(`<section><p class="chimera-toc-title">On this page</p>`)
+                write_headings(out, headings)
+                out:write("</section>")
+            end
+            if #subpages > 0 then
+                out:write(`<section><p class="chimera-toc-title">Subpages</p>`)
+                write_pages(out, subpages, false)
+                out:write("</section>")
+            end
+            out:write("</div></details>")
+        end
+        out:write("</nav>")
+    end
+end
+
+--- The pages from the top of the tree down to the page at `path`, or nil when it isn't in `entries`.
+const function find_chain(entries: { PageEntry }, path: string): { PageEntry }?
+    for _, entry in entries do
+        if entry.path == path then
+            return { entry }
+        end
+        if const chain = find_chain(entry.children, path) then
+            table.insert(chain, 1, entry)
+            return chain
+        end
+    end
+    return nil
+end
+
+--[=[
+    A `"nav"` element showing where the page sits in its [Site]: every page above it, each a link back up, then the
+    page itself. Renders nothing on a top-level page. A site adds one above every nested page's content unless
+    [Site:breadcrumbs] turns them off.
+
+    ## Usage
+
+    ```luwu
+    Page("Path", { Breadcrumbs(), h1("fs.path") }) -- on docs/reference/std/fs/path.html
+    ```
+
+    ```html
+    <nav data-element="Breadcrumbs" aria-label="Breadcrumb" class="chimera-breadcrumbs"><ol>
+    <li><a href="../../../index.html">Docs</a></li><li><a href="../../index.html">Reference</a></li>
+    <li><a href="../index.html">std</a></li><li><a href="index.html">fs</a></li>
+    <li><span aria-current="page">Path</span></li></ol></nav>
+    ```
+]=]
+export class Breadcrumbs implements Component
+    function tag(): string
+        return "nav"
+    end
+
+    function __init(self)
+        self
+            :attr("aria-label", "Breadcrumb")
+            :add_style_class("chimera-breadcrumbs")
+    end
+
+    --- Drops the parsed links: they're rebuilt when the page renders.
+    function adopt(self, node: Markup): boolean
+        return true
+    end
+
+    function render(self, out: Writer)
+        const chain = find_chain(out.pages, out.location)
+        if chain == nil or #chain < 2 then
+            return
+        end
+        self:render_open(out)
+        out:write("<ol>")
+        for index, entry in chain do
+            if index < #chain then
+                out:write("<li>")
+                write_link(out, out:href_to(entry.path), entry.title, false)
+                out:write("</li>")
+            else
+                out:write(`<li><span aria-current="page">{Text.escape(entry.title)}</span></li>`)
+            end
+        end
+        out:write("</ol></nav>")
+    end
+end
+
+--- A `"div"` that lays out a [Site]'s sidebar beside each page's `<main>`.
+export class SiteLayout implements Component, Container
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, ...: Content?)
+        self
+            :add_style_class("chimera-site-layout")
+            :add(...)
+    end
+end
+
+for _, cls in { PageLink, TableOfContents, Breadcrumbs, SiteLayout } do
+    Component.register(cls)
+end
+
+--[=[
+    A whole website: its [Page]s, and everything they share. That's the themes, a header, footer and sidebar
+    rendered on every page, and site-wide styles. [Site:build] writes every page with links worked out between
+    folders. Shared parts can't drift between pages.
+
+    ## Usage
+
+    ```luwu
+    const home = Page("Home", Hero(), "index.html")
+    const guide = Page("Guide", { h1("Guide"), TableOfContents(), h2("Install"), h2("Themes") })
+
+    Site("chimera")
+        :default_dark_theme(catppuccin.Mocha)
+        :default_light_theme(catppuccin.Latte)
+        :describe("Static sites as Luwu classes")
+        :header(Header { Menu { PageLink(home), PageLink(guide), ThemeSwitcher() } })
+        :footer(Footer { Paragraph("Built with chimera.") })
+        :add_page(home, guide)
+        :build("site")
+    ```
+]=]
+export class Site(const name: string)
+    light_theme: class<Theme>? = nil
+    dark_theme: class<Theme>? = nil
+    offered_themes: { class<Theme> } = {}
+    top_pages: { Page } = {}
+    --- Nil until [Site:header] sets it: then pages get [Site:default_header].
+    header_content: (Content | none)? = nil
+    --- Nil until [Site:footer] sets it: then pages get [Site:default_footer].
+    footer_content: (Content | none)? = nil
+    sidebar_content: Content? = nil
+    rules: { Rule } = {}
+    description: string? = nil
+    language = "en"
+    show_breadcrumbs = true
+    customizers: { (Document, Page) -> () } = {}
+
+    --[=[
+        The theme readers see when their OS is in light mode, on every page. Like
+        [Document:default_light_theme][document_module.Document.default_light_theme].
+
+        ## Usage
+
+        ```luwu
+        site:default_light_theme(catppuccin.Latte)
+        ```
+    ]=]
+    function default_light_theme(self, cls: class<Theme>): Site
+        self.light_theme = cls
+        return self
+    end
+
+    --[=[
+        The theme readers see when their OS is in dark mode, on every page. Like
+        [Document:default_dark_theme][document_module.Document.default_dark_theme].
+
+        ## Usage
+
+        ```luwu
+        site:default_dark_theme(catppuccin.Mocha)
+        ```
+    ]=]
+    function default_dark_theme(self, cls: class<Theme>): Site
+        self.dark_theme = cls
+        return self
+    end
+
+    --[=[
+        Lets readers pick `cls` on every page. A pick carries over as they move between pages.
+
+        ## Usage
+
+        ```luwu
+        site:offer_theme(catppuccin.Frappe)
+        ```
+    ]=]
+    function offer_theme(self, cls: class<Theme>): Site
+        table.insert(self.offered_themes, cls)
+        return self
+    end
+
+    --[=[
+        The summary search engines show, for pages without their own [Page:describe].
+
+        ## Usage
+
+        ```luwu
+        site:describe("Static sites as Luwu classes")
+        ```
+    ]=]
+    function describe(self, description: string): Site
+        self.description = description
+        return self
+    end
+
+    --[=[
+        The language every page is written in, as the `lang` of its `<html>`. English by default.
+
+        ## Usage
+
+        ```luwu
+        Site("chimera"):lang("fr")
+        ```
+    ]=]
+    function lang(self, language: string): Site
+        self.language = language
+        return self
+    end
+
+    --[=[
+        Content shown at the top of every page, before its `<main>`, in place of [Site:default_header]. `none`
+        leaves pages without a header. Use [PageLink]s in it. They link correctly from every folder.
+
+        ## Usage
+
+        ```luwu
+        site:header(Header { Menu { PageLink(home), PageLink(guide), ThemeSwitcher() } })
+        site:header(none)
+        ```
+    ]=]
+    function header(self, content: Content | none): Site
+        self.header_content = content
+        return self
+    end
+
+    --[=[
+        Content shown at the bottom of every page, in place of [Site:default_footer]. `none` leaves pages without
+        a footer.
+
+        ## Usage
+
+        ```luwu
+        site:footer(SiteFooter():link_column("Project", { Link("Source", "https://github.com/you/site") }))
+        site:footer(none)
+        ```
+    ]=]
+    function footer(self, content: Content | none): Site
+        self.footer_content = content
+        return self
+    end
+
+    --[=[
+        The header pages get when [Site:header] isn't set: a menu with the site's name linking home, a link to each
+        top-level page, and a [ThemeSwitcher] when readers have more than one theme to pick.
+
+        ## Usage
+
+        ```luwu
+        site:header({ Paragraph("Version 2 is out!"):add_style_class("banner"), site:default_header() })
+        ```
+    ]=]
+    function default_header(self): Header
+        const menu = Menu()
+        if const home = self:find_page("index.html") or self.top_pages[1] then
+            menu:add(PageLink(home, self.name):add_style_class("chimera-brand"))
+        end
+        menu:add({ for _, page in self.top_pages give PageLink(page) })
+        const no_defaults = self.light_theme == nil and self.dark_theme == nil
+        const defaults = if no_defaults then 2 elseif self.light_theme and self.dark_theme then 2 else 1
+        if defaults + #self.offered_themes > 1 then
+            menu:add(ThemeSwitcher())
+        end
+        return Header({ menu })
+    end
+
+    --[=[
+        The footer pages get when [Site:footer] isn't set: a [SiteFooter] with the site's name in its copyright.
+
+        ## Usage
+
+        ```luwu
+        site:footer(site
+            :default_footer()
+            :legal({ Link("Privacy", "/privacy") })
+        )
+        ```
+    ]=]
+    function default_footer(self): SiteFooter
+        return SiteFooter():copyright(self.name)
+    end
+
+    --[=[
+        Content shown beside every page's `<main>`, like a list of the site's pages.
+
+        ## Usage
+
+        ```luwu
+        site:sidebar(TableOfContents("site", 3, "Pages"))
+        ```
+    ]=]
+    function sidebar(self, content: Content): Site
+        self.sidebar_content = content
+        return self
+    end
+
+    --[=[
+        Styles every element matching `target` on every page, like
+        [Document:style_every][document_module.Document.style_every].
+
+        ## Usage
+
+        ```luwu
+        site:style_every(".brand", { font_weight = "800" })
+        ```
+    ]=]
+    function style_every(self, target: string | class<Element>, input: StyleInput): Site
+        const selector = if type(target) == "string" then target else Element.style_selector_of(target)
+        table.insert(self.rules, Rule(selector, input))
+        return self
+    end
+
+    --[=[
+        Whether nested pages show [Breadcrumbs] above their content, leading back to the pages above them. On by
+        default.
+
+        ## Usage
+
+        ```luwu
+        site:breadcrumbs(false)
+        ```
+    ]=]
+    function breadcrumbs(self, show: boolean): Site
+        self.show_breadcrumbs = show
+        return self
+    end
+
+    --[=[
+        Runs `customize` on each page's [Document] before it's written, for anything a site doesn't set itself.
+
+        ## Usage
+
+        ```luwu
+        site:customize(function(document, page)
+            document:link_stylesheet("/fonts.css")
+        end)
+        ```
+    ]=]
+    function customize(self, customize: (Document, Page) -> ()): Site
+        table.insert(self.customizers, customize)
+        return self
+    end
+
+    --[=[
+        Adds top-level pages, in the order a [TableOfContents] lists them.
+
+        ## Usage
+
+        ```luwu
+        site:add_page(Page("Home", Hero(), "index.html"), Page("Guide"))
+        ```
+    ]=]
+    function add_page(self, ...: Page): Site
+        for _, page in { ... } do
+            table.insert(self.top_pages, page)
+        end
+        return self
+    end
+
+    --[=[
+        The site's top-level pages.
+
+        ## Usage
+
+        ```luwu
+        for _, page in site:pages() do
+            print(page.title)
+        end
+        ```
+    ]=]
+    function pages(self): { Page }
+        return table.clone(self.top_pages)
+    end
+
+    --[=[
+        Every page of the site, parents before their children.
+
+        ## Usage
+
+        ```luwu
+        #site:all_pages()
+        ```
+    ]=]
+    function all_pages(self): { Page }
+        return {
+            for _, top in self.top_pages
+            for _, page in top:all_pages()
+            give page
+        }
+    end
+
+    --[=[
+        The page at `path` from the site's root, or nil.
+
+        ## Usage
+
+        ```luwu
+        site:find_page("docs/install.html")
+        ```
+    ]=]
+    function find_page(self, path: string): Page?
+        for _, page in self:all_pages() do
+            if page:path() == path then
+                return page
+            end
+        end
+        return nil
+    end
+
+    --[=[
+        The [Document] for one page: the site's themes, styles, header, footer and sidebar around the page's
+        content. [Site:build] writes these; call it to check or change one page.
+
+        ## Usage
+
+        ```luwu
+        print(site
+            :document(guide)
+            :to_html(true)
+        )
+        ```
+    ]=]
+    function document(self, page: Page): Document
+        const title = if page.title == self.name then page.title else `{page.title} · {self.name}`
+        const document = Document(title):attr("lang", self.language)
+        if const light = self.light_theme then
+            document:default_light_theme(light)
+        end
+        if const dark = self.dark_theme then
+            document:default_dark_theme(dark)
+        end
+        for _, theme in self.offered_themes do
+            document:offer_theme(theme)
+        end
+        if const description = page.description or self.description then
+            document:describe(description)
+        end
+        for _, rule in self.rules do
+            table.insert(document.rules, rule)
+        end
+        document.location = page:path()
+        document.site_pages = { for _, top in self.top_pages give top:entry() }
+        const header = if self.header_content == nil then self:default_header() else self.header_content
+        if header ~= none then
+            document:add(header)
+        end
+        const breadcrumbs = if self.show_breadcrumbs and page.parent then Breadcrumbs() else none
+        if const sidebar = self.sidebar_content then
+            document:add(SiteLayout(Aside(sidebar), Div({ breadcrumbs, page.main })))
+        else
+            document:add({ breadcrumbs, page.main })
+        end
+        const footer = if self.footer_content == nil then self:default_footer() else self.footer_content
+        if footer ~= none then
+            document:add(footer)
+        end
+        for _, customize in self.customizers do
+            customize(document, page)
+        end
+        return document
+    end
+
+    --[=[
+        Writes every page into `out_dir`, creating folders as needed, and returns the paths written. Pretty-printed
+        unless `pretty` is false. Two pages with the same path are an error.
+
+        ## Usage
+
+        ```luwu
+        for _, path in site:build("site") do
+            print(`wrote {path}`)
+        end
+        ```
+    ]=]
+    function build(self, out_dir: string, pretty: boolean = true): { string }
+        const written: { string } = {}
+        const taken: { [string]: Page } = {}
+        for _, page in self:all_pages() do
+            const path = page:path()
+            if const other = taken[path] then
+                error(`pages '{other.title}' and '{page.title}' both write {path}`, 2)
+            end
+            taken[path] = page
+            const file = fs.path.join(out_dir, path)
+            if const folder = fs.path.parent(file) then
+                fs.dir.ensure(folder, true)
+            end
+            const html = self
+                :document(page)
+                :to_html(pretty)
+            fs.writefile(file, html)
+            table.insert(written, file)
+        end
+        return written
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        return `Site({self.name}, {#self:all_pages()} pages)`
+    end
+
+    function __tostring(self): string
+        return `Site({self.name})`
+    end
+end

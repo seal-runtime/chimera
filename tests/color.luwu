@@ -1,0 +1,107 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ equal, truthy } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    style.{ Color, Style, Palette },
+} = chimera
+
+const tests: { [string]: () -> () } = {
+    ["named colors"] = function()
+        equal(Color.named("rebeccapurple"):to_hex(), "#663399")
+        equal(Color.named("transparent"):to_css(), "rgb(0 0 0 / 0)")
+    end,
+
+    ["hex in every length"] = function()
+        equal(Color.hex("#abc"):to_hex(), "#aabbcc")
+        equal(Color.hex("#abcd"):to_hex(), "#aabbccdd")
+        equal(Color.hex("#3B5BDB"):to_hex(), "#3b5bdb")
+        equal(Color.hex("#3b5bdb80").a, 128 / 255)
+    end,
+
+    ["runtime hex text parses or gives nil"] = function()
+        equal(if const parsed = Color.parse_hex("#3b5bdb") then parsed:to_hex() else nil, "#3b5bdb")
+        for _, hex in { "3b5bdb", "#12", "#ggg", "#12345", "" } do
+            equal(Color.parse_hex(hex), nil, `expected '{hex}' to be rejected`)
+        end
+    end,
+
+    ["css is hex when opaque, rgb with alpha otherwise"] = function()
+        equal(Color(255, 128, 0):to_css(), "#ff8000")
+        equal(Color(255, 128, 0, 0.5):to_css(), "rgb(255 128 0 / 0.5)")
+        equal(tostring(Color(1, 2, 3)), "#010203")
+    end,
+
+    ["channels are clamped and rounded when written"] = function()
+        equal(Color(300, -5, 127.6):to_hex(), "#ff0080")
+    end,
+
+    ["vectors"] = function()
+        const color = Color.from_vector(vector.create(10, 20, 30), 0.25)
+        equal(color.a, 0.25)
+        equal(color:to_vector(), vector.create(10, 20, 30))
+    end,
+
+    ["packed u32 roundtrips"] = function()
+        equal(Color(0x12, 0x34, 0x56):to_u32(), 0x123456ff)
+        equal(Color.from_u32(0x12345680):to_hex(), "#12345680")
+    end,
+
+    ["buffers roundtrip at an offset"] = function()
+        const data = buffer.create(6)
+        Color(1, 2, 3, 1):write_buffer(data, 2)
+        equal(Color.from_buffer(data, 2), Color(1, 2, 3))
+        equal(buffer.len(Color.named("red"):to_buffer()), 4)
+    end,
+
+    ["terminal codes out"] = function()
+        equal(Color(1, 2, 3):to_ansi(), "\27[38;2;1;2;3m")
+        equal(Color(1, 2, 3):to_ansi("background"), "\27[48;2;1;2;3m")
+    end,
+
+    ["terminal codes in"] = function()
+        equal(Color.from_ansi("\27[38;2;255;128;0m"), Color(255, 128, 0))
+        equal(Color.from_ansi("48;2;1;2;3"), Color(1, 2, 3))
+        equal(Color.from_ansi("\27[31m"), Color.hex("#cd0000"))
+        equal(Color.from_ansi("\27[94m"), Color.hex("#5c5cff"))
+        equal(Color.from_ansi("\27[44m"), Color.hex("#0000ee"))
+        equal(Color.from_ansi("\27[38;5;196m"), Color(255, 0, 0))
+        equal(Color.from_ansi("\27[38;5;244m"), Color(128, 128, 128))
+        equal(Color.from_ansi("\27[1m"), nil)
+        equal(Color.from_ansi("not a code"), nil)
+    end,
+
+    ["alpha and mixing"] = function()
+        equal(
+            Color.named("white")
+                :with_alpha(0.5)
+                :to_css(),
+            "rgb(255 255 255 / 0.5)"
+        )
+        equal(
+            Color(0, 0, 0)
+                :mix(Color(255, 255, 255), 0.5)
+                :to_hex(),
+            "#808080"
+        )
+    end,
+
+    ["equality compares channels"] = function()
+        equal(Color(1, 2, 3) == Color(1, 2, 3), true)
+        equal(Color(1, 2, 3) == Color(1, 2, 4), false)
+    end,
+
+    ["styles take colors"] = function()
+        equal(Style({ color = Color.named("red") }):to_css(), "color: #ff0000")
+    end,
+
+    ["palettes render colors as variables"] = function()
+        const variables = Palette({ primary = Color(1, 2, 3) }):variables()
+        equal(variables:get("--chimera-primary"), "#010203")
+        truthy(variables:get("--chimera-background"), "expected the default background")
+    end,
+}
+
+return tests

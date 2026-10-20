@@ -1,0 +1,442 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const datetime = require("@std/time/datetime")
+const markup = require("@core/markup")
+const .{ Element, Component, Container, Text } = require("@core/markup")
+const .{ Div, Layout } = require("@elements/layout")
+const .{ Row, Grid } = require("@components/layout")
+const .{ Heading, Paragraph } = require("@elements/text")
+const .{ UnorderedList, ListItem } = require("@elements/lists")
+const .{ Summary } = require("@elements/disclosure")
+type .{ Content, Markup, Writer, Element, Child } = markup
+
+--[=[
+    A `"nav"` element that shows a horizontal navigation bar, styled by the theme.
+
+    ```luwu
+    Menu {
+        Link("Home", "/"),
+        Dropdown("Guides", { Link("Install", "/install"), Link("Themes", "/themes") }),
+        ThemeSwitcher(),
+    }
+    ```
+]=]
+export class Menu implements Component, Container
+    function tag(): string
+        return "nav"
+    end
+
+    function __init(self, content: Content?)
+        self
+            :add_style_class("chimera-menu")
+            :add(content)
+    end
+end
+
+--[=[
+    A `"details"` element that shows a floating list of items when clicked, with no JavaScript.
+
+    ```luwu
+    Dropdown("Account", { Link("Profile", "/me"), Link("Sign out", "/logout") })
+    ```
+]=]
+export class Dropdown implements Component
+    function tag(): string
+        return "details"
+    end
+    summary: Summary = Summary()
+    menu: Div = Div():add_style_class("chimera-dropdown-items")
+
+    function __init(self, label: Content?, items: Content?)
+        self:add_style_class("chimera-dropdown")
+        self.summary:add(label)
+        self.menu:add(items)
+    end
+
+    --[=[
+        Appends items to the dropdown's floating list, the same way [Container:add][markup.Container.add] does.
+
+        ## Usage
+
+        ```luwu
+        Dropdown("Account")
+            :add(Link("Profile", "/me"), Link("Sign out", "/logout"))
+            :to_html()
+        ```
+
+        ```html
+        <details data-element="Dropdown" class="chimera-dropdown"><summary>Account</summary>
+        <div class="chimera-dropdown-items"><a href="/me">Profile</a><a href="/logout">Sign out</a></div></details>
+        ```
+
+        [markup = require("@core/markup")]
+    ]=]
+    function add(self, ...: Content?): Dropdown
+        self.menu:add(...)
+        return self
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Summary) then
+            self.summary = node
+            return true
+        elseif class.isinstance(node, Div) then
+            self.menu = node
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Dropdown
+        self.summary = Summary()
+        self.menu = Div():add_style_class("chimera-dropdown-items")
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return { self.summary, self.menu }
+    end
+end
+
+--[=[
+    A `"button"` element that shows and hides another element.
+
+    ```luwu
+    const answer = Paragraph("Forty-two.")
+    Div { Toggle("Show answer", answer), answer:hidden() }
+    ```
+]=]
+export class Toggle implements Component, Container
+    function tag(): string
+        return "button"
+    end
+
+    function __init(self, content: Content?, target: Element | string | nil)
+        self
+            :attr("type", "button")
+            :add(content)
+        if target then
+            self:target(target)
+        end
+    end
+
+    --[=[
+        Sets the element this button shows and hides, by element or by id. An element without an id gets a
+        generated one.
+
+        ## Usage
+
+        ```luwu
+        const answer = Paragraph("42"):hidden()
+        Div({ Toggle("Show answer"):target(answer), answer }):to_html()
+        ```
+
+        ```html
+        <div><button data-element="Toggle" type="button" aria-controls="chimera-1"
+        onclick="chimera.toggle('chimera-1')">Show answer</button><p hidden id="chimera-1">42</p></div>
+        ```
+    ]=]
+    function target(self, target: Element | string): Toggle
+        const id = if type(target) == "string" then target else target:ensure_id()
+        return self
+            :attr("aria-controls", id)
+            :on("click", `chimera.toggle('{id}')`)
+    end
+end
+
+const THEME_ICON = [=[<svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">]=]
+    .. [=[<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>]=]
+    .. [=[<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>]=]
+
+--[=[
+    A `"details"` element that shows a round theme button. Clicking it opens a menu of the themes the document offers,
+    each with a color preview. Choosing one restyles the page and persists across visits.
+
+    ## Usage
+
+    ```luwu
+    Document("Site")
+        :default_dark_theme(Mocha)
+        :default_light_theme(Latte)
+        :add(Menu { Link("Home", "/"), ThemeSwitcher() })
+    ```
+
+    ```html
+    <details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary ...><svg .../></summary>
+    <div class="chimera-theme-options" role="menu"><button ... data-chimera-theme-option="catppuccin-mocha">
+    <span class="chimera-theme-swatch">...</span>Catppuccin Mocha</button>...</div></details>
+    ```
+]=]
+export class ThemeSwitcher implements Component
+    function tag(): string
+        return "details"
+    end
+
+    function __init(self)
+        self:add_style_class("chimera-theme-switcher")
+    end
+
+    --- Discards parsed children; rendering lists the document's themes instead.
+    function adopt(self, node: Markup): boolean
+        return true
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write(`<summary aria-label="Change theme" title="Change theme">{THEME_ICON}</summary>`)
+        out:write(`<div class="chimera-theme-options" role="menu">`)
+        for _, option in out.themes do
+            const swatches = { for _, color in option.swatches give `<span style="background: {color}"></span>` }
+            out:write(
+                `<button type="button" role="menuitemradio" aria-checked="false"`
+                    .. ` data-chimera-theme-option="{option.name}" onclick="chimera.setTheme('{option.name}')">`
+                    .. `<span class="chimera-theme-swatch">{table.concat(swatches)}</span>`
+                    .. `{Text(option.label):to_html()}</button>`
+            )
+        end
+        out:write("</div></details>")
+    end
+end
+
+--[=[
+    A `"div"` element that shows a raised box with an optional title, styled by the theme.
+
+    ```luwu
+    Card("Fast", Paragraph("Renders thousands of pages a second."))
+    ```
+]=]
+export class Card implements Component, Container
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, title: Content?, content: Content?)
+        self:add_style_class("chimera-card")
+        if title ~= nil then
+            self:add(Heading.h3(title))
+        end
+        self:add(content)
+    end
+end
+
+--[=[
+    A `"footer"` element for the bottom of a site's pages: columns of links, then a bar with the copyright and the
+    legal links. Fill in only the parts the site needs; a [Site][site.Site] shows one with its name's copyright
+    unless given another footer.
+
+    ## Usage
+
+    ```luwu
+    SiteFooter()
+        :link_column("Docs", { PageLink(guide), PageLink(reference) })
+        :link_column("Community", { Link("Discord", "https://discord.gg/your-invite"), Link("Blog", "/blog") })
+        :link_column("Project", { Link("Source", "https://github.com/you/site"), Link("Changelog", "/changelog") })
+        :copyright("Your Name", "All rights reserved.")
+        :legal({ Link("Privacy", "/privacy"), Link("Terms", "/terms"), Link("Contact", "mailto:you@example.com") })
+    ```
+
+    [site = require("@site/site")]
+]=]
+export class SiteFooter implements Component, Layout
+    private link_columns: Grid? = nil
+    private bar: Row? = nil
+
+    public function tag(): string
+        return "footer"
+    end
+
+    public function __init(self, content: Content?)
+        self
+            :add_style_class("chimera-footer")
+            :add(content)
+    end
+
+    --- The bar under the columns that holds the copyright and legal links, added on first use.
+    private function bottom_bar(self): Row
+        if const bar = self.bar then
+            return bar
+        end
+        const bar = Row()
+            :justify("space-between")
+            :align("center")
+            :add_style_class("chimera-footer-bar")
+        self.bar = bar
+        self:add(bar)
+        return bar
+    end
+
+    --[=[
+        Adds a titled column of links, after the columns added before it. The columns sit above the bottom bar.
+
+        ## Usage
+
+        ```luwu
+        SiteFooter():link_column("Resources", { Link("Docs", "/docs"), Link("Examples", "/examples") })
+        ```
+    ]=]
+    public function link_column(self, title: string, links: { read Child }): SiteFooter
+        const columns = self.link_columns or do
+            const created = Grid(nil, "10rem")
+                :gap("1.5rem 2rem")
+                :add_style_class("chimera-footer-columns")
+            self.link_columns = created
+            self:insert(1, created)
+            give created
+        const items = UnorderedList({ for _, link in links give ListItem(link) })
+        columns:add(Div({ Paragraph(title):add_style_class("chimera-footer-title"), items }))
+        return self
+    end
+
+    --[=[
+        Adds the copyright line: "© <year> <holder>", then `notice` if given. The year defaults to the year the
+        page is built.
+
+        ## Usage
+
+        ```luwu
+        SiteFooter():copyright("Your Name", "All rights reserved.")
+        SiteFooter():copyright("Your Name", nil, 2024)
+        ```
+    ]=]
+    public function copyright(self, holder: string, notice: string?, year: number?): SiteFooter
+        const line = "© " .. tostring(year or datetime.now().year) .. " " .. holder .. "."
+        const text = if notice then line .. " " .. notice else line
+        self
+            :bottom_bar()
+            :add(Paragraph(text):add_style_class("chimera-footer-copyright"))
+        return self
+    end
+
+    --[=[
+        Adds small links beside the copyright, like the privacy policy, terms and contact.
+
+        ## Usage
+
+        ```luwu
+        SiteFooter():legal({ Link("Privacy", "/privacy"), Link("Terms", "/terms") })
+        ```
+    ]=]
+    public function legal(self, links: { read Child }): SiteFooter
+        self
+            :bottom_bar()
+            :add(Row(links)
+                :gap("1.25rem")
+                :add_style_class("chimera-footer-legal")
+            )
+        return self
+    end
+end
+
+--[=[
+    A `"div"` element holding one panel of [Tabs], shown when its tab is selected.
+
+    ## Usage
+
+    ```luwu
+    Tab("Output", CodeBlock("hello", "plaintext"))
+    ```
+]=]
+export class Tab implements Component, Container
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, label: string?, content: Content?)
+        self
+            :attr("data-tab", label)
+            :attr("role", "tabpanel")
+            :add_style_class("chimera-tab")
+            :add(content)
+    end
+
+    --- The label on this panel's tab.
+    function label(self): string
+        return tostring(self:get_attr("data-tab") or "")
+    end
+end
+
+--[=[
+    A `"div"` element that shows one of several [Tab] panels at a time, with a row of tabs above them to switch
+    between. The first tab is selected unless [Tabs:select] picks another. Each `Tabs` switches on its own.
+
+    ## Usage
+
+    ```luwu
+    Tabs({
+        Tab("Luwu", CodeBlock("const x = 1")),
+        Tab("Luau", CodeBlock("local x = 1", "luau")),
+    })
+    ```
+
+    ```html
+    <div data-element="Tabs" class="chimera-tabs"><div class="chimera-tab-list" role="tablist"><button type="button"
+    role="tab" aria-selected="true" onclick="chimera.tab(this)">Luwu</button><button type="button" role="tab"
+    aria-selected="false" onclick="chimera.tab(this)">Luau</button></div><div data-element="Tab" data-tab="Luwu"
+    role="tabpanel" class="chimera-tab">...</div><div data-element="Tab" data-tab="Luau" role="tabpanel"
+    class="chimera-tab" hidden>...</div></div>
+    ```
+]=]
+export class Tabs implements Component, Container
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, content: Content?)
+        self
+            :add_style_class("chimera-tabs")
+            :add(content)
+    end
+
+    --- Adds a panel labeled `label` holding `content`.
+    function tab(self, label: string, content: Content?): Tabs
+        return self:add(Tab(label, content))
+    end
+
+    --- Selects the tab labeled `label` when the page loads, instead of the first.
+    function select(self, label: string): Tabs
+        return self:attr("data-selected", label)
+    end
+
+    --- The panels, in order.
+    function tabs(self): { Tab }
+        return { for _, child in self.children when class.isinstance(child, Tab) give child }
+    end
+
+    --- Skips the row of tabs, which is rebuilt from the panels.
+    function adopt(self, node: Markup): boolean
+        if class.implements(node, Element) when node:has_style_class("chimera-tab-list") then
+            return true
+        end
+        return Container.adopt(self, node)
+    end
+
+    function render(self, out: Writer)
+        const tabs = self:tabs()
+        const wanted = self:get_attr("data-selected")
+        const selected = do
+            for index, tab in tabs do
+                if tab:label() == wanted then
+                    give index
+                end
+            end
+            give 1
+        self:render_open(out)
+        out:write("<div class=\"chimera-tab-list\" role=\"tablist\">")
+        for index, tab in tabs do
+            tab:attr("hidden", index ~= selected)
+            out:write(`<button type="button" role="tab" aria-selected="{index == selected}"`)
+            out:write(` onclick="chimera.tab(this)">{Text.escape(tab:label())}</button>`)
+        end
+        out:write("</div>")
+        for _, child in self.children do
+            child:render(out)
+        end
+        out:write("</div>")
+    end
+end
+
+for _, cls in { Menu, Dropdown, Toggle, ThemeSwitcher, Card, SiteFooter, Tab, Tabs } do
+    Component.register(cls)
+end

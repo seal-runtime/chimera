@@ -1,0 +1,347 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const properties = require("@style/properties")
+export type StyleValue = properties.StyleValue
+export type StyleInput = properties.StyleInput
+
+--- A [StyleInput] viewed as a map for `merge`. Records can't be iterated. Every field holds a [StyleValue].
+type Declarations = { [string]: StyleValue }
+
+const function property_name(key: string): string
+    if string.sub(key, 1, 2) == "--" then
+        return key
+    end
+    const kebab = string.gsub(key, "_", "-")
+    if string.find(kebab, "^webkit%-") or string.find(kebab, "^moz%-") then
+        return "-" .. kebab
+    end
+    return kebab
+end
+
+const function value_string(value: StyleValue): string
+    if type(value) == "number" then
+        return tostring(value)
+    elseif type(value) == "string" then
+        return value
+    end
+    return value:to_css()
+end
+
+const function trim(s: string): string
+    return (string.match(s, "^%s*(.-)%s*$")) or ""
+end
+
+const function sorted_keys(input: Declarations): { string }
+    const keys = { for key in input give key }
+    table.sort(keys)
+    return keys
+end
+
+--[=[
+    An ordered set of CSS declarations, like the inside of a CSS rule or an inline `style` attribute.
+
+    Declarations render in insertion order, keeping output deterministic.
+
+    ```luwu
+    const card = Style {
+        padding = "1rem",
+        border_radius = "8px",
+    }
+        :set("background", token("surface"))
+    print(card:to_css())
+    ```
+
+    ```css
+    padding: 1rem; border-radius: 8px; background: var(--chimera-surface)
+    ```
+]=]
+export class Style
+    names: { string } = {}
+    values: { [string]: string } = {}
+
+    function __init(self, input: StyleInput?)
+        if input then
+            self:merge(input)
+        end
+    end
+
+    --[=[
+        Sets one declaration. A snake_case `name` renders as kebab-case, and [Color][color.Color]s render as CSS
+        colors. A new property goes last; changing one keeps its place. `nil` removes it.
+
+        ## Usage
+
+        ```luwu
+        Style()
+            :set("font_size", "1.2rem")
+            :set("color", Color.named("navy"))
+            :to_css()
+        ```
+
+        ```css
+        font-size: 1.2rem; color: #000080
+        ```
+
+        [color = require("@style/color")]
+    ]=]
+    function set(self, name: string, value: StyleValue?): Style
+        const property = property_name(name)
+        if value == nil then
+            if self.values[property] ~= nil then
+                self.values[property] = nil
+                table.drop(self.names, property, 1)
+            end
+            return self
+        end
+        if self.values[property] == nil then
+            table.insert(self.names, property)
+        end
+        self.values[property] = value_string(value)
+        return self
+    end
+
+    --[=[
+        A declaration's value as CSS text, or nil when it isn't set. `name` may be snake_case.
+
+        ## Usage
+
+        ```luwu
+        Style({ font_size = "2rem" }):get("font_size")
+        ```
+    ]=]
+    function get(self, name: string): string?
+        return self.values[property_name(name)]
+    end
+
+    --[=[
+        Copies declarations from `other` over this style, overwriting properties both have. A plain table merges in
+        sorted key order. The output is the same every run.
+
+        ## Usage
+
+        ```luwu
+        Style({ color = "red", margin = 0 })
+            :merge({ color = "blue" })
+            :to_css()
+        ```
+
+        ```css
+        color: blue; margin: 0
+        ```
+    ]=]
+    function merge(self, other: Style | StyleInput): Style
+        if class.isinstance(other, Style) then
+            for _, name in other.names do
+                self:set(name, other.values[name])
+            end
+        else
+            const declarations = other :: Declarations
+            for _, key in sorted_keys(declarations) do
+                self:set(key, declarations[key])
+            end
+        end
+        return self
+    end
+
+    --[=[
+        A copy that can change without affecting this style.
+
+        ## Usage
+
+        ```luwu
+        const base = Style({ padding = "1rem" })
+        const roomy = base
+            :clone()
+            :set("padding", "2rem") -- base still renders padding: 1rem
+        ```
+    ]=]
+    function clone(self): Style
+        return Style():merge(self)
+    end
+
+    --[=[
+        Whether the style has no declarations; an empty inline style renders no `style` attribute at all.
+
+        ## Usage
+
+        ```luwu
+        Style():is_empty()
+        ```
+    ]=]
+    function is_empty(self): boolean
+        return #self.names == 0
+    end
+
+    --[=[
+        The declarations as an inline CSS list, the format of a `style` attribute.
+
+        ## Usage
+
+        ```luwu
+        Style({ color = "red", margin = 0 }):to_css()
+        ```
+
+        ```css
+        color: red; margin: 0
+        ```
+    ]=]
+    function to_css(self): string
+        const parts = { for _, name in self.names give `{name}: {self.values[name]}` }
+        return table.concat(parts, "; ")
+    end
+
+    --[=[
+        Reads an inline declaration list, like the value of a `style` attribute, keeping the order it was written in.
+
+        ## Usage
+
+        ```luwu
+        Style.parse("color: red; margin:0"):get("margin")
+        ```
+    ]=]
+    function parse(text: string): Style
+        const style = Style()
+        for declaration in string.gmatch(text, "[^;]+") do
+            const name, value = string.match(declaration, "^%s*([^:]-)%s*:%s*(.-)%s*$")
+            if name and value and name ~= "" then
+                style:set(name, value)
+            end
+        end
+        return style
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        return `Style({self:to_css()})`
+    end
+
+    function __tostring(self): string
+        return self:to_css()
+    end
+end
+
+const function skip_space_and_comments(text: string, at: number): number
+    local position = at
+    while true do
+        const after_space = string.find(text, "%S", position) or #text + 1
+        if string.sub(text, after_space, after_space + 1) ~= "/*" then
+            return after_space
+        end
+        const _, comment_end = string.find(text, "*/", after_space + 2, true)
+        position = if comment_end then comment_end + 1 else #text + 1
+    end
+end
+
+const function matching_brace(text: string, open: number): number
+    local depth = 0
+    for index = open, #text do
+        const char = string.sub(text, index, index)
+        if char == "{" then
+            depth += 1
+        elseif char == "}" then
+            depth -= 1
+            if depth == 0 then
+                return index
+            end
+        end
+    end
+    return #text
+end
+
+--[=[
+    A CSS rule: a selector and its [Style], or an at-rule such as `@media` holding nested rules.
+
+    ```luwu
+    const rules = {
+        Rule("nav a", {
+            color = token("text"),
+            text_decoration = "none",
+        }),
+        Rule("@media (max-width: 600px)", {}, {
+            Rule("nav", { flex_direction = "column" }),
+        }),
+    }
+    ```
+]=]
+export class Rule(selector: string, style: Style | StyleInput = {}, rules: { Rule }? = nil)
+    style: Style = if class.isinstance(style, Style) then style else Style(style)
+
+    --[=[
+        The rule as CSS. Compact by default; `pretty` puts each declaration on its own line, and `indent` is put in
+        front of every line (nested rules indent further).
+
+        ## Usage
+
+        ```luwu
+        const rule = Rule("nav a", { color = "red" })
+        rule:to_css()
+        rule:to_css(true)
+        ```
+
+        ```css
+        nav a{color: red}
+
+        nav a {
+          color: red;
+        }
+        ```
+    ]=]
+    function to_css(self, pretty: boolean?, indent: string?): string
+        const pad = indent or ""
+        if self.rules then
+            const inner = { for _, rule in self.rules give rule:to_css(pretty, pad .. "  ") }
+            return if pretty
+                then `{pad}{self.selector} \{\n{table.concat(inner, "\n")}\n{pad}}`
+                else `{self.selector}\{{table.concat(inner)}}`
+        end
+        const style = self.style
+        if style:is_empty() and string.sub(self.selector, 1, 1) == "@" then
+            return `{pad}{self.selector};`
+        end
+        if not pretty then
+            return `{self.selector}\{{style:to_css()}}`
+        end
+        const lines = { for _, name in style.names give `{pad}  {name}: {style.values[name]};` }
+        return `{pad}{self.selector} \{\n{table.concat(lines, "\n")}\n{pad}}`
+    end
+
+    function display(self, depth: number?, options: unknown?): string
+        return `Rule({self.selector})`
+    end
+
+    function __tostring(self): string
+        return self:to_css()
+    end
+
+    --[=[
+        Parses a stylesheet into rules. Nested blocks (`@media`, `@supports`, ...) become rules holding rules.
+
+        ```luwu
+        const rules = Rule.parse("a { color: red } @media print { a { color: black } }")
+        print(#rules)
+        ```
+    ]=]
+    function parse(text: string): { Rule }
+        const rules: { Rule } = {}
+        local position = skip_space_and_comments(text, 1)
+        while position <= #text do
+            const brace = string.find(text, "[{;]", position) or break
+            const prelude = trim(string.sub(text, position, brace - 1))
+            if string.sub(text, brace, brace) == ";" then
+                table.insert(rules, Rule(prelude))
+                position = skip_space_and_comments(text, brace + 1)
+                continue
+            end
+            const close = matching_brace(text, brace)
+            const body = string.sub(text, brace + 1, close - 1)
+            if string.find(body, "{", 1, true) then
+                table.insert(rules, Rule(prelude, {}, Rule.parse(body)))
+            else
+                table.insert(rules, Rule(prelude, Style.parse(body)))
+            end
+            position = skip_space_and_comments(text, close + 1)
+        end
+        return rules
+    end
+end

@@ -1,0 +1,133 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ equal, contains, truthy } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    Parser,
+    core.{ Tag, Text, Comment },
+    elements.{ Div, Heading, Paragraph, UnorderedList, Script },
+    components.{ Card },
+} = chimera
+type .{ Markup } = core
+
+const function render_all(nodes: { Markup }): string
+    const parts = { for _, node in nodes give node:to_html() }
+    return table.concat(parts)
+end
+
+const function reparse(html: string): string
+    return render_all(Parser():parse(html))
+end
+
+const tests: { [string]: () -> () } = {
+    ["registered tags become their classes"] = function()
+        const nodes = Parser():parse(`<div id="a"><p>hi</p></div>`)
+        equal(#nodes, 1)
+        if const div = nodes[1] when class.isinstance(div, Div) then
+            truthy(class.isinstance(div.children[1], Paragraph), "expected a Paragraph")
+            equal(div:get_id(), "a")
+        else
+            error("expected a Div")
+        end
+    end,
+
+    ["headings come back at their level"] = function()
+        const nodes = Parser():parse("<h3>Setup</h3>")
+        if const heading = nodes[1] when class.isinstance(heading, Heading) then
+            equal(heading.level, 3)
+        else
+            error("expected a Heading")
+        end
+        equal(render_all(nodes), "<h3>Setup</h3>")
+    end,
+
+    ["unknown tags become Tag"] = function()
+        const nodes = Parser():parse("<x-thing a=1>y</x-thing>")
+        truthy(class.isinstance(nodes[1], Tag), "expected a Tag")
+        equal(render_all(nodes), `<x-thing a="1">y</x-thing>`)
+    end,
+
+    ["entities decode and re-escape"] = function()
+        const nodes = Parser():parse("<p>a &amp; b &lt; c &#65;&#x42; &copy;</p>")
+        if
+            const paragraph = nodes[1]
+            when class.isinstance(paragraph, Paragraph)
+            when const text = paragraph.children[1]
+            when class.isinstance(text, Text)
+        then
+            equal(text.content, "a & b < c AB ©")
+        else
+            error("expected a Paragraph holding Text")
+        end
+        equal(render_all(nodes), "<p>a &amp; b &lt; c AB ©</p>")
+    end,
+
+    ["attribute forms"] = function()
+        equal(
+            reparse(`<input type=text value='a "b"' disabled data-x = "1">`),
+            `<input type="text" value="a &quot;b&quot;" disabled data-x="1">`
+        )
+    end,
+
+    ["implied end tags"] = function()
+        equal(reparse("<ul><li>a<li>b</ul>"), "<ul><li>a</li><li>b</li></ul>")
+        equal(reparse("<p>one<p>two<div>x</div>"), "<p>one</p><p>two</p><div>x</div>")
+        equal(
+            reparse("<table><tr><td>a<td>b<tr><td>c</table>"),
+            "<table><tr><td>a</td><td>b</td></tr><tr><td>c</td></tr></table>"
+        )
+    end,
+
+    ["comments, doctype and self-closing tags"] = function()
+        const nodes = Parser():parse("<!DOCTYPE html><!-- hi --><br/><span/>")
+        truthy(class.isinstance(nodes[1], Comment), "expected a Comment")
+        equal(render_all(nodes), "<!-- hi --><br><span></span>")
+    end,
+
+    ["script and style contents stay raw"] = function()
+        const nodes = Parser():parse("<script>if (a < b && c) {}</script>")
+        if const script = nodes[1] when class.isinstance(script, Script) then
+            equal(script.code, "if (a < b && c) {}")
+        else
+            error("expected a Script")
+        end
+    end,
+
+    ["formatting whitespace is dropped, inline spaces kept"] = function()
+        equal(reparse("<div>\n  <p>a <b>b</b> <i>c</i></p>\n</div>"), "<div><p>a <b>b</b> <i>c</i></p></div>")
+    end,
+
+    ["children a parent can't hold are dropped with a warning"] = function()
+        const parser = Parser()
+        const nodes = parser:parse("<div><li>x</li><p>y</p></div><span>z</div>")
+        equal(render_all(nodes), "<div><p>y</p></div><span>z</span>")
+        equal(#parser.warnings, 2)
+        contains(parser.warnings[1], "Div can't hold ListItem")
+        contains(parser.warnings[2], "stray </div>")
+    end,
+
+    ["lists only adopt list items"] = function()
+        const nodes = Parser():parse("<ul><li>a</li>text</ul>")
+        if const list = nodes[1] when class.isinstance(list, UnorderedList) then
+            equal(#list.items, 1)
+        else
+            error("expected an UnorderedList")
+        end
+    end,
+
+    ["components come back as their class"] = function()
+        const html = Card("T", Paragraph("body")):to_html()
+        const nodes = Parser():parse(html)
+        truthy(class.isinstance(nodes[1], Card), "expected a Card")
+        equal(render_all(nodes), html)
+    end,
+
+    ["documents parse, loose content goes in the body"] = function()
+        const document = Parser():parse_document("<h1>Hi</h1>")
+        contains(document:to_html(), "<body><h1>Hi</h1></body>")
+    end,
+}
+
+return tests

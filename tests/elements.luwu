@@ -1,0 +1,314 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{ equal, contains } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    Parser,
+    core.{ Element },
+    elements.{
+        Heading,
+        Link,
+        Paragraph,
+        ListItem,
+        UnorderedList,
+        OrderedList,
+        Button,
+        Input,
+        TextArea,
+        Select,
+        Option,
+        Form,
+        Label,
+        Table,
+        TableRow,
+        TableHeaderCell,
+        Details,
+        Summary,
+        Script,
+        Stylesheet,
+        Meta,
+        ResourceLink,
+        Title,
+        Head,
+        Div,
+        Section,
+    },
+    components.{ Menu, Dropdown, Toggle, Card, Row, Column, Grid, Tabs, Tab },
+} = chimera
+
+const tests: { [string]: () -> () } = {
+    ["layout components start arranged"] = function()
+        equal(Row({ "a", "b" }):to_html(), `<div data-element="Row" class="chimera-row">ab</div>`)
+        equal(Column():to_html(), `<div data-element="Column" class="chimera-column"></div>`)
+        equal(
+            Grid(nil, "15rem"):to_html(),
+            `<div data-element="Grid" class="chimera-grid" style="--chimera-grid-min: 15rem"></div>`
+        )
+    end,
+
+    ["any container can be arranged, and the last arrangement wins"] = function()
+        const section = Section()
+            :row()
+            :gap("2rem")
+            :align("center")
+            :justify("space-between")
+            :wrap(false)
+        equal(section:to_html(), table.concat({
+            `<section class="chimera-row" style="gap: 2rem; align-items: center; `,
+            `justify-content: space-between; flex-wrap: nowrap"></section>`,
+        }))
+        equal(
+            Div()
+                :row()
+                :grid()
+                :column()
+                :to_html(),
+            `<div class="chimera-column"></div>`
+        )
+    end,
+
+    ["arranged components roundtrip"] = function()
+        const html = Div({ Row({ "a" }):gap("1rem"), Grid({ "b" }, "10rem") }):to_html()
+        equal(Parser():parse(html)[1]:to_html(), html)
+    end,
+
+    ["headings take a level"] = function()
+        equal(Heading("Title"):to_html(), "<h1>Title</h1>")
+        equal(Heading("Setup", 3):to_html(), "<h3>Setup</h3>")
+        equal(Heading("Setup", 3).level, 3)
+    end,
+
+    ["heading level constructors destructure"] = function()
+        const .{ h2, h6 } = Heading
+        equal(h2("a"):to_html(), "<h2>a</h2>")
+        equal(h6("b"):to_html(), "<h6>b</h6>")
+    end,
+
+    ["heading levels outside 1 to 6 raise"] = function()
+        for _, level in { 0, 7, 1.5 } do
+            const ok, problem = pcall(function()
+                return Heading("x", level)
+            end)
+            equal(ok, false)
+            contains(tostring(problem), "heading level must be a whole number from 1 to 6")
+        end
+    end,
+
+    ["headings select every level"] = function()
+        equal(Element.style_selector_of(Heading), "h1, h2, h3, h4, h5, h6")
+    end,
+
+    ["lists wrap strings in list items"] = function()
+        const list = UnorderedList { "a", ListItem { Link("b", "/b") } }
+        equal(list:to_html(), `<ul><li>a</li><li><a href="/b">b</a></li></ul>`)
+        equal(#list.items, 2)
+    end,
+
+    ["ordered lists can start anywhere"] = function()
+        equal(
+            OrderedList({ "x" })
+                :start(3)
+                :to_html(),
+            `<ol start="3"><li>x</li></ol>`
+        )
+    end,
+
+    ["links open in new tabs safely"] = function()
+        const html = Link("Docs", "/docs")
+            :new_tab()
+            :to_html()
+        equal(html, `<a href="/docs" target="_blank" rel="noopener noreferrer">Docs</a>`)
+    end,
+
+    ["buttons default to type button"] = function()
+        equal(Button("Go"):to_html(), `<button type="button">Go</button>`)
+        equal(
+            Button("Send", "submit")
+                :disabled()
+                :to_html(),
+            `<button type="submit" disabled>Send</button>`
+        )
+    end,
+
+    ["forms and inputs"] = function()
+        const form = Form({
+            Label("Email", "email"),
+            Input("email", "email")
+                :placeholder("you@example.com")
+                :required(),
+        }, "/subscribe", "post")
+        equal(
+            form:to_html(),
+            `<form action="/subscribe" method="post"><label for="email">Email</label>`
+                .. `<input type="email" name="email" placeholder="you@example.com" required></form>`
+        )
+    end,
+
+    ["text areas escape their text"] = function()
+        equal(TextArea("bio", "<hi>"):to_html(), `<textarea name="bio">&lt;hi&gt;</textarea>`)
+    end,
+
+    ["selects mark the chosen option"] = function()
+        const size = Select("size", { "S", Option("Large", "L") }):select("L")
+        equal(
+            size:to_html(),
+            `<select name="size"><option value="S">S</option><option value="L" selected>Large</option></select>`
+        )
+    end,
+
+    ["tables build from a header and records"] = function()
+        const header = Table.header()
+            :column("Name")
+            :column("Age")
+        const html = Table(header)
+            :row({ Age = 14, Name = "Taz" })
+            :rows({ { Name = "Oreo", Age = 3 } })
+            :to_html()
+        equal(
+            html,
+            "<table><thead><tr><th>Name</th><th>Age</th></tr></thead>"
+                .. "<tbody><tr><td>Taz</td><td>14</td></tr><tr><td>Oreo</td><td>3</td></tr></tbody></table>"
+        )
+    end,
+
+    ["row factories build records in column order"] = function()
+        const header = Table.header()
+            :column("Name")
+            :column("Age")
+        const cat = Table.row_for(header)
+        const record = cat("Taz", 12)
+        equal(record.values[1], "Taz")
+        equal(record.values[2], 12)
+        contains(
+            Table(header)
+                :row(cat("Taz", 12))
+                :to_html(),
+            "<tr><td>Taz</td><td>12</td></tr>"
+        )
+    end,
+
+    ["row factories raise on the wrong number of values"] = function()
+        const cat = Table.row_for(Table.header()
+            :column("Name")
+            :column("Age")
+        )
+        const ok, problem = pcall(function()
+            return cat("Taz")
+        end)
+        equal(ok, false)
+        contains(tostring(problem), "expected 2 values (Name, Age), got 1")
+    end,
+
+    ["rows need a header"] = function()
+        const ok, problem = pcall(function()
+            return Table():row({ Name = "Taz" })
+        end)
+        equal(ok, false)
+        contains(tostring(problem), "this table has no header")
+    end,
+
+    ["table captions go first and replace each other"] = function()
+        const html = Table(Table.header():column("Name"))
+            :caption("Old")
+            :caption("Pets")
+            :to_html()
+        equal(html, "<table><caption>Pets</caption><thead><tr><th>Name</th></tr></thead></table>")
+    end,
+
+    ["table styles become style classes"] = function()
+        const pets = Table(Table.header():column("Name")):add_style_class("wide")
+        pets:table_style({ striped = true, bold_header = false, borders = "grid", compact = true, hover = true })
+        equal(
+            pets:get_attr("class"),
+            "wide chimera-table-striped chimera-table-plain-header chimera-table-grid"
+                .. " chimera-table-compact chimera-table-hover"
+        )
+        pets:table_style({ borders = "none" })
+        equal(pets:get_attr("class"), "wide chimera-table-none")
+    end,
+
+    ["rows keep header cells and wrap other content"] = function()
+        const row = TableRow { TableHeaderCell("k"), "v" }
+        equal(row:to_html(), "<tr><th>k</th><td>v</td></tr>")
+    end,
+
+    ["details put the summary first"] = function()
+        const details = Details("Q", Paragraph("A")):open()
+        equal(details:to_html(), "<details open><summary>Q</summary><p>A</p></details>")
+        details:add(Paragraph("more"))
+        equal(#details:child_nodes(), 3)
+        equal(Details(Summary { "custom" }):to_html(), "<details><summary>custom</summary></details>")
+    end,
+
+    ["scripts can't end early"] = function()
+        equal(Script("a = '</script>'"):to_html(), "<script>a = '<\\/script>'</script>")
+        equal(
+            Script(nil, "/app.js")
+                :module()
+                :to_html(),
+            `<script src="/app.js" type="module"></script>`
+        )
+    end,
+
+    ["stylesheets render rules"] = function()
+        const sheet = Stylesheet()
+            :rule(".hero", { padding = "1rem" })
+            :css("a { color: red }")
+        equal(sheet:to_html(), "<style>.hero{padding: 1rem}a{color: red}</style>")
+    end,
+
+    ["head elements"] = function()
+        const head = Head { Title("Home"), Meta.charset("utf-8"), ResourceLink.stylesheet("/s.css") }
+        equal(
+            head:to_html(),
+            `<head><title>Home</title><meta charset="utf-8"><link rel="stylesheet" href="/s.css"></head>`
+        )
+        equal(if const title = head:title() then title.text else nil, "Home")
+    end,
+
+    ["components mark themselves for parsing"] = function()
+        contains(Menu { Link("Home", "/") }:to_html(), `<nav data-element="Menu" class="chimera-menu">`)
+        contains(Card("T", "body"):to_html(), `<div data-element="Card" class="chimera-card"><h3>T</h3>body</div>`)
+    end,
+
+    ["dropdowns add to their item list"] = function()
+        const dropdown = Dropdown("More"):add(Link("A", "/a"))
+        equal(
+            dropdown:to_html(),
+            `<details data-element="Dropdown" class="chimera-dropdown"><summary>More</summary>`
+                .. `<div class="chimera-dropdown-items"><a href="/a">A</a></div></details>`
+        )
+    end,
+
+    ["toggles target an element by id"] = function()
+        const answer = Paragraph("42")
+        const toggle = Toggle("Show", answer)
+        const id = answer:get_id()
+        equal(id ~= nil, true)
+        contains(toggle:to_html(), `onclick="chimera.toggle('{id}')"`)
+    end,
+    ["tabs show their selected panel and parse back"] = function()
+        const tabs = Tabs({
+            Tab("Luwu", Paragraph("one")),
+            Tab("Luau", Paragraph("two")),
+        })
+        const html = tabs:to_html()
+        contains(
+            html,
+            `<button type="button" role="tab" aria-selected="true" onclick="chimera.tab(this)">Luwu</button>`
+        )
+        contains(html, `<div data-element="Tab" data-tab="Luau" role="tabpanel" hidden class="chimera-tab">`)
+        equal(Parser():parse(html)[1]:to_html(), html)
+        const picked = Tabs()
+            :tab("a", "1")
+            :tab("b", "2")
+            :select("b")
+            :to_html()
+        contains(picked, `aria-selected="true" onclick="chimera.tab(this)">b</button>`)
+        contains(picked, `<div data-element="Tab" data-tab="a" role="tabpanel" hidden class="chimera-tab">`)
+    end,
+}
+
+return tests

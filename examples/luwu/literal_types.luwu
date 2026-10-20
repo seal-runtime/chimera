@@ -1,0 +1,148 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2 } = Heading
+
+return Page("Literal Types and Validators", {
+    h1("Literal Types and Validators"),
+    Paragraph("Some strings follow rules: hex colors, CSS sizes, routes, ids."),
+    Paragraph("Luwu can check those rules while you type. A wrong string becomes a type error with your own message."),
+    TableOfContents(),
+
+    h2("Literal types"),
+    Paragraph({
+        "A literal is a value written straight into the code, like ", Code("\"red\""), ". ",
+        "A type can be a single literal.",
+    }),
+    luwu([====[
+        type Direction = "north" | "south" | "east" | "west"
+
+        const function walk(direction: Direction)
+            print(`Walking {direction}`)
+        end
+
+        walk("north")
+    ]====]),
+    Paragraph({ "Calling ", Code("walk(\"up\")"), " is a type error. Luau has this too." }),
+    Paragraph({
+        "Luwu adds ", Code("literal<T>"), ". It asks for a literal of type T, and keeps the exact value as the type.",
+    }),
+    luwu([====[
+        const function tag(name: literal<string>): string
+            return `<{name}>`
+        end
+
+        print(tag("main"))
+    ]====]),
+    Paragraph({
+        "Passing a string variable to ", Code("tag"), " is a type error. The argument has to be written out.",
+    }),
+
+    h2("Validators"),
+    Paragraph({
+        "A validator is a type function that checks a literal. ",
+        "It runs while the code is checked, not at runtime.",
+    }),
+    Paragraph({
+        "It gets the literal's type. It returns that type when the value is fine, or ", Code("types.error"),
+        " with a message.",
+    }),
+    luwu([====[
+        type function HexColor(value: type): type
+            if not value:is("singleton") then
+                return types.error("expected a literal like \"#3b5bdb\"")
+            end
+            const text = value:value()
+            if typeof(text) ~= "string" or string.sub(text, 1, 1) ~= "#" then
+                return types.error(`'{tostring(text)}' is missing its '#'`)
+            end
+            const digits = string.sub(text, 2)
+            if string.find(digits, "[^%x]") or (#digits ~= 3 and #digits ~= 6) then
+                return types.error(`'{text}' isn't a hex color`)
+            end
+            return value
+        end
+
+        const function paint(color: HexColor<literal<string>>)
+            print(`Painting with {color}`)
+        end
+
+        paint("#3b5bdb")
+        -- paint("3b5bdb") is a type error: '3b5bdb' is missing its '#'
+        -- paint("#12345") is a type error: '#12345' isn't a hex color
+    ]====]),
+    Paragraph("The error shows up in your editor, right at the call."),
+
+    h2("Naming a validated type"),
+    Paragraph("Give the validated type a name to use it in many places:"),
+    luwu([====[
+        type function Percent(value: type): type
+            if not value:is("singleton") then
+                return types.error("expected a literal like \"50%\"")
+            end
+            const text = value:value()
+            const number = typeof(text) == "string" and tonumber(string.match(text, "^(%d+)%%$"))
+            if not number or number > 100 then
+                return types.error(`'{tostring(text)}' isn't a percentage from 0% to 100%`)
+            end
+            return value
+        end
+
+        type Percentage = Percent<literal<string>>
+
+        const function set_volume(volume: Percentage)
+            print(`Volume: {volume}`)
+        end
+
+        const function set_brightness(brightness: Percentage)
+            print(`Brightness: {brightness}`)
+        end
+
+        set_volume("80%")
+        set_brightness("100%")
+    ]====]),
+
+    h2("In tables and unions"),
+    Paragraph("Validated types work on table fields too. Each field is checked where it's written."),
+    Paragraph("A union can mix one validated literal with other types, like numbers:"),
+    luwu([====[
+        type function Size(value: type): type
+            if not value:is("singleton") then
+                return types.error("expected a literal like \"12px\"")
+            end
+            const text = value:value()
+            if typeof(text) ~= "string" or not string.match(text, "^%d+px$") then
+                return types.error(`'{tostring(text)}' isn't a pixel size`)
+            end
+            return value
+        end
+
+        type Pixels = Size<literal<string>> | number
+
+        type ButtonStyle = {
+            width: Pixels?,
+            height: Pixels?,
+        }
+
+        const function button(label: string, style: ButtonStyle)
+            print(label, style.width, style.height)
+        end
+
+        button("Play", { width = "120px", height = 40 })
+        -- button("Quit", { width = "120" }) is a type error: '120' isn't a pixel size
+    ]====]),
+
+    h2("Things to know"),
+    UnorderedList({
+        ListItem("Validators only see literals. A string built at runtime can't be checked this way."),
+        ListItem({ "Inside the function, the parameter is a plain ", Code("string"), "." }),
+        ListItem({ "Type functions are written in Luwu. They use the ", Code("types"), " library to inspect types." }),
+    }),
+}, "literal-types-and-validators.html")

@@ -1,0 +1,154 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2 } = Heading
+
+return Page("The none Primitive", {
+    h1("The none Primitive"),
+    Paragraph({ Code("none"), " is a value that means \"intentionally empty\"." }),
+    Paragraph({ "It's like ", Code("nil"), ", with one big difference: you can store it in a table." }),
+    TableOfContents(),
+
+    h2("Why nil isn't enough"),
+    Paragraph("In Luau, setting a table field to nil deletes it. The field is gone, not empty."),
+    Paragraph("In a list, nil leaves a hole. Then the length operator can't be trusted."),
+    luwu([====[
+        local list = { "first", nil, "third" }
+        print(#list) -- 3 or 1, depending on how the table was built
+    ]====]),
+    Paragraph({ "With ", Code("none"), ", the slot stays filled:" }),
+    luwu([====[
+        const list = { "first", none, "third" }
+        print(#list)
+        print(list[2] == none)
+    ]====]),
+    Paragraph("JSON shows the problem best. JSON has null, and Luau has no value that can stand for it."),
+    Paragraph({
+        "Decode ", Code("{\"nickname\": null}"), " into a Luau table, and the nickname key is simply gone. ",
+        "Encode that table again, and the field is missing from the output. The data doesn't round-trip.",
+    }),
+    Paragraph("So every Luau runtime invents its own workaround:"),
+    UnorderedList({
+        ListItem("Lune decodes null as nil. It has no way to write null back out."),
+        ListItem({
+            "Zune decodes null as a ", Code("JsonValue.Null"), " table, if you pass ", Code("preserve_null"), ".",
+        }),
+        ListItem({ "Lute decodes null as ", Code("json.null"), ", a sentinel made with ", Code("newproxy"), "." }),
+        ListItem({ "seal 0.8 used ", Code("json.null()"), ", a special userdata value." }),
+    }),
+    Paragraph({
+        "Code written against one runtime's sentinel breaks on every other runtime. ",
+        "The sentinels are all truthy, too: ", Code("if user.nickname then"), " treats a null nickname as a real one.",
+    }),
+    Paragraph({
+        "In Luwu, JSON null is just ", Code("none"), ". ",
+        "seal decodes null as none and encodes none as null. The data round-trips, and none is falsy like nil:",
+    }),
+    luwu([====[
+        const json = require("@std/json")
+
+        const user = json.decode('{"name": "Ada", "nickname": null}')
+        print(user.nickname == none)
+        print(user.nickname or "no nickname")
+        print(json.raw(user))
+    ]====]),
+
+    h2("How none behaves"),
+    UnorderedList({
+        ListItem({ Code("none"), " is falsy, like nil and false." }),
+        ListItem({ Code("none == none"), " is true. ", Code("none == nil"), " is false." }),
+        ListItem({ Code("type(none)"), " is \"none\"." }),
+        ListItem("Storing none in a table keeps the key."),
+    }),
+    luwu([====[
+        const settings: { [string]: (string | none)? } = { theme = "dark", font = none }
+
+        print(settings.font == none)
+        print(settings.missing == nil)
+        print(settings.font or "default font")
+
+        for key, value in settings do
+            print(key, value)
+        end
+    ]====]),
+
+    h2("Use cases"),
+    Paragraph("none fits anywhere \"no value\" is real data."),
+    Paragraph("A form might have a middle name field that's empty on purpose:"),
+    luwu([====[
+        type Person = { first: string, middle: string | none, last: string }
+
+        const ada: Person = { first = "Ada", middle = none, last = "Lovelace" }
+
+        const function full_name(person: Person): string
+            if person.middle ~= none then
+                return `{person.first} {person.middle} {person.last}`
+            end
+            return `{person.first} {person.last}`
+        end
+
+        print(full_name(ada))
+    ]====]),
+    Paragraph("A list can mark items as left out, without holes:"),
+    luwu([====[
+        const show_admin = false
+
+        const menu = {
+            "Home",
+            "Profile",
+            if show_admin then "Admin" else none,
+            "Log out",
+        }
+
+        for _, item in menu when item ~= none do
+            print(item)
+        end
+        print(#menu)
+    ]====]),
+
+    h2("Listing every field"),
+    Paragraph({ Code("class.fields"), " gives you an object's public fields as a table." }),
+    Paragraph({
+        "A field that's nil shows up as ", Code("none"), ". ",
+        "Every field name is still there, even the empty ones.",
+    }),
+    luwu([====[
+        class Profile
+            name = "Ada"
+            nickname: string? = nil
+            level = 12
+        end
+
+        const fields = class.fields(Profile())
+        print(fields.name, fields.nickname, fields.level)
+        print(fields.nickname == none)
+    ]====]),
+    Paragraph({ "This prints ", Code("Ada, none, 12"), ". With nil, the nickname would vanish from the table." }),
+    Paragraph({ "The checker knows it too: the nickname field's type is ", Code("string | none"), "." }),
+    Paragraph("Your own functions can work the same way. This one reports a form, keeping the empty fields:"),
+    luwu([====[
+        const function snapshot(values: { [string]: string? }, keys: { string }): { [string]: string | none }
+            return { for _, key in keys give [key] = values[key] or none }
+        end
+
+        const form = snapshot({ email = "ada@example.com" }, { "email", "phone" })
+        for key, value in form do
+            print(key, value)
+        end
+    ]====]),
+    Paragraph({ "The phone field is listed as ", Code("none"), ". Code reading the report knows it was left empty." }),
+
+    h2("Things to know"),
+    UnorderedList({
+        ListItem({ "Optional types read ", Code("T?"), " for nil. Write ", Code("T | none"), " for none." }),
+        ListItem({ "Comparing none with ", Code("<"), " or ", Code(">"), " is an error, like nil." }),
+        ListItem({ "none is a global value. A local named ", Code("none"), " would hide it." }),
+    }),
+}, "none.html")

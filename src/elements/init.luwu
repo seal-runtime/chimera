@@ -1,0 +1,80 @@
+--!strict
+--!optimize 2
+
+export .{
+    Paragraph,
+    Heading,
+    Span,
+    Strong,
+    Emphasis,
+    Small,
+    Preformatted,
+    BlockQuote,
+    Link,
+    LineBreak,
+    HorizontalRule,
+} = require("@self/text")
+
+export .{
+    Div,
+    Section,
+    Article,
+    Aside,
+    Header,
+    Footer,
+    Main,
+    Navigation,
+    Figure,
+    FigureCaption,
+    Image,
+} = require("@self/layout")
+
+export .{
+    ListItem,
+    List,
+    UnorderedList,
+    OrderedList,
+} = require("@self/lists")
+
+export .{
+    Form,
+    Label,
+    Button,
+    Input,
+    TextArea,
+    Option,
+    Select,
+} = require("@self/forms")
+
+export .{
+    TableCell,
+    TableHeaderCell,
+    TableRow,
+    TableHead,
+    TableBody,
+    TableCaption,
+    TableHeader,
+    TableRecord,
+    Table,
+} = require("@self/tables")
+
+export .{
+    Summary,
+    Details,
+} = require("@self/disclosure")
+
+export .{
+    Title,
+    Meta,
+    ResourceLink,
+    Script,
+    Stylesheet,
+    Head,
+} = require("@self/head")
+
+const tables = require("@self/tables")
+export type .{
+    TablePart,
+    TableStyle,
+    Row,
+} = tables

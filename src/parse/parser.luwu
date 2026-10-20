@@ -1,0 +1,375 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Child, Text, Comment } = require("@core/markup")
+const .{ Document } = require("@document/document")
+type .{ Markup, Element } = markup
+
+-- Each built-in module registers its classes with the parser when it loads.
+require("@elements")
+require("@components")
+require("@site")
+
+--- Tags whose content is text up to the closing tag; `escapable` ones decode entities.
+const RAW_TEXT_TAGS: { [string]: { escapable: boolean } } = {
+    script = { escapable = false },
+    style = { escapable = false },
+    textarea = { escapable = true },
+    title = { escapable = true },
+}
+
+--- Start tags that close an open `<p>`.
+const CLOSES_PARAGRAPH: { [string]: boolean } = {
+    address = true,
+    article = true,
+    aside = true,
+    blockquote = true,
+    details = true,
+    div = true,
+    dl = true,
+    fieldset = true,
+    figcaption = true,
+    figure = true,
+    footer = true,
+    form = true,
+    h1 = true,
+    h2 = true,
+    h3 = true,
+    h4 = true,
+    h5 = true,
+    h6 = true,
+    header = true,
+    hr = true,
+    main = true,
+    menu = true,
+    nav = true,
+    ol = true,
+    p = true,
+    pre = true,
+    section = true,
+    table = true,
+    ul = true,
+}
+
+--- For a start tag, the open tags it implicitly closes when one of them is the current element.
+const CLOSES_SIBLING: { [string]: { [string]: boolean } } = {
+    li = { li = true },
+    option = { option = true },
+    tr = {
+        tr = true,
+        td = true,
+        th = true,
+    },
+    td = {
+        td = true,
+        th = true,
+    },
+    th = {
+        td = true,
+        th = true,
+    },
+    thead = {
+        tbody = true,
+        tr = true,
+        td = true,
+        th = true,
+    },
+    tbody = {
+        thead = true,
+        tbody = true,
+        tr = true,
+        td = true,
+        th = true,
+    },
+}
+
+const NAMED_ENTITIES: { [string]: string } = {
+    amp = "&",
+    lt = "<",
+    gt = ">",
+    quot = '"',
+    apos = "'",
+    nbsp = "\u{a0}",
+    copy = "©",
+    reg = "®",
+    hellip = "…",
+    mdash = "—",
+    ndash = "–",
+    lsquo = "‘",
+    rsquo = "’",
+    ldquo = "“",
+    rdquo = "”",
+    middot = "·",
+}
+
+const function decode_entity(entity: string): string
+    if const hex = string.match(entity, "^#[xX](%x+)$") when const codepoint = tonumber(hex, 16) then
+        return utf8.char(codepoint)
+    elseif const decimal = string.match(entity, "^#(%d+)$") when const codepoint = tonumber(decimal) then
+        return utf8.char(codepoint)
+    end
+    return NAMED_ENTITIES[entity] or `&{entity};`
+end
+
+const function decode_entities(text: string): string
+    return (string.gsub(text, "&(#?[%w]+);", decode_entity))
+end
+
+type Attribute = { name: string, value: string | boolean }
+
+--[=[
+    Turns HTML into chimera objects, using the classes registered for each tag and component.
+
+    Problems that don't stop parsing, such as a stray end tag or a child its parent can't hold, are
+    collected in `warnings`.
+
+    ```luwu
+    const parser = Parser()
+    const nodes = parser:parse(`<ul><li>one<li>two</ul>`)
+    print(nodes[1])
+    const page = parser:parse_document(fs.readfile("index.html"))
+    ```
+]=]
+export class Parser
+    public warnings: { string } = {}
+    private html = ""
+    private position = 1
+    private stack: { Element } = {}
+    private roots: { Markup } = {}
+
+    --- Parses a fragment or a page and returns its top-level nodes.
+    public function parse(self, html: string): { Markup }
+        self.html = html
+        self.position = 1
+        self.stack = {}
+        self.roots = {}
+        while self.position <= #html do
+            if string.sub(html, self.position, self.position + 3) == "<!--" then
+                self:parse_comment()
+            elseif string.sub(html, self.position, self.position + 1) == "<!" then
+                self:skip_past(">")
+            elseif string.find(html, "^</%a", self.position) then
+                self:parse_end_tag()
+            elseif string.find(html, "^<%a", self.position) then
+                self:parse_start_tag()
+            else
+                self:parse_text()
+            end
+        end
+        while #self.stack > 0 do
+            self:close_current()
+        end
+        return self.roots
+    end
+
+    --[=[
+        Parses a whole page. Content outside an `<html>` element goes into a new document's body.
+
+        ```luwu
+        const page = Parser():parse_document(`<p>Just a paragraph</p>`)
+        print(page:to_html())
+        ```
+    ]=]
+    public function parse_document(self, html: string): Document
+        local document: Document? = nil
+        const loose: { Child } = {}
+        for _, node in self:parse(html) do
+            if class.isinstance(node, Document) then
+                document = node
+            elseif class.implements(node, Child) then
+                table.insert(loose, node)
+            end
+        end
+        const result: Document = document or Document()
+        for _, child in loose do
+            result.body:add(child)
+        end
+        return result
+    end
+
+    private function warn(self, message: string)
+        table.insert(self.warnings, `{message} (at byte {self.position})`)
+    end
+
+    private function skip_past(self, terminator: string)
+        const _, finish = string.find(self.html, terminator, self.position, true)
+        self.position = if finish then finish + 1 else #self.html + 1
+    end
+
+    --- Hands a finished node to the current element, or to the roots at the top level.
+    private function attach(self, node: Markup)
+        if const parent = self.stack[#self.stack] then
+            if not parent:adopt(node) then
+                self:warn(`{class.name(parent)} can't hold {node:outline()}; dropped it`)
+            end
+        else
+            table.insert(self.roots, node)
+        end
+    end
+
+    private function close_current(self)
+        if const element = table.remove(self.stack) then
+            self:attach(element)
+        end
+    end
+
+    private function parse_comment(self)
+        const start = self.position + 4
+        const close_start, close_end = string.find(self.html, "-->", start, true)
+        const text = string.sub(self.html, start, (close_start or #self.html + 1) - 1)
+        self.position = if close_end then close_end + 1 else #self.html + 1
+        self:attach(Comment(text))
+    end
+
+    private function parse_text(self)
+        const next_tag = string.find(self.html, "<", self.position + 1, true) or #self.html + 1
+        const raw = string.sub(self.html, self.position, next_tag - 1)
+        self.position = next_tag
+        if
+            string.find(raw, "^%s*$")
+            and string.find(raw, "\n", 1, true)
+            and not self:in_preformatted()
+        then
+            return
+        end
+        self:attach(Text(decode_entities(raw)))
+    end
+
+    --- Whether text here sits inside a `<pre>`, where whitespace is content.
+    private function in_preformatted(self): boolean
+        for _, element in self.stack do
+            if element:current_tag() == "pre" then
+                return true
+            end
+        end
+        return false
+    end
+
+    private function parse_end_tag(self)
+        const name, finish = string.match(self.html, "^</([%w%-]+)[^>]*>()", self.position)
+        if not name or not finish then
+            self:skip_past(">")
+            return
+        end
+        self.position = finish
+        const tag = string.lower(name)
+        for index = #self.stack, 1, -1 do
+            if self.stack[index]:current_tag() == tag then
+                while #self.stack >= index do
+                    self:close_current()
+                end
+                return
+            end
+        end
+        self:warn(`stray </{tag}>`)
+    end
+
+    private function parse_attributes(self): ({ Attribute }, boolean)
+        const attributes: { Attribute } = {}
+        const html = self.html
+        while self.position <= #html do
+            const after_space = string.find(html, "[^%s]", self.position) or #html + 1
+            self.position = after_space
+            const char = string.sub(html, after_space, after_space)
+            if char == ">" then
+                self.position += 1
+                return attributes, false
+            elseif string.sub(html, after_space, after_space + 1) == "/>" then
+                self.position += 2
+                return attributes, true
+            end
+            const name, after_name = string.match(html, "^([^%s/>=]+)()", after_space)
+            if not name or not after_name then
+                self.position += 1
+                continue
+            end
+            self.position = after_name
+            if const equals_end = select(2, string.find(html, "^%s*=%s*", self.position)) then
+                self.position = equals_end + 1
+                table.insert(attributes, {
+                    name = string.lower(name),
+                    value = decode_entities(self:parse_attribute_value()),
+                })
+            else
+                table.insert(attributes, {
+                    name = string.lower(name),
+                    value = true,
+                })
+            end
+        end
+        return attributes, false
+    end
+
+    private function parse_attribute_value(self): string
+        const html = self.html
+        const quote = string.sub(html, self.position, self.position)
+        if quote == '"' or quote == "'" then
+            const close = string.find(html, quote, self.position + 1, true) or #html + 1
+            const value = string.sub(html, self.position + 1, close - 1)
+            self.position = close + 1
+            return value
+        end
+        const unquoted, after_value = string.match(html, "^([^%s>]*)()", self.position)
+        self.position = after_value or #html + 1
+        return unquoted or ""
+    end
+
+    private function close_implied(self, tag: string)
+        const current = self.stack[#self.stack]
+            or (return)
+        if current:current_tag() == "p" and CLOSES_PARAGRAPH[tag] then
+            self:close_current()
+            return
+        end
+        const closes = CLOSES_SIBLING[tag]
+        while closes do
+            const open = self.stack[#self.stack]
+            if not open or not closes[open:current_tag()] then
+                break
+            end
+            self:close_current()
+        end
+    end
+
+    private function parse_start_tag(self)
+        const name, after_name = string.match(self.html, "^<([%w%-]+)()", self.position)
+        if not name or not after_name then
+            self:skip_past(">")
+            return
+        end
+        self.position = after_name
+        const tag = string.lower(name)
+        const attributes, self_closing = self:parse_attributes()
+
+        const component: string? = do
+            for _, attribute in attributes do
+                if attribute.name == "data-element" and type(attribute.value) == "string" then
+                    give attribute.value
+                end
+            end
+            give nil
+        const element = Element.create(tag, component):reset()
+        for _, attribute in attributes do
+            if attribute.name ~= "data-element" then
+                element:attr(attribute.name, attribute.value)
+            end
+        end
+
+        self:close_implied(tag)
+        if const raw = RAW_TEXT_TAGS[tag] when not self_closing then
+            const close_start, close_end = string.find(string.lower(self.html), `</{tag}%s*>`, self.position)
+            const text = string.sub(self.html, self.position, (close_start or #self.html + 1) - 1)
+            self.position = if close_end then close_end + 1 else #self.html + 1
+            if text ~= "" then
+                element:adopt(Text(if raw.escapable then decode_entities(text) else text))
+            end
+            self:attach(element)
+        elseif self_closing or Element.is_void(tag) then
+            self:attach(element)
+        else
+            table.insert(self.stack, element)
+        end
+    end
+end

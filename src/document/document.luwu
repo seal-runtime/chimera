@@ -1,0 +1,784 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Container } = require("@core/markup")
+const .{ Heading } = require("@elements/text")
+const head_module = require("@elements/head")
+const .{ Head, Title, Meta, ResourceLink, Script, Stylesheet } = require("@elements/head")
+const style_module = require("@style/style")
+const Rule = style_module.Rule
+type .{ Style, StyleInput } = style_module
+const theme_module = require("@style/theme")
+const .{ Theme } = require("@style/theme")
+const .{ Light, Dark } = require("@themes")
+type .{
+    Content,
+    Markup,
+    Writer,
+    ThemeOption,
+    HeadingEntry,
+    PageEntry,
+    Metadata,
+    AttributeValue,
+} = markup
+type .{ Head } = head_module
+type .{ Theme, ThemeMode } = theme_module
+
+--- Attribute marking generated `<style>` and `<script>` elements for the parser to discard.
+const GENERATED = "data-chimera"
+
+const RUNTIME_JS = [====[(function () {
+  var root = document.documentElement;
+  var offered = (root.dataset.themes || "").split(" ");
+  function offers(name) {
+    return !!name && offered.indexOf(name) >= 0;
+  }
+  function sync(name) {
+    document.querySelectorAll("[data-chimera-theme-option]").forEach(function (option) {
+      option.setAttribute("aria-checked", option.dataset.chimeraThemeOption === name ? "true" : "false");
+    });
+  }
+  // Links carry the theme too. Some browsers don't share localStorage between file:// pages.
+  function carry(name) {
+    document.querySelectorAll("a[href]").forEach(function (link) {
+      var href = link.dataset.chimeraHref || link.getAttribute("href");
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.charAt(0) === "#") return;
+      link.dataset.chimeraHref = href;
+      var url = new URL(href, location.href);
+      url.searchParams.set("theme", name);
+      link.setAttribute("href", url.href);
+    });
+  }
+  function close_menus(except) {
+    var menus = document.querySelectorAll("details.chimera-theme-switcher[open], details.chimera-dropdown[open]");
+    menus.forEach(function (menu) {
+      if (!except || !menu.contains(except)) menu.open = false;
+    });
+  }
+  var chosen = new URLSearchParams(location.search).get("theme");
+  if (!offers(chosen)) {
+    try { chosen = localStorage.getItem("chimera-theme"); } catch (e) { chosen = null; }
+  }
+  if (!offers(chosen)) chosen = null;
+  if (chosen) root.dataset.theme = chosen;
+  // Until the reader picks a theme, the stylesheet follows the OS; this only keeps the switcher in step.
+  var os_dark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function current() {
+    var light = root.dataset.themeLight;
+    var dark = root.dataset.themeDark;
+    return chosen || (os_dark && os_dark.matches ? dark || light : light || dark);
+  }
+  if (os_dark && os_dark.addEventListener) {
+    os_dark.addEventListener("change", function () { sync(current()); });
+  }
+  window.chimera = {
+    setTheme: function (name) {
+      chosen = name;
+      root.dataset.theme = name;
+      try { localStorage.setItem("chimera-theme", name); } catch (e) {}
+      var here = new URL(location.href);
+      here.searchParams.set("theme", name);
+      try { history.replaceState(null, "", here.href); } catch (e) {}
+      carry(name);
+      sync(name);
+      close_menus();
+    },
+    toggle: function (id) {
+      var target = document.getElementById(id);
+      if (target) target.hidden = !target.hidden;
+    },
+    copy: function (button) {
+      var code = button.parentElement.querySelector("code");
+      if (!code) return;
+      var text = code.textContent;
+      function copied() {
+        button.textContent = "Copied";
+        setTimeout(function () { button.textContent = "Copy"; }, 1500);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(copied);
+        return;
+      }
+      var area = document.createElement("textarea");
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      copied();
+    },
+    tab: function (button) {
+      var tabs = button.parentElement.parentElement;
+      var buttons = button.parentElement.querySelectorAll("[role=tab]");
+      var panels = Array.prototype.filter.call(tabs.children, function (child) {
+        return child.getAttribute("role") === "tabpanel";
+      });
+      Array.prototype.forEach.call(buttons, function (each, index) {
+        var on = each === button;
+        each.setAttribute("aria-selected", on ? "true" : "false");
+        if (panels[index]) panels[index].hidden = !on;
+      });
+      hide_hover();
+    },
+  };
+  // Squiggle messages show in a box by the pointer, like an editor's hover.
+  var hover = null;
+  var hovered = null;
+  var hide_timer = 0;
+  function hide_hover() {
+    clearTimeout(hide_timer);
+    if (hover) hover.hidden = true;
+    hovered = null;
+  }
+  function show_hover(mark, x, y) {
+    clearTimeout(hide_timer);
+    var message = mark.dataset.message;
+    if (hovered === message && hover && !hover.hidden) return;
+    if (!hover) {
+      hover = document.createElement("div");
+      hover.className = "chimera-hover";
+      hover.setAttribute("role", "tooltip");
+      hover.addEventListener("mouseenter", function () { clearTimeout(hide_timer); });
+      hover.addEventListener("mouseleave", function () { hide_timer = setTimeout(hide_hover, 150); });
+      document.body.appendChild(hover);
+    }
+    hovered = message;
+    hover.textContent = message;
+    hover.style.borderLeftColor = getComputedStyle(mark).getPropertyValue("--chimera-squiggle-color");
+    hover.hidden = false;
+    var width = hover.offsetWidth;
+    var height = hover.offsetHeight;
+    var left = Math.max(8, Math.min(x + 4, innerWidth - width - 8));
+    var top = y + 18 + height > innerHeight ? y - height - 10 : y + 18;
+    hover.style.left = left + "px";
+    hover.style.top = Math.max(8, top) + "px";
+  }
+  function mark_at(target) {
+    return target && target.closest ? target.closest(".chimera-squiggle[data-message]") : null;
+  }
+  document.addEventListener("mouseover", function (event) {
+    var mark = mark_at(event.target);
+    if (mark) show_hover(mark, event.clientX, event.clientY);
+  });
+  document.addEventListener("mouseout", function (event) {
+    if (mark_at(event.target) && !mark_at(event.relatedTarget)) hide_timer = setTimeout(hide_hover, 150);
+  });
+  document.addEventListener("scroll", hide_hover, true);
+  document.addEventListener("click", function (event) {
+    close_menus(event.target);
+    var mark = mark_at(event.target);
+    if (mark) {
+      hovered = null;
+      show_hover(mark, event.clientX, event.clientY);
+    } else if (!(hover && hover.contains(event.target))) {
+      hide_hover();
+    }
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      close_menus();
+      hide_hover();
+    }
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    sync(current());
+    if (chosen) carry(chosen);
+  });
+})();]====]
+
+--- Matches the page until the reader picks a theme. Picking one sets `data-theme`.
+const UNPICKED = ":root:not([data-theme])"
+
+--- A theme's tokens, plus the `color-scheme` that styles scrollbars and form controls to match.
+const function theme_tokens(theme: Theme): Style
+    return theme
+        :palette()
+        :variables()
+        :set("color_scheme", string.lower(theme.mode))
+end
+
+const function theme_option(theme: Theme): ThemeOption
+    const palette = theme:palette()
+    return {
+        name = theme.name,
+        label = theme:label(),
+        swatches = {
+            palette.background:to_css(),
+            palette.primary:to_css(),
+            palette.accent:to_css(),
+        },
+    }
+end
+
+--- A `"body"` element that holds a [Document]'s visible content.
+export class Body implements Container
+    function tag(): string
+        return "body"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+const function lists_headings(node: Markup): boolean
+    if class.implements(node, Element) when node:lists_headings() then
+        return true
+    end
+    for _, child in node:child_nodes() do
+        if lists_headings(child) then
+            return true
+        end
+    end
+    return false
+end
+
+const function collect_headings(node: Markup, into: { Heading })
+    if class.isinstance(node, Heading) then
+        table.insert(into, node)
+    end
+    for _, child in node:child_nodes() do
+        collect_headings(child, into)
+    end
+end
+
+const HTML_ENTITIES: { [string]: string } = {
+    ["&lt;"] = "<",
+    ["&gt;"] = ">",
+    ["&quot;"] = "\"",
+    ["&#39;"] = "'",
+    ["&amp;"] = "&",
+}
+
+--- A heading's text without its markup, as a table of contents shows it.
+const function heading_text(heading: Heading): string
+    const inner = string.gsub(heading:to_html(), "<[^>]*>", "")
+    return (string.gsub(inner, "&[#%w]+;", HTML_ENTITIES))
+end
+
+--- An id for a heading reading `text`, unique among the `used` ones.
+const function heading_id(text: string, used: { [string]: boolean }): string
+    const dashed = string.gsub(string.lower(text), "[^%w]+", "-")
+    const trimmed = string.match(dashed, "^%-*(.-)%-*$") or ""
+    const base = if trimmed == "" then "section" else trimmed
+    local candidate = base
+    local suffix = 1
+    while used[candidate] do
+        suffix += 1
+        candidate = `{base}-{suffix}`
+    end
+    return candidate
+end
+
+--- The page's headings, each given an id from its text unless it has one.
+const function outline(body: Markup): { HeadingEntry }
+    const headings: { Heading } = {}
+    collect_headings(body, headings)
+    const used: { [string]: boolean } = {}
+    const entries: { HeadingEntry } = {}
+    for _, heading in headings do
+        const text = heading_text(heading)
+        const id = heading:get_id() or do
+            const generated = heading_id(text, used)
+            heading:id(generated)
+            give generated
+        used[id] = true
+        table.insert(entries, { level = heading.level, text = text, id = id })
+    end
+    return entries
+end
+
+const function collect_needs(
+    node: Markup,
+    seen: { [class]: boolean },
+    rules: { Rule },
+    inside: { Rule },
+    head: { [string]: Metadata }
+)
+    if class.implements(node, Element) then
+        for _, item in node:head_elements() or {} do
+            head[item:to_html()] = item
+        end
+        if const cls = class.of(node) when not seen[cls] then
+            seen[cls] = true
+            for _, rule in node:default_styles() or {} do
+                table.insert(rules, rule)
+            end
+        end
+        for _, rule in node.inside_rules or {} do
+            table.insert(inside, rule)
+        end
+    end
+    for _, child in node:child_nodes() do
+        collect_needs(child, seen, rules, inside, head)
+    end
+end
+
+--[=[
+    An `"html"` element that holds a whole page: its [Head], [Body], and the [Theme]s it offers.
+
+    Holds page-wide state: the default light and dark themes, the other themes readers can switch to, and
+    document-wide style overrides. A first-time reader sees the default for their OS's light or dark setting; a
+    theme they pick with a [ThemeSwitcher][components.ThemeSwitcher] restyles every element and sticks.
+
+    [components = require("@components/components")]
+
+    ```luwu
+    const page = Document("chimera")
+        :default_dark_theme(catppuccin.Mocha)
+        :default_light_theme(catppuccin.Latte)
+        :offer_theme(Light)
+        :style_every(Button, { border_radius = "999px" })
+        :add(
+            Menu { Link("Home", "/"), Link("Docs", "/docs"), ThemeSwitcher() },
+            Main { Heading.h1("Hello"), Paragraph("Built with chimera.") }
+        )
+    fs.writefile("site/index.html", page:to_html(true))
+    ```
+]=]
+export class Document implements Element
+    function tag(): string
+        return "html"
+    end
+    head: Head = Head()
+    body: Body = Body()
+    --- Set with [Document:default_light_theme].
+    light_theme: Theme? = nil
+    --- Set with [Document:default_dark_theme].
+    dark_theme: Theme? = nil
+    --- Every theme readers can pick, defaults included, in the order they were added.
+    themes: { Theme } = {}
+    --- Document-wide rules added with [Document:style_every].
+    rules: { Rule } = {}
+    --- The page's path from its site's root. Links on the page resolve against it. Set by a [Site][site.Site].
+    ---
+    --- [site = require("@site/site")]
+    location = ""
+    --- The site's pages, for elements that list them. Set by a [Site][site.Site].
+    ---
+    --- [site = require("@site/site")]
+    site_pages: { PageEntry } = {}
+
+    function __init(self, title: string?)
+        self.head:add(Meta.charset("utf-8"), Meta.viewport())
+        if title then
+            self.head:add(Title(title))
+        end
+        self:attr("lang", "en")
+    end
+
+    --[=[
+        Appends [Content] to the page's body, the same way [Container:add][markup.Container.add] does.
+
+        ## Usage
+
+        ```luwu
+        page:add(Header { Menu { Link("Home", "/") } }, Main { h1("Hello") })
+        ```
+
+        [markup = require("@core/markup")]
+    ]=]
+    function add(self, ...: Content?): Document
+        self.body:add(...)
+        return self
+    end
+
+    --[=[
+        Adds elements to the page's `<head>`: [Title]s, [Meta] tags, [ResourceLink]s, [Script]s or [Stylesheet]s.
+        [Document:title], [Document:describe] and [Document:css] cover the common cases.
+
+        ## Usage
+
+        ```luwu
+        page:add_head(Meta.property("og:image", "/preview.png"), ResourceLink("icon", "/favicon.svg"))
+        ```
+    ]=]
+    function add_head(self, ...: Metadata): Document
+        self.head:add(...)
+        return self
+    end
+
+    --[=[
+        Sets the page's title, shown in the browser tab, replacing any title it had.
+
+        ## Usage
+
+        ```luwu
+        Document():title("Pricing") -- <head>...<title>Pricing</title>...</head>
+        ```
+    ]=]
+    function title(self, text: string): Document
+        if const existing = self.head:title() then
+            existing.text = text
+        else
+            self.head:add(Title(text))
+        end
+        return self
+    end
+
+    --[=[
+        The page's title, if it has one.
+
+        ## Usage
+
+        ```luwu
+        Document("Home"):get_title()
+        ```
+    ]=]
+    function get_title(self): string?
+        return if const title = self.head:title() then title.text else nil
+    end
+
+    --[=[
+        Adds a `description` meta tag, the summary search engines show under the page's title.
+
+        ## Usage
+
+        ```luwu
+        page:describe("Static sites as classes") -- <meta name="description" content="Static sites as classes">
+        ```
+    ]=]
+    function describe(self, description: string): Document
+        return self:add_head(Meta("description", description))
+    end
+
+    --[=[
+        Links an external CSS file in the page's head.
+
+        ## Usage
+
+        ```luwu
+        page:link_stylesheet("/fonts.css") -- <link rel="stylesheet" href="/fonts.css">
+        ```
+    ]=]
+    function link_stylesheet(self, href: string): Document
+        return self:add_head(ResourceLink.stylesheet(href))
+    end
+
+    --[=[
+        Adds your own CSS to the page, as text or [Rule]s. It renders before the generated styles. To override
+        chimera's look, use [Document:style_every] instead.
+
+        ## Usage
+
+        ```luwu
+        page:css("@import url('/fonts.css');")
+        page:css({ Rule("body", { letter_spacing = "0.01em" }) })
+        ```
+    ]=]
+    function css(self, css: string | { read Rule }): Document
+        return self:add_head(Stylesheet(css))
+    end
+
+    --[=[
+        Adds JavaScript at the end of the page's body, inline or loaded from `src`.
+
+        ## Usage
+
+        ```luwu
+        page:script("console.log('loaded')")
+        page:script(nil, "/app.js")
+        ```
+    ]=]
+    function script(self, code: string?, src: string?): Document
+        self.body:add(Script(code, src))
+        return self
+    end
+
+    --[=[
+        The theme readers whose OS is set to light mode see until they pick one. It must be a `"Light"` [Theme].
+        Also offers it. Set only a dark default for a dark-only site; with neither set, the page uses
+        [Light][themes.Light] and [Dark][themes.Dark].
+
+        ## Usage
+
+        ```luwu
+        Document("Home")
+            :default_light_theme(catppuccin.Latte)
+            :default_dark_theme(catppuccin.Mocha)
+        ```
+
+        [themes = require("@themes")]
+    ]=]
+    function default_light_theme(self, cls: class<Theme>): Document
+        const theme = cls()
+        if theme.mode ~= "Light" then
+            error(`'{theme.name}' is a {theme.mode} theme; use default_dark_theme`, 2)
+        end
+        self.light_theme = theme
+        return self:offer_theme(cls)
+    end
+
+    --[=[
+        The theme readers whose OS is set to dark mode see until they pick one. It must be a `"Dark"` [Theme].
+        Also offers it. Set only a light default for a light-only site; with neither set, the page uses
+        [Light][themes.Light] and [Dark][themes.Dark].
+
+        ## Usage
+
+        ```luwu
+        Document("Home"):default_dark_theme(catppuccin.Mocha) -- dark-only
+        ```
+
+        [themes = require("@themes")]
+    ]=]
+    function default_dark_theme(self, cls: class<Theme>): Document
+        const theme = cls()
+        if theme.mode ~= "Dark" then
+            error(`'{theme.name}' is a {theme.mode} theme; use default_light_theme`, 2)
+        end
+        self.dark_theme = theme
+        return self:offer_theme(cls)
+    end
+
+    --[=[
+        Lets readers switch to `theme` with a [ThemeSwitcher][components.ThemeSwitcher]. Readers only see it once
+        they pick it.
+
+        ## Usage
+
+        ```luwu
+        Document("Home")
+            :default_dark_theme(catppuccin.Mocha)
+            :offer_theme(catppuccin.Frappe)
+            :add(Menu { ThemeSwitcher() })
+        ```
+
+        [components = require("@components/components")]
+    ]=]
+    function offer_theme(self, cls: class<Theme>): Document
+        const theme = cls()
+        if not self:offers(theme.name) then
+            table.insert(self.themes, theme)
+        end
+        return self
+    end
+
+    --[=[
+        The theme a first-time reader whose OS is in `mode` sees. That's the default set for `mode`, or
+        [Light][themes.Light] and [Dark][themes.Dark] when the page sets neither default. Nil for the missing mode
+        of a dark-only or light-only page.
+
+        ## Usage
+
+        ```luwu
+        Document()
+            :default_dark_theme(catppuccin.Mocha)
+            :default_theme("Light")
+        ```
+
+        [themes = require("@themes")]
+    ]=]
+    function default_theme(self, mode: ThemeMode): Theme?
+        if self.light_theme == nil and self.dark_theme == nil then
+            return if mode == "Light" then Light() else Dark()
+        end
+        return if mode == "Light" then self.light_theme else self.dark_theme
+    end
+
+    --- Every theme readers can pick: the offered themes plus the defaults [Document:default_theme] falls back to.
+    function all_themes(self): { Theme }
+        const themes = table.clone(self.themes)
+        for _, mode: ThemeMode in { "Light", "Dark" } do
+            if
+                const theme = self:default_theme(mode)
+                when not self:offers(theme.name)
+            then
+                table.insert(themes, theme)
+            end
+        end
+        return themes
+    end
+
+    --- Whether readers can pick the theme called `name`.
+    function offers(self, name: string): boolean
+        for _, theme in self.themes do
+            if theme.name == name then
+                return true
+            end
+        end
+        return false
+    end
+
+    --[=[
+        Styles every element on the page that matches `target`: an element class, a component class or any CSS
+        selector. These rules come after the theme's and components' styles and win over both.
+
+        To style one element, use [Element:style][markup.Element.style]; to style only inside one element, use
+        [Element:style_inside][markup.Element.style_inside].
+
+        ## Usage
+
+        ```luwu
+        page:style_every(Button, { border_radius = "999px" })
+        page:style_every(Card, { padding = "2rem" })
+        page:style_every(".hero h1", { font_size = "3rem" })
+        ```
+
+        [markup = require("@core/markup")]
+    ]=]
+    function style_every(self, target: string | class<Element>, input: StyleInput): Document
+        const selector = if type(target) == "string" then target else Element.style_selector_of(target)
+        table.insert(self.rules, Rule(selector, input))
+        return self
+    end
+
+    --[=[
+        Everything the document adds to its `<head>` when it renders, in order: a stylesheet of theme tokens and
+        base styles, a stylesheet of [Document:style_every] and [Element:style_inside] rules, the runtime script,
+        then the head elements its elements need ([Element:head_elements]). Parsing drops all of them except the
+        second stylesheet, whose rules it reads back into `rules`.
+    ]=]
+    function generated_head(self): { Metadata }
+        const base = Stylesheet():attr(GENERATED, "styles")
+        for _, theme in self:all_themes() do
+            table.insert(base.rules, Rule(`:root[data-theme="{theme.name}"]`, theme_tokens(theme)))
+        end
+        const light = self:default_theme("Light")
+        const dark = self:default_theme("Dark")
+        const first = light or dark
+        if first then
+            table.insert(base.rules, Rule(UNPICKED, theme_tokens(first)))
+            if light and dark then
+                table.insert(base.rules, Rule("@media (prefers-color-scheme: dark)", {}, {
+                    Rule(UNPICKED, theme_tokens(dark)),
+                }))
+            end
+            for _, rule in first:base_styles() do
+                table.insert(base.rules, rule)
+            end
+        end
+        const overrides = Stylesheet(self.rules):attr(GENERATED, "overrides")
+        const needed: { [string]: Metadata } = {}
+        collect_needs(self.body, {}, base.rules, overrides.rules, needed)
+
+        const head: { Metadata } = { base }
+        if #overrides.rules > 0 then
+            table.insert(head, overrides)
+        end
+        table.insert(head, Script(RUNTIME_JS):attr(GENERATED, "runtime"))
+        const keys = { for key in needed give key }
+        table.sort(keys)
+        for _, key in keys do
+            table.insert(head, needed[key]:attr(GENERATED, "required"))
+        end
+        return head
+    end
+
+    --[=[
+        Sets an attribute of the page's `<html>` tag, like `lang`. `data-theme-light`, `data-theme-dark` and
+        `data-themes` are the page's default and offered themes. Setting them picks registered themes by name. Parsed
+        pages get their themes back this way.
+
+        ## Usage
+
+        ```luwu
+        Document():attr("lang", "fr")        -- <html ... lang="fr">
+        Document():attr("data-theme-dark", "dark") -- same as :default_dark_theme(Dark)
+        ```
+    ]=]
+    function attr(self, name: string, value: AttributeValue?): Document
+        if name == "data-theme-light" or name == "data-theme-dark" then
+            if type(value) == "string" when const theme = Theme.find(value) then
+                if name == "data-theme-light" then
+                    self:default_light_theme(theme)
+                else
+                    self:default_dark_theme(theme)
+                end
+            end
+            return self
+        elseif name == "data-themes" then
+            if type(value) == "string" then
+                for theme_name in string.gmatch(value, "%S+") do
+                    if const theme = Theme.find(theme_name) then
+                        self:offer_theme(theme)
+                    end
+                end
+            end
+            return self
+        end
+        return Element.attr(self, name, value)
+    end
+
+    function adopt(self, node: Markup): boolean
+        if class.isinstance(node, Head) then
+            const kept: { Metadata } = {}
+            for _, item in node.items do
+                const generated = item:get_attr(GENERATED)
+                if generated == nil then
+                    table.insert(kept, item)
+                elseif generated == "overrides" and class.isinstance(item, Stylesheet) then
+                    for _, rule in item.rules do
+                        table.insert(self.rules, rule)
+                    end
+                end
+            end
+            self.head = Head(kept)
+            return true
+        elseif class.isinstance(node, Body) then
+            const kept = {
+                for _, child in node.children
+                when not class.isinstance(child, Script) or child:get_attr(GENERATED) == nil
+                    give child
+            }
+            self.body = Body(kept)
+            return true
+        end
+        return false
+    end
+
+    function clear(self): Document
+        self.head = Head()
+        self.body = Body()
+        self.light_theme = nil
+        self.dark_theme = nil
+        table.clear(self.themes)
+        table.clear(self.rules)
+        return self
+    end
+
+    function child_nodes(self): { read Markup }
+        return { self.head, self.body }
+    end
+
+    function render(self, out: Writer)
+        out.themes = { for _, theme in self:all_themes() give theme_option(theme) }
+        out.location = self.location
+        out.pages = self.site_pages
+        if lists_headings(self.body) then
+            out.headings = outline(self.body)
+        end
+        const theme_names = { for _, option in out.themes give option.name }
+        out:write("<!DOCTYPE html>")
+        out:newline()
+        out:write(`<html data-themes="{table.concat(theme_names, " ")}"`)
+        if const light = self:default_theme("Light") then
+            out:write(` data-theme-light="{light.name}"`)
+        end
+        if const dark = self:default_theme("Dark") then
+            out:write(` data-theme-dark="{dark.name}"`)
+        end
+        self.attributes:render(out)
+        out:write(">")
+        out:newline()
+
+        const head = Head()
+        for _, item in self.head.items do
+            head:add(item)
+        end
+        for _, item in self:generated_head() do
+            head:add(item)
+        end
+        head:render(out)
+        out:newline()
+        self.body:render(out)
+        out:newline()
+        out:write("</html>")
+    end
+
+end
+
+Element.register_class(Body)
+Element.register_class(Document)
