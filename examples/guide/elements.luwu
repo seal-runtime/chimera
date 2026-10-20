@@ -93,8 +93,8 @@ return Page("Elements", {
     Paragraph({
         "Elements are classes that correspond to specific HTML tags: ", Code("Paragraph"), " is ",
         Code("<p>", "html"), ", ", Code("UnorderedList"), " is ", Code("<ul>", "html"), ", ", Code("Link"), " is ",
-        Code("<a>", "html"), " and ", Code("Image"), " is ", Code("<img>", "html"), ". Each one is named after ",
-        "what the tag is rather than its abbreviation, and they all live in ", Code("chimera.elements"), ".",
+        Code("<a>", "html"), " and ", Code("Image"), " is ", Code("<img>", "html"), ". All of them live in ",
+        Code("chimera.elements"), " and are named after what the tag is rather than its abbreviation.",
     }),
     TableOfContents(),
 
@@ -103,9 +103,11 @@ return Page("Elements", {
         "An element's content can be a string, a number, another element or a list of any of those. ",
         "When an item is optional, put ", Code("none"), " in its place:",
     }),
-    CodeBlock([====[Paragraph("Plain text")
-Paragraph({ "Mixed ", Strong("content"), " and numbers: ", 42 })
-Paragraph({ "Hello", if signed_in then Strong(" again") else none })]====]),
+    CodeBlock([====[
+        Paragraph("Plain text")
+        Paragraph({ "Mixed ", Strong("content"), " and numbers: ", 42 })
+        Paragraph({ "Hello", if signed_in then Strong(" again") else none })
+    ]====]),
     Paragraph({
         "Text is always escaped: ", Code("Paragraph(\"<b>\")"), " shows the characters instead of bold text.",
     }),
@@ -138,7 +140,7 @@ Paragraph({ "Hello", if signed_in then Strong(" again") else none })]====]),
     }),
 
     h2("Details"),
-    Paragraph({ Code("Details"), " shows a summary that opens to reveal the rest, without any JavaScript:" }),
+    Paragraph({ Code("Details"), " shows a summary that opens to reveal the rest without any JavaScript:" }),
     example("details", faq),
 
     h2("Forms"),
@@ -150,15 +152,16 @@ Paragraph({ "Hello", if signed_in then Strong(" again") else none })]====]),
 
     h2("Attributes, classes and events"),
     Paragraph({
-        "Every element shares the same methods for attributes, classes and events. Each one returns the element ",
-        "it was called on, and that lets you chain them:",
+        "Every element shares the same chainable methods for attributes, classes and events:",
     }),
-    CodeBlock([====[Link("Docs", "/docs")
-    :id("docs-link")
-    :attr("title", "Read the docs")
-    :data("section", "top")              -- data-section="top"
-    :add_style_class("button", "large")
-    :on("click", "console.log('clicked')")]====]),
+    CodeBlock([====[
+        Link("Docs", "/docs")
+            :id("docs-link")
+            :attr("title", "Read the docs")
+            :data("section", "top")              -- data-section="top"
+            :add_style_class("button", "large")
+            :on("click", "console.log('clicked')")
+    ]====]),
     Paragraph({
         Code("hidden()"), " hides an element until a script shows it. When a chain needs a step that isn't a ",
         "method, ", Code("tap(function(element) ... end)"), " runs your function and carries on.",

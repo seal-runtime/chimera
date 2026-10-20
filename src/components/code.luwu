@@ -1018,9 +1018,41 @@ export class Code implements SourceCode
     end
 end
 
+--- `source` without its leading blank lines, its trailing whitespace, or the indentation all of its lines share.
+const function dedent(source: string): string
+    const lines = string.split((string.gsub(string.gsub(source, "^%s*\n", ""), "%s+$", "")), "\n")
+    local shared: string? = nil
+    for _, line in lines do
+        if string.find(line, "%S") then
+            const indent = string.match(line, "^[ \t]*") or ""
+            if shared == nil then
+                shared = indent
+            else
+                local length = 0
+                while
+                    length < #shared
+                    and length < #indent
+                    and string.byte(shared, length + 1) == string.byte(indent, length + 1)
+                do
+                    length += 1
+                end
+                shared = string.sub(shared, 1, length)
+            end
+        end
+    end
+    const cut = if shared then #shared else 0
+    return table.concat({
+        for _, line in lines
+        give if string.find(line, "%S") then string.sub(line, cut + 1) else ""
+    }, "\n")
+end
+
 --[=[
     A `"pre"` element that shows a block of source code, highlighted for its [Language] (Luwu by default). For code
     inside a sentence, use [Code].
+
+    The source is dedented with [CodeBlock.dedent]. Code written inside an indented string shows flush left, and
+    its own nesting stays intact.
 
     ## Usage
 
@@ -1041,10 +1073,34 @@ export class CodeBlock implements SourceCode
     end
 
     function __init(self, source: string?, language: Language?)
-        self.source = source or ""
+        self.source = dedent(source or "")
         self
             :attr("data-language", language or "luwu")
             :add_style_class("chimera-code-block")
+    end
+
+    --[=[
+        `source` without its leading blank lines, its trailing whitespace, or the indentation all of its lines
+        share. A [CodeBlock] does this to its own source. Call it on code strings you read yourself.
+
+        ## Usage
+
+        ```luwu
+        CodeBlock.dedent([==[
+            for _, cat in cats do
+                print(cat)
+            end
+        ]==])
+        ```
+
+        ```plaintext
+        for _, cat in cats do
+            print(cat)
+        end
+        ```
+    ]=]
+    function dedent(source: string): string
+        return dedent(source)
     end
 
     --[=[

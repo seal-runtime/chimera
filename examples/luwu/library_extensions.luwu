@@ -12,7 +12,7 @@ const .{ h1, h2, h3 } = Heading
 
 return Page("Library Extensions", {
     h1("Library Extensions"),
-    Paragraph("Luwu's standard library is Luau's, with a few additions that fix real problems."),
+    Paragraph("Luwu's standard library is Luau's plus a few additions that fix real problems."),
     TableOfContents(),
 
     h2("table.drop"),
@@ -24,9 +24,11 @@ return Page("Library Extensions", {
         "Luau added ", Code("table.find"), " to get the index of a value in a list. ",
         "Pairing it with ", Code("table.remove"), " looks like the obvious way to remove a value:",
     }),
-    CodeBlock([====[local party = { "Ada", "Grace", "Alan" }
-table.remove(party, table.find(party, "Linus"))
-print(#party, party[3]) -- 2, nil]====], "luau"),
+    CodeBlock([====[
+        local party = { "Ada", "Grace", "Alan" }
+        table.remove(party, table.find(party, "Linus"))
+        print(#party, party[3]) -- 2, nil
+    ]====], "luau"),
     Paragraph({
         Code("table.find"), " gives nil for Linus, who isn't in the party. ",
         "Given nil as its index, ", Code("table.remove"), " removes the last item instead. ",
@@ -64,10 +66,12 @@ print(#party, party[3]) -- 2, nil]====], "luau"),
     h3("The lint"),
     Paragraph({
         "Luwu also warns when ", Code("table.remove"), " gets an index that might be nil. ",
-        "The old pattern is underlined, with this message:",
+        "The old pattern is underlined with this message:",
     }),
-    CodeBlock([====[If this is `nil`, `table.remove` will remove the last element of the array.
-Consider using `table.drop` instead. If order is not important, use a key/value table for better performance.]====],
+    CodeBlock([====[
+        If this is `nil`, `table.remove` will remove the last element of the array.
+        Consider using `table.drop` instead. If order is not important, use a key/value table for better performance.
+    ]====],
         "plaintext"),
     Paragraph({ "Passing nil on purpose, like ", Code("table.remove(t, nil)"), ", doesn't warn." }),
 

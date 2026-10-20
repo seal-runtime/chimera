@@ -65,10 +65,12 @@ return Page("Styling", {
         "accent color. When the reader switches themes, every style that uses it changes with them. ",
         "These are the tokens every theme sets:",
     }),
-    CodeBlock([====[background  surface  text  muted  border
-primary  primary_text  accent
-radius  spacing  font  mono_font  shadow
-syntax_keyword  syntax_string  syntax_comment  ...  syntax_error]====], "plaintext"),
+    CodeBlock([====[
+        background  surface  text  muted  border
+        primary  primary_text  accent
+        radius  spacing  font  mono_font  shadow
+        syntax_keyword  syntax_string  syntax_comment  ...  syntax_error
+    ]====], "plaintext"),
     Paragraph({
         Code("token(\"radius\"):times(1.5)"), " scales a length token, and ",
         Code("token(\"primary\"):mix(token(\"background\"), 20)"), " blends 20% of one color token into another.",
@@ -92,21 +94,25 @@ syntax_keyword  syntax_string  syntax_comment  ...  syntax_error]====], "plainte
         Code("style_every"), " on a ", Code("Document"), " or a ", Code("Site"), " styles everything that ",
         "matches an element class or a CSS selector. These rules come after the theme's and win over them:",
     }),
-    CodeBlock([====[site
-    :style_every(Button, { border_radius = "999px" })
-    :style_every(Card, { padding = "2rem" })
-    :style_every(".hero h1", { font_size = "3rem" })]====]),
+    CodeBlock([====[
+        site
+            :style_every(Button, { border_radius = "999px" })
+            :style_every(Card, { padding = "2rem" })
+            :style_every(".hero h1", { font_size = "3rem" })
+    ]====]),
 
     h2("Rules and stylesheets"),
     Paragraph({
         "A ", Code("Rule"), " pairs a selector with a style. For media queries, nest rules inside one:",
     }),
-    CodeBlock([====[document:css({
-    Rule("nav a", { color = token("text") }),
-    Rule("@media (max-width: 600px)", {}, {
-        Rule("nav", { flex_direction = "column" }),
-    }),
-})]====]),
+    CodeBlock([====[
+        document:css({
+            Rule("nav a", { color = token("text") }),
+            Rule("@media (max-width: 600px)", {}, {
+                Rule("nav", { flex_direction = "column" }),
+            }),
+        })
+    ]====]),
     Paragraph({
         Code("document:css(text)"), " also takes plain CSS, and ", Code("link_stylesheet(href)"),
         " links a stylesheet file. Going the other way, ", Code("Rule.parse"), " and ", Code("Style.parse"),

@@ -102,11 +102,13 @@ return Page("Compatibility", {
         "upstream tooling, or in Roblox. So Luwu refuses: in a ", Code(".luau", "plaintext"),
         " module, Luwu-only syntax is a parse error that says what to do instead.",
     }),
-    CodeBlock([====[local fruit = { "apple", "kiwi", "pear" }
+    CodeBlock([====[
+        local fruit = { "apple", "kiwi", "pear" }
 
-local long_names = { for _, name in fruit when #name > 4 give name }
-table.drop(fruit, "kiwi")
-print(#long_names, #fruit)]====], "luau")
+        local long_names = { for _, name in fruit when #name > 4 give name }
+        table.drop(fruit, "kiwi")
+        print(#long_names, #fruit)
+    ]====], "luau")
         :line_numbers()
         :squiggle(
             Squiggle.error(SourceSpan.on_line(3, 22, 24), COMPREHENSION_ERROR),
@@ -122,7 +124,7 @@ print(#long_names, #fruit)]====], "luau")
         " and the same code checks cleanly.",
     }),
     Paragraph({
-        "Library functions aren't syntax, so the parser can't reject them. Instead the ", Code("LuwuOnlyApi"),
+        "The parser can't reject library functions because they aren't syntax. Instead the ", Code("LuwuOnlyApi"),
         " lint warns about Luwu-only functions like ", Code("table.drop"), " and ", Code("class.of"),
         " in Luau and Lua files. The language server does the same for Luwu-only directives such as ",
         Code("--!trust"), ".",

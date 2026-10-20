@@ -61,29 +61,33 @@ return Page("Guide", {
         "Then point an alias at it in your project's ", Code(".luaurc", "plaintext"), ", and ",
         Code("require(\"@chimera\")"), " will find it:",
     }),
-    CodeBlock([====[{
-    "aliases": {
-        "chimera": "./libraries/chimera"
-    }
-}]====], "json"),
+    CodeBlock([====[
+        {
+            "aliases": {
+                "chimera": "./libraries/chimera"
+            }
+        }
+    ]====], "json"),
 
     h2("Your first page"),
     Paragraph({
         "A ", Code("Document"), " is one HTML page. Add elements to it, render it with ", Code("to_html"),
         ", and write the result with seal's ", Code("fs"), " library:",
     }),
-    CodeBlock([====[const fs = require("@std/fs")
-const chimera = require("@chimera")
-const .{ Document, elements.{ Heading, Paragraph, Main, Link } } = chimera
-const .{ h1 } = Heading
+    CodeBlock([====[
+        const fs = require("@std/fs")
+        const chimera = require("@chimera")
+        const .{ Document, elements.{ Heading, Paragraph, Main, Link } } = chimera
+        const .{ h1 } = Heading
 
-const page = Document("Hello")
-    :add(Main {
-        h1("Hello"),
-        Paragraph({ "Built with ", Link("chimera", "https://github.com/seal-runtime/chimera"), "." }),
-    })
+        const page = Document("Hello")
+            :add(Main {
+                h1("Hello"),
+                Paragraph({ "Built with ", Link("chimera", "https://github.com/seal-runtime/chimera"), "." }),
+            })
 
-fs.writefile("hello.html", page:to_html(true))]====]):copyable(),
+        fs.writefile("hello.html", page:to_html(true))
+    ]====]):copyable(),
     Paragraph({ "Run it with ", Code("seal ./hello.luwu", "bash"), " and the page's body looks like this:" }),
     example("first page", hello),
     Paragraph({
@@ -96,14 +100,16 @@ fs.writefile("hello.html", page:to_html(true))]====]):copyable(),
         "Once you have more than one page, use a ", Code("Site"), ". It renders every page with the same ",
         "header, footer and themes, and the default header already has a menu of your pages and a theme switcher.",
     }),
-    CodeBlock([====[const .{ site.{ Site, Page } } = chimera
+    CodeBlock([====[
+        const .{ site.{ Site, Page } } = chimera
 
-const home = Page("Home", { h1("Hello"), Paragraph("Welcome!") }, "index.html")
-const notes = Page("Notes", { h1("Notes"), Paragraph("Things I learned.") })
+        const home = Page("Home", { h1("Hello"), Paragraph("Welcome!") }, "index.html")
+        const notes = Page("Notes", { h1("Notes"), Paragraph("Things I learned.") })
 
-Site("My site")
-    :add_page(home, notes)
-    :build("out")]====]):copyable(),
+        Site("My site")
+            :add_page(home, notes)
+            :build("out")
+    ]====]):copyable(),
     Paragraph({
         "That writes ", Code("out/index.html", "plaintext"), " and ", Code("out/notes.html", "plaintext"), ". ",
         PageLink(sites_page), " covers nested pages, links between them and tables of contents.",

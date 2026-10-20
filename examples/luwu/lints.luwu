@@ -41,8 +41,8 @@ return Page("Lints", {
         print(total)
     ]====]),
     Paragraph({
-        Code("ConstLocal"), " flags any ", Code("local"), " that's never reassigned, ",
-        "so it can be ", Code("const"), ". ", Code("total"), " is reassigned here, so nothing is reported.",
+        Code("ConstLocal"), " flags any ", Code("local"), " that's never reassigned and could be ",
+        Code("const"), ". Because ", Code("total"), " is reassigned here, nothing is reported.",
     }),
     UnorderedList({
         ListItem({

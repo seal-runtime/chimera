@@ -26,7 +26,8 @@ const function diagnostics(output: string): { string }
 end
 
 --- `source` as one checker sees it: its messages on squiggles under `spans`, then its whole output.
-const function checker_view(source: string, spans: { string }, output: string): { CodeBlock }
+const function checker_view(source: string, spans: { string }, raw_output: string): { CodeBlock }
+    const output = CodeBlock.dedent(raw_output)
     const messages = diagnostics(output)
     const squiggles = {
         for index, span in spans
@@ -82,18 +83,22 @@ return Page("Type Checking", {
 
     h2("Catching mistakes"),
     Paragraph("A typo in a field name is a type error, reported where you made it:"),
-    CodeBlock([====[type Player = { name: string, level: number }
+    CodeBlock([====[
+        type Player = { name: string, level: number }
 
-const function promote(player: Player)
-    player.level += 1
-end
+        const function promote(player: Player)
+            player.level += 1
+        end
 
-promote({ name = "Ada", levl = 3 })]====])
+        promote({ name = "Ada", levl = 3 })
+    ]====])
         :line_numbers()
         :squiggle(Squiggle.error(SourceSpan.on_line(7, 25, 28), "Typo: Did you mean 'level' instead of 'levl'?")),
-    CodeBlock([====[Typo: Did you mean 'level' instead of 'levl'?
-TypeError: The given table is missing a property for 'Player':
-  • 'level: number']====], "plaintext"),
+    CodeBlock([====[
+        Typo: Did you mean 'level' instead of 'levl'?
+        TypeError: The given table is missing a property for 'Player':
+          • 'level: number'
+    ]====], "plaintext"),
     Paragraph("Without the checker, this program would fail later, when something reads the missing level."),
 
     h2("Inference"),
@@ -187,9 +192,11 @@ TypeError: The given table is missing a property for 'Player':
     example("Misspelled locals", {
         Paragraph("A misspelled local:"),
         checked(
-            [====[--!strict
-local player_name = "Ada"
-print(player_nmae)]====],
+            [====[
+                --!strict
+                local player_name = "Ada"
+                print(player_nmae)
+            ]====],
             { "3.7-3.17" },
             [====[main.luau(3,7): TypeError: Unknown global 'player_nmae'; consider assigning to it first]====],
             { "3.7-3.17" },
@@ -199,8 +206,10 @@ print(player_nmae)]====],
     example("Misspelled globals", {
         Paragraph("Built-in globals count too. Luau suggests assigning to the misspelled name:"),
         checked(
-            [====[--!strict
-pirnt("hello")]====],
+            [====[
+                --!strict
+                pirnt("hello")
+            ]====],
             { "2.1-2.5" },
             [====[main.luau(2,1): TypeError: Unknown global 'pirnt'; consider assigning to it first]====],
             { "2.1-2.5" },
@@ -213,16 +222,20 @@ pirnt("hello")]====],
             "Luwu also says which key was meant to be it:",
         }),
         checked(
-            [====[--!strict
-type Player = { name: string, level: number }
+            [====[
+                --!strict
+                type Player = { name: string, level: number }
 
-local ada: Player = { name = "Ada", levl = 3 }]====],
+                local ada: Player = { name = "Ada", levl = 3 }
+            ]====],
             { "4.21-4.46" },
             [====[main.luau(4,21): TypeError: Table type '{ levl: number, name: string }' not compatible with type 'Player' because the former is missing field 'level']====],
             { "4.37-4.40", "" },
-            [====[main.luau(4,37): Typo: Did you mean 'level' instead of 'levl'?
-main.luau(4,21): TypeError: 'ada' is missing a property for 'Player':
-  • 'level: number']====]
+            [====[
+                main.luau(4,37): Typo: Did you mean 'level' instead of 'levl'?
+                main.luau(4,21): TypeError: 'ada' is missing a property for 'Player':
+                  • 'level: number'
+            ]====]
         ),
     }),
     example("Misspelled optional properties", {
@@ -231,12 +244,14 @@ main.luau(4,21): TypeError: 'ada' is missing a property for 'Player':
             "and the subtitle is silently lost. Luwu still catches it:",
         }),
         checked(
-            [====[--!strict
-type Options = { title: string, subtitle: string?, width: number? }
+            [====[
+                --!strict
+                type Options = { title: string, subtitle: string?, width: number? }
 
-local function open_window(options: Options) end
+                local function open_window(options: Options) end
 
-open_window({ title = "Inventory", subtilte = "Items" })]====],
+                open_window({ title = "Inventory", subtilte = "Items" })
+            ]====],
             {},
             [====[]====],
             { "6.36-6.43" },
@@ -246,12 +261,14 @@ open_window({ title = "Inventory", subtilte = "Items" })]====],
     example("Misspelled property reads", {
         Paragraph("Luau says the key isn't in the table. Luwu says which property you meant, by its path:"),
         checked(
-            [====[--!strict
-type Player = { name: string, level: number }
+            [====[
+                --!strict
+                type Player = { name: string, level: number }
 
-local function greet(player: Player): string
-    return `Hello, {player.nmae}`
-end]====],
+                local function greet(player: Player): string
+                    return `Hello, {player.nmae}`
+                end
+            ]====],
             { "5.21-5.31" },
             [====[main.luau(5,21): TypeError: Key 'nmae' not found in table 'Player']====],
             { "5.21-5.31" },
@@ -264,12 +281,14 @@ end]====],
             "Luwu says which existing property you meant:",
         }),
         checked(
-            [====[--!strict
-type Settings = { volume: number, muted: boolean? }
+            [====[
+                --!strict
+                type Settings = { volume: number, muted: boolean? }
 
-local function mute(settings: Settings)
-    settings.mutd = true
-end]====],
+                local function mute(settings: Settings)
+                    settings.mutd = true
+                end
+            ]====],
             { "5.5-5.17" },
             [====[main.luau(5,5): TypeError: Cannot add property 'mutd' to table 'Settings']====],
             { "5.5-5.17" },
@@ -279,9 +298,11 @@ end]====],
     example("Misspelled methods", {
         Paragraph("Methods on built-in types, like strings, count too:"),
         checked(
-            [====[--!strict
-local text = "  Ada  "
-print(text:uper())]====],
+            [====[
+                --!strict
+                local text = "  Ada  "
+                print(text:uper())
+            ]====],
             { "3.7-3.15" },
             [====[main.luau(3,7): TypeError: Type 'string' does not have key 'uper']====],
             { "3.7-3.15" },
@@ -294,9 +315,11 @@ print(text:uper())]====],
             "Luwu suggests the function you meant:",
         }),
         checked(
-            [====[--!strict
-local words = { "b", "a" }
-table.srot(words)]====],
+            [====[
+                --!strict
+                local words = { "b", "a" }
+                table.srot(words)
+            ]====],
             { "3.1-3.10" },
             [====[main.luau(3,1): TypeError: Key 'srot' not found in table 'typeof(table)']====],
             { "3.1-3.10" },
@@ -306,10 +329,12 @@ table.srot(words)]====],
     example("Misspelled type names", {
         Paragraph("Type names count too:"),
         checked(
-            [====[--!strict
-type Player = { name: string }
+            [====[
+                --!strict
+                type Player = { name: string }
 
-local function greet(player: Plyer) end]====],
+                local function greet(player: Plyer) end
+            ]====],
             { "4.30-4.34" },
             [====[main.luau(4,30): TypeError: Unknown type 'Plyer']====],
             { "4.30-4.34" },
@@ -319,12 +344,14 @@ local function greet(player: Plyer) end]====],
     example("String literal typos", {
         Paragraph("Luau lists the values it allows. Luwu spots the one you meant:"),
         checked(
-            [====[--!strict
-type Team = "Red" | "Blue" | "Green"
+            [====[
+                --!strict
+                type Team = "Red" | "Blue" | "Green"
 
-local function join(team: Team) end
+                local function join(team: Team) end
 
-join("Bleu")]====],
+                join("Bleu")
+            ]====],
             { "6.6-6.11" },
             [====[main.luau(6,6): TypeError: Expected this to be '"Blue" | "Green" | "Red"', but got '"Bleu"']====],
             { "6.6-6.11" },
@@ -338,15 +365,17 @@ join("Bleu")]====],
             "then finds the misspelled property:",
         }),
         checked(
-            [====[--!strict
-type Event =
-    | { kind: "join", player: string }
-    | { kind: "leave", player: string, reason: string }
+            [====[
+                --!strict
+                type Event =
+                    | { kind: "join", player: string }
+                    | { kind: "leave", player: string, reason: string }
 
-local function handle(event: Event) end
+                local function handle(event: Event) end
 
-local leaving = { kind = "leave" :: "leave", player = "Ada", reson = "afk" }
-handle(leaving)]====],
+                local leaving = { kind = "leave" :: "leave", player = "Ada", reson = "afk" }
+                handle(leaving)
+            ]====],
             { "9.8-9.14" },
             [====[main.luau(9,8): TypeError: Expected this to be '{ kind: "join", player: string } | { kind: "leave", player: string, reason: string }', but got 'leaving']====],
             { "9.8-9.14" },
@@ -359,19 +388,23 @@ handle(leaving)]====],
             "Luwu spots the typo in the tag itself:",
         }),
         checked(
-            [====[--!strict
-type Event =
-    | { kind: "join", player: string }
-    | { kind: "leave", player: string, reason: string }
+            [====[
+                --!strict
+                type Event =
+                    | { kind: "join", player: string }
+                    | { kind: "leave", player: string, reason: string }
 
-local function handle(event: Event) end
+                local function handle(event: Event) end
 
-handle({ kind = "laeve", player = "Ada", reason = "afk" })]====],
+                handle({ kind = "laeve", player = "Ada", reason = "afk" })
+            ]====],
             { "8.8-8.57" },
-            [====[main.luau(8,8): TypeError: Expected this to be
-	'{ kind: "join", player: string } | { kind: "leave", player: string, reason: string }'
-but got
-	'{ kind: string, player: string, reason: string }']====],
+            [====[
+                main.luau(8,8): TypeError: Expected this to be
+                	'{ kind: "join", player: string } | { kind: "leave", player: string, reason: string }'
+                but got
+                	'{ kind: string, player: string, reason: string }'
+            ]====],
             { "8.17-8.23" },
             [====[main.luau(8,17): Typo: Did you mean '"leave"' instead of '"laeve"'?]====]
         ),
@@ -380,21 +413,23 @@ but got
     h3("Unknown names"),
     Paragraph({
         "Luau reports every name it can't find as an unknown global, and suggests assigning to it. ",
-        "Luwu knows code rarely means to create a global, so it suggests defining a local instead. ",
+        "Luwu suggests defining a local instead because code rarely means to create a global. ",
         "When there's a better explanation, Luwu gives that: a local used too early, one out of scope, ",
         "or a module that was never required.",
     }),
     example("Undefined variables", {
         Paragraph("A name used outside the function that defines it:"),
         checked(
-            [====[--!strict
-local function load_save()
-    local save_data = { level = 3 }
-    return true
-end
+            [====[
+                --!strict
+                local function load_save()
+                    local save_data = { level = 3 }
+                    return true
+                end
 
-load_save()
-print(save_data.level)]====],
+                load_save()
+                print(save_data.level)
+            ]====],
             { "8.7-8.15" },
             [====[main.luau(8,7): TypeError: Unknown global 'save_data'; consider assigning to it first]====],
             { "8.7-8.15" },
@@ -404,9 +439,11 @@ print(save_data.level)]====],
     example("Use before definition", {
         Paragraph("A local used above its own definition:"),
         checked(
-            [====[--!strict
-print(greeting)
-local greeting = "hello"]====],
+            [====[
+                --!strict
+                print(greeting)
+                local greeting = "hello"
+            ]====],
             { "2.7-2.14" },
             [====[main.luau(2,7): TypeError: Unknown global 'greeting'; consider assigning to it first]====],
             { "2.7-2.14" },
@@ -416,18 +453,22 @@ local greeting = "hello"]====],
     example("Inner scopes", {
         Paragraph("A local defined inside an if, then used after it:"),
         checked(
-            [====[--!strict
-local function open_chest(locked: boolean): number
-    if not locked then
-        local reward = 10
-    end
-    return reward
-end]====],
+            [====[
+                --!strict
+                local function open_chest(locked: boolean): number
+                    if not locked then
+                        local reward = 10
+                    end
+                    return reward
+                end
+            ]====],
             { "6.12-6.17" },
             [====[main.luau(6,12): TypeError: Unknown global 'reward'; consider assigning to it first]====],
             { "6.12-6.17", "4.15-4.20" },
-            [====[main.luau(6,12): TypeError: 'reward' is not accessible here because it was defined in an inner scope on line 4
-main.luau(4,15): Note: Consider moving this binding above this 'if' statement to use it on line 6]====]
+            [====[
+                main.luau(6,12): TypeError: 'reward' is not accessible here because it was defined in an inner scope on line 4
+                main.luau(4,15): Note: Consider moving this binding above this 'if' statement to use it on line 6
+            ]====]
         ),
     }),
     example("Missing library functions", {
@@ -435,9 +476,11 @@ main.luau(4,15): Note: Consider moving this binding above this 'if' statement to
             "Luau shows the library's internal type, ", Code("typeof(string)"), ". Luwu names the library:",
         }),
         checked(
-            [====[--!strict
-local name = "ada lovelace"
-print(string.title(name))]====],
+            [====[
+                --!strict
+                local name = "ada lovelace"
+                print(string.title(name))
+            ]====],
             { "3.7-3.18" },
             [====[main.luau(3,7): TypeError: Key 'title' not found in table 'typeof(string)']====],
             { "3.7-3.18" },
@@ -447,9 +490,11 @@ print(string.title(name))]====],
     example("Unknown qualified types", {
         Paragraph({ "Luwu says which half of ", Code("math_utils.Point"), " is wrong:" }),
         checked(
-            [====[--!strict
-local math_utils = {}
-type Point = math_utils.Point]====],
+            [====[
+                --!strict
+                local math_utils = {}
+                type Point = math_utils.Point
+            ]====],
             { "3.14-3.29" },
             [====[main.luau(3,14): TypeError: Unknown type 'math_utils.Point']====],
             { "3.14-3.29" },
@@ -465,71 +510,81 @@ type Point = math_utils.Point]====],
     example("Tables with several mistakes", {
         Paragraph({
             "Luau names the two types without saying why they don't match. ",
-            "Luwu lists every property that doesn't fit, with its path:",
+            "Luwu lists every property that doesn't fit by its path:",
         }),
         checked(
-            [====[--!strict
-type Stack = { id: string, count: number }
-type Recipe = {
-    output: Stack,
-    inputs: { Stack },
-    station: "bench" | "forge" | "loom",
-}
+            [====[
+                --!strict
+                type Stack = { id: string, count: number }
+                type Recipe = {
+                    output: Stack,
+                    inputs: { Stack },
+                    station: "bench" | "forge" | "loom",
+                }
 
-local recipes: { [string]: Recipe } = {}
+                local recipes: { [string]: Recipe } = {}
 
-local stool = {
-    output = { id = "stool", count = 1 },
-    inputs = { { id = "plank", count = "3" } },
-    station = "workbench" :: string,
-}
-recipes.stool = stool]====],
+                local stool = {
+                    output = { id = "stool", count = 1 },
+                    inputs = { { id = "plank", count = "3" } },
+                    station = "workbench" :: string,
+                }
+                recipes.stool = stool
+            ]====],
             { "16.17-16.21" },
             [====[main.luau(16,17): TypeError: Expected this to be 'Recipe?', but got 'stool']====],
             { "16.17-16.21", "2.28-2.32", "13.32-13.36", "6.5-6.11", "14.5-14.11" },
-            [====[main.luau(16,17): TypeError: Expected 'stool' to be
-    'Recipe?'
-but was given
-    '{ inputs: {{ count: string, … }}, station: string, … }'
+            [====[
+                main.luau(16,17): TypeError: Expected 'stool' to be
+                    'Recipe?'
+                but was given
+                    '{ inputs: {{ count: string, … }}, station: string, … }'
 
-Some properties are incompatible:
-  • stool.inputs[i].count: expected 'number', got 'string'
-  • stool.station: expected '"bench" | "forge" | "loom"', got 'string'
-main.luau(2,28): Note: Expected 'count: number' because of this
-main.luau(13,32): Note: 'count' is 'string' here, but should be 'number'
-main.luau(6,5): Note: Expected 'station: "bench" | "forge" | "loom"' because of this
-main.luau(14,5): Note: 'station' is 'string' here, but should be '"bench" | "forge" | "loom"'
+                Some properties are incompatible:
+                  • stool.inputs[i].count: expected 'number', got 'string'
+                  • stool.station: expected '"bench" | "forge" | "loom"', got 'string'
+                main.luau(2,28): Note: Expected 'count: number' because of this
+                main.luau(13,32): Note: 'count' is 'string' here, but should be 'number'
+                main.luau(6,5): Note: Expected 'station: "bench" | "forge" | "loom"' because of this
+                main.luau(14,5): Note: 'station' is 'string' here, but should be '"bench" | "forge" | "loom"'
 
-Help (paths above):
-  • '[i]' is any element of an array]====]
+                Help (paths above):
+                  • '[i]' is any element of an array
+            ]====]
         ),
     }),
     example("Nested maps and arrays", {
         Paragraph("Luau describes the path through each indexer step by step. Luwu writes it the way you'd index it:"),
         checked(
-            [====[--!strict
-type Stack = { id: string, count: number }
-type Inventory = { byCategory: { [string]: { [string]: { Stack } } } }
+            [====[
+                --!strict
+                type Stack = { id: string, count: number }
+                type Inventory = { byCategory: { [string]: { [string]: { Stack } } } }
 
-local function load(raw: { [string]: { [string]: { { id: string, count: string } } } }): Inventory
-    return { byCategory = raw }
-end]====],
+                local function load(raw: { [string]: { [string]: { { id: string, count: string } } } }): Inventory
+                    return { byCategory = raw }
+                end
+            ]====],
             { "6.27-6.29" },
-            [====[main.luau(6,27): TypeError: Expected this to be
-	'{ [string]: { [string]: {Stack} } }'
-but got
-	'{ [string]: { [string]: {{ count: string, id: string }} } }';
-Expected property `count` in the indexer result of the indexer result of the indexer result to be exactly `number`, but got `string`]====],
+            [====[
+                main.luau(6,27): TypeError: Expected this to be
+                	'{ [string]: { [string]: {Stack} } }'
+                but got
+                	'{ [string]: { [string]: {{ count: string, id: string }} } }';
+                Expected property `count` in the indexer result of the indexer result of the indexer result to be exactly `number`, but got `string`
+            ]====],
             { "6.27-6.29", "2.28-2.32", "5.66-5.70" },
-            [====[main.luau(6,27): TypeError: Expected 'raw' to be
-    '{ [string]: { [string]: {Stack} } }'
-but was given
-    '{ [string]: { [string]: {{ count: string, … }} } }'
+            [====[
+                main.luau(6,27): TypeError: Expected 'raw' to be
+                    '{ [string]: { [string]: {Stack} } }'
+                but was given
+                    '{ [string]: { [string]: {{ count: string, … }} } }'
 
-Some properties are incompatible:
-  • raw[string][string][i].count: expected 'number', got 'string'
-main.luau(2,28): Note: Expected 'count: number' because of this
-main.luau(5,66): Note: 'count' is 'string' here, but should be 'number']====]
+                Some properties are incompatible:
+                  • raw[string][string][i].count: expected 'number', got 'string'
+                main.luau(2,28): Note: Expected 'count: number' because of this
+                main.luau(5,66): Note: 'count' is 'string' here, but should be 'number'
+            ]====]
         ),
     }),
     example("Missing properties", {
@@ -539,22 +594,26 @@ main.luau(5,66): Note: 'count' is 'string' here, but should be 'number']====]
             "Luwu names it by the path from the variable, ", Code("dark.colors.text"), ":",
         }),
         checked(
-            [====[--!strict
-type Color = { r: number, g: number, b: number }
-type Theme = { name: string, colors: { background: Color, text: Color } }
+            [====[
+                --!strict
+                type Color = { r: number, g: number, b: number }
+                type Theme = { name: string, colors: { background: Color, text: Color } }
 
-local dark: Theme = {
-    name = "dark",
-    colors = {
-        background = { r = 0, g = 0, b = 0 },
-        text = { r = 1, g = 1 },
-    },
-}]====],
+                local dark: Theme = {
+                    name = "dark",
+                    colors = {
+                        background = { r = 0, g = 0, b = 0 },
+                        text = { r = 1, g = 1 },
+                    },
+                }
+            ]====],
             { "9.16-9.31" },
             [====[main.luau(9,16): TypeError: Table type '{ g: number, r: number }' not compatible with type 'Color' because the former is missing field 'b']====],
             { "9.16-9.31" },
-            [====[main.luau(9,16): TypeError: 'dark.colors.text' is missing a property for 'Color':
-  • 'b: number']====]
+            [====[
+                main.luau(9,16): TypeError: 'dark.colors.text' is missing a property for 'Color':
+                  • 'b: number'
+            ]====]
         ),
     }),
     example("Missing properties through other variables", {
@@ -565,83 +624,97 @@ local dark: Theme = {
             Code("colors.background.b"), ":",
         }),
         checked(
-            [====[--!strict
-type Color = { r: number, g: number, b: number }
-type Theme = { name: string, colors: { background: Color, text: Color } }
+            [====[
+                --!strict
+                type Color = { r: number, g: number, b: number }
+                type Theme = { name: string, colors: { background: Color, text: Color } }
 
-local function apply(theme: Theme) end
+                local function apply(theme: Theme) end
 
-local white = { r = 1, g = 1 }
-local colors = { background = white, text = { r = 0, g = 0, b = 0 } }
-apply({ name = "light", colors = colors })]====],
+                local white = { r = 1, g = 1 }
+                local colors = { background = white, text = { r = 0, g = 0, b = 0 } }
+                apply({ name = "light", colors = colors })
+            ]====],
             { "9.34-9.39" },
-            [====[main.luau(9,34): TypeError: Expected this to be '{ background: Color, text: Color }', but got 'colors';
-Expected property `background` to be exactly `Color`, but got `white`]====],
+            [====[
+                main.luau(9,34): TypeError: Expected this to be '{ background: Color, text: Color }', but got 'colors';
+                Expected property `background` to be exactly `Color`, but got `white`
+            ]====],
             { "9.34-9.39", "2.38-2.38", "7.15-7.30" },
-            [====[main.luau(9,34): TypeError: Expected 'colors' to be
-    '{ background: Color, text: Color }'
-but was given
-    '{ background: { … }, … }'
+            [====[
+                main.luau(9,34): TypeError: Expected 'colors' to be
+                    '{ background: Color, text: Color }'
+                but was given
+                    '{ background: { … }, … }'
 
-Some properties are incompatible:
-  • missing property 'colors.background.b: number'
-main.luau(2,38): Note: Expected 'b: number' because of this
-main.luau(7,15): Note: 'colors.background' is missing 'b: number']====]
+                Some properties are incompatible:
+                  • missing property 'colors.background.b: number'
+                main.luau(2,38): Note: Expected 'b: number' because of this
+                main.luau(7,15): Note: 'colors.background' is missing 'b: number'
+            ]====]
         ),
     }),
     example("Records where a map is expected", {
         Paragraph("Luau names the two types. Luwu says what kind of mismatch it is:"),
         checked(
-            [====[--!strict
-type Scores = { [string]: number }
+            [====[
+                --!strict
+                type Scores = { [string]: number }
 
-local function total(scores: Scores): number
-    local sum = 0
-    for _, score in scores do
-        sum += score
-    end
-    return sum
-end
+                local function total(scores: Scores): number
+                    local sum = 0
+                    for _, score in scores do
+                        sum += score
+                    end
+                    return sum
+                end
 
-type Round = { red: number, blue: number }
-local round: Round = { red = 3, blue = 5 }
-total(round)]====],
+                type Round = { red: number, blue: number }
+                local round: Round = { red = 3, blue = 5 }
+                total(round)
+            ]====],
             { "14.7-14.11" },
             [====[main.luau(14,7): TypeError: Expected this to be 'Scores', but got 'Round']====],
             { "14.7-14.11" },
-            [====[main.luau(14,7): TypeError: Expected 'round' to be
-    'Scores: { [string]: number }'
-but was given
-    'Round: { blue: number, red: number }'
+            [====[
+                main.luau(14,7): TypeError: Expected 'round' to be
+                    'Scores: { [string]: number }'
+                but was given
+                    'Round: { blue: number, red: number }'
 
-'round' is a record where map 'Scores' is expected.]====]
+                'round' is a record where map 'Scores' is expected.
+            ]====]
         ),
     }),
     example("Unrelated tables", {
         Paragraph({
             "Luau names the two aliases. ",
-            "Luwu spells out both shapes next to their names. They share no properties, ",
-            "so instead of listing every difference, Luwu says the types are unrelated: ",
+            "Luwu spells out both shapes next to their names. Because they share no properties, Luwu says the ",
+            "types are unrelated instead of listing every difference: ",
             "you most likely passed the wrong value.",
         }),
         checked(
-            [====[--!strict
-type Vector2 = { x: number, y: number }
-type Settings = { volume: number, muted: boolean }
+            [====[
+                --!strict
+                type Vector2 = { x: number, y: number }
+                type Settings = { volume: number, muted: boolean }
 
-local function move(by: Vector2) end
+                local function move(by: Vector2) end
 
-local settings: Settings = { volume = 1, muted = false }
-move(settings)]====],
+                local settings: Settings = { volume = 1, muted = false }
+                move(settings)
+            ]====],
             { "8.6-8.13" },
             [====[main.luau(8,6): TypeError: Expected this to be 'Vector2', but got 'Settings']====],
             { "8.6-8.13" },
-            [====[main.luau(8,6): TypeError: Expected 'settings' to be
-    'Vector2: { x: number, y: number }'
-but was given
-    'Settings: { muted: boolean, volume: number }'
+            [====[
+                main.luau(8,6): TypeError: Expected 'settings' to be
+                    'Vector2: { x: number, y: number }'
+                but was given
+                    'Settings: { muted: boolean, volume: number }'
 
-'Settings' is unrelated to 'Vector2'.]====]
+                'Settings' is unrelated to 'Vector2'.
+            ]====]
         ),
     }),
     example("Recursive types", {
@@ -650,54 +723,60 @@ but was given
             Code("Json"), " type fails to match, down to the string metatable. Luwu says the two types are unrelated:",
         }),
         checked(
-            [====[--!strict
-type Json = string | number | boolean | { Json } | { [string]: Json }
-type ServerConfig = { port: number, host: string, maps: { { name: string, weight: number } } }
+            [====[
+                --!strict
+                type Json = string | number | boolean | { Json } | { [string]: Json }
+                type ServerConfig = { port: number, host: string, maps: { { name: string, weight: number } } }
 
-local function start(config: ServerConfig) end
+                local function start(config: ServerConfig) end
 
-local raw: Json = {}
-start(raw)]====],
+                local raw: Json = {}
+                start(raw)
+            ]====],
             { "8.7-8.9" },
-            [====[main.luau(8,7): TypeError: Expected this to be
-	'ServerConfig'
-but got
-	't1 where t1 = boolean | number | string | { [string]: t1 } | {t1}';
-this is because
-	 * `boolean` is not a subtype of `ServerConfig`
-	 * `number` is not a subtype of `ServerConfig`
-	 * `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not a subtype of `ServerConfig`
-	 * property `__index` in the metatable has type `typeof(string)`, which is not a subtype of `ServerConfig`
-	 * property `__index` in the metatable of the indexer result has type `typeof(string)` and property `maps` has type `{{ name: string, weight: number }}`, and `typeof(string)` is not exactly `{{ name: string, weight: number }}`
-	 * property `__index` in the metatable of the indexer result of the indexer result has type `typeof(string)` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `typeof(string)` is not exactly `{ name: string, weight: number }`
-	 * the indexer key type of the indexer result is `string` and the indexer key type of property `maps` is `number`, and `string` is not exactly `number`
-	 * the indexer result is `boolean` and property `host` has type `string`, and `boolean` is not exactly `string`
-	 * the indexer result is `boolean` and property `maps` has type `{{ name: string, weight: number }}`, and `boolean` is not exactly `{{ name: string, weight: number }}`
-	 * the indexer result is `boolean` and property `port` has type `number`, and `boolean` is not exactly `number`
-	 * the indexer result is `number` and property `host` has type `string`, and `number` is not exactly `string`
-	 * the indexer result is `number` and property `maps` has type `{{ name: string, weight: number }}`, and `number` is not exactly `{{ name: string, weight: number }}`
-	 * the indexer result is `string` and property `port` has type `number`, and `string` is not exactly `number`
-	 * the indexer result is `t1 where t1 = boolean | number | string | { [string]: t1 } | {t1}` and property `maps` has type `{{ name: string, weight: number }}`, and `t1 where t1 = boolean | number | string | { [string]: t1 } | {t1}` is not exactly `{{ name: string, weight: number }}`
-	 * the indexer result is `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` and property `host` has type `string`, and `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` is not exactly `string`
-	 * the indexer result is `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` and property `port` has type `number`, and `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` is not exactly `number`
-	 * the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and property `host` has type `string`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `string`
-	 * the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and property `port` has type `number`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `number`
-	 * the indexer result of the indexer result is `boolean` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `boolean` is not exactly `{ name: string, weight: number }`
-	 * the indexer result of the indexer result is `number` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `number` is not exactly `{ name: string, weight: number }`
-	 * the indexer result of the indexer result is `t1 where t1 = boolean | number | string | { [string]: t1 } | {t1}` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `t1 where t1 = boolean | number | string | { [string]: t1 } | {t1}` is not exactly `{ name: string, weight: number }`
-	 * the indexer result of the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `{ name: string, weight: number }`
-	 * the indexer result of the indexer result of the indexer result is `boolean` and property `name` in the indexer result of property `maps` has type `string`, and `boolean` is not exactly `string`
-	 * the indexer result of the indexer result of the indexer result is `boolean` and property `weight` in the indexer result of property `maps` has type `number`, and `boolean` is not exactly `number`
-	 * the indexer result of the indexer result of the indexer result is `number` and property `name` in the indexer result of property `maps` has type `string`, and `number` is not exactly `string`
-	 * the indexer result of the indexer result of the indexer result is `string` and property `weight` in the indexer result of property `maps` has type `number`, and `string` is not exactly `number`
-	 * the indexer result of the indexer result of the indexer result is `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` and property `name` in the indexer result of property `maps` has type `string`, and `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` is not exactly `string`
-	 * the indexer result of the indexer result of the indexer result is `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` and property `weight` in the indexer result of property `maps` has type `number`, and `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` is not exactly `number`
-	 * the indexer result of the indexer result of the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and property `name` in the indexer result of property `maps` has type `string`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `string`
-	 * the indexer result of the indexer result of the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and property `weight` in the indexer result of property `maps` has type `number`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `number`]====],
+            [====[
+                main.luau(8,7): TypeError: Expected this to be
+                	'ServerConfig'
+                but got
+                	't1 where t1 = boolean | number | string | { [string]: t1 } | {t1}';
+                this is because
+                	 * `boolean` is not a subtype of `ServerConfig`
+                	 * `number` is not a subtype of `ServerConfig`
+                	 * `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not a subtype of `ServerConfig`
+                	 * property `__index` in the metatable has type `typeof(string)`, which is not a subtype of `ServerConfig`
+                	 * property `__index` in the metatable of the indexer result has type `typeof(string)` and property `maps` has type `{{ name: string, weight: number }}`, and `typeof(string)` is not exactly `{{ name: string, weight: number }}`
+                	 * property `__index` in the metatable of the indexer result of the indexer result has type `typeof(string)` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `typeof(string)` is not exactly `{ name: string, weight: number }`
+                	 * the indexer key type of the indexer result is `string` and the indexer key type of property `maps` is `number`, and `string` is not exactly `number`
+                	 * the indexer result is `boolean` and property `host` has type `string`, and `boolean` is not exactly `string`
+                	 * the indexer result is `boolean` and property `maps` has type `{{ name: string, weight: number }}`, and `boolean` is not exactly `{{ name: string, weight: number }}`
+                	 * the indexer result is `boolean` and property `port` has type `number`, and `boolean` is not exactly `number`
+                	 * the indexer result is `number` and property `host` has type `string`, and `number` is not exactly `string`
+                	 * the indexer result is `number` and property `maps` has type `{{ name: string, weight: number }}`, and `number` is not exactly `{{ name: string, weight: number }}`
+                	 * the indexer result is `string` and property `port` has type `number`, and `string` is not exactly `number`
+                	 * the indexer result is `t1 where t1 = boolean | number | string | { [string]: t1 } | {t1}` and property `maps` has type `{{ name: string, weight: number }}`, and `t1 where t1 = boolean | number | string | { [string]: t1 } | {t1}` is not exactly `{{ name: string, weight: number }}`
+                	 * the indexer result is `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` and property `host` has type `string`, and `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` is not exactly `string`
+                	 * the indexer result is `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` and property `port` has type `number`, and `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` is not exactly `number`
+                	 * the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and property `host` has type `string`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `string`
+                	 * the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and property `port` has type `number`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `number`
+                	 * the indexer result of the indexer result is `boolean` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `boolean` is not exactly `{ name: string, weight: number }`
+                	 * the indexer result of the indexer result is `number` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `number` is not exactly `{ name: string, weight: number }`
+                	 * the indexer result of the indexer result is `t1 where t1 = boolean | number | string | { [string]: t1 } | {t1}` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `t1 where t1 = boolean | number | string | { [string]: t1 } | {t1}` is not exactly `{ name: string, weight: number }`
+                	 * the indexer result of the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and the indexer result of property `maps` is `{ name: string, weight: number }`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `{ name: string, weight: number }`
+                	 * the indexer result of the indexer result of the indexer result is `boolean` and property `name` in the indexer result of property `maps` has type `string`, and `boolean` is not exactly `string`
+                	 * the indexer result of the indexer result of the indexer result is `boolean` and property `weight` in the indexer result of property `maps` has type `number`, and `boolean` is not exactly `number`
+                	 * the indexer result of the indexer result of the indexer result is `number` and property `name` in the indexer result of property `maps` has type `string`, and `number` is not exactly `string`
+                	 * the indexer result of the indexer result of the indexer result is `string` and property `weight` in the indexer result of property `maps` has type `number`, and `string` is not exactly `number`
+                	 * the indexer result of the indexer result of the indexer result is `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` and property `name` in the indexer result of property `maps` has type `string`, and `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` is not exactly `string`
+                	 * the indexer result of the indexer result of the indexer result is `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` and property `weight` in the indexer result of property `maps` has type `number`, and `t1 where t1 = { [string]: t2 } ; t2 = boolean | number | string | t1 | {t2}` is not exactly `number`
+                	 * the indexer result of the indexer result of the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and property `name` in the indexer result of property `maps` has type `string`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `string`
+                	 * the indexer result of the indexer result of the indexer result is `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` and property `weight` in the indexer result of property `maps` has type `number`, and `t1 where t1 = {t2} ; t2 = boolean | number | string | t1 | { [string]: t2 }` is not exactly `number`
+            ]====],
             { "8.7-8.9" },
-            [====[main.luau(8,7): TypeError: Expected 'raw' to be 'ServerConfig', but was given 'Json'
+            [====[
+                main.luau(8,7): TypeError: Expected 'raw' to be 'ServerConfig', but was given 'Json'
 
-'Json' is unrelated to 'ServerConfig'.]====]
+                'Json' is unrelated to 'ServerConfig'.
+            ]====]
         ),
     }),
     example("Arrays that could be written to", {
@@ -706,32 +785,38 @@ this is because
             "Luwu explains why the array is rejected, and how to fix it:",
         }),
         checked(
-            [====[--!strict
-type Stack = { id: string, count: number }
+            [====[
+                --!strict
+                type Stack = { id: string, count: number }
 
-local function compact(slots: { Stack? }): { Stack }
-    local out = {}
-    for _, slot in slots do
-        if slot then
-            table.insert(out, slot)
-        end
-    end
-    return out
-end
+                local function compact(slots: { Stack? }): { Stack }
+                    local out = {}
+                    for _, slot in slots do
+                        if slot then
+                            table.insert(out, slot)
+                        end
+                    end
+                    return out
+                end
 
-local packed: { Stack } = {}
-compact(packed)]====],
+                local packed: { Stack } = {}
+                compact(packed)
+            ]====],
             { "15.9-15.14" },
-            [====[main.luau(15,9): TypeError: Expected this to be '{Stack?}', but got '{Stack}';
-Expected the indexer result to be exactly `nil`, but got `Stack`]====],
+            [====[
+                main.luau(15,9): TypeError: Expected this to be '{Stack?}', but got '{Stack}';
+                Expected the indexer result to be exactly `nil`, but got `Stack`
+            ]====],
             { "15.9-15.14", "4.33-4.38" },
-            [====[main.luau(15,9): TypeError: This array with non-optional elements cannot be passed where optional elements are allowed; doing so would allow 'nil' to be written into it.
+            [====[
+                main.luau(15,9): TypeError: This array with non-optional elements cannot be passed where optional elements are allowed; doing so would allow 'nil' to be written into it.
 
-Help (read/write mismatch):
-  • Annotate the expected indexer as 'read' if nothing writes to it
-  • Cast this array to '{Stack?}' if you know 'nil' will not be written to it
-main.luau(4,33): TypeError: Help (read/write mismatch):
-  • Consider marking this as 'read' if the function 'compact' only reads from the array]====]
+                Help (read/write mismatch):
+                  • Annotate the expected indexer as 'read' if nothing writes to it
+                  • Cast this array to '{Stack?}' if you know 'nil' will not be written to it
+                main.luau(4,33): TypeError: Help (read/write mismatch):
+                  • Consider marking this as 'read' if the function 'compact' only reads from the array
+            ]====]
         ),
     }),
 
@@ -747,30 +832,36 @@ main.luau(4,33): TypeError: Help (read/write mismatch):
             "Luwu reads the tag, compares the table with the matching variant and points at the wrong property:",
         }),
         checked(
-            [====[--!strict
-type Shape =
-    | { kind: "circle", radius: number }
-    | { kind: "rect", width: number, height: number }
+            [====[
+                --!strict
+                type Shape =
+                    | { kind: "circle", radius: number }
+                    | { kind: "rect", width: number, height: number }
 
-local function area(shape: Shape): number
-    return 0
-end
+                local function area(shape: Shape): number
+                    return 0
+                end
 
-area({ kind = "rect", width = 4, height = "3" })]====],
+                area({ kind = "rect", width = 4, height = "3" })
+            ]====],
             { "10.6-10.47" },
-            [====[main.luau(10,6): TypeError: Expected this to be
-	'{ height: number, kind: "rect", width: number } | { kind: "circle", radius: number }'
-but got
-	'{ height: string, kind: "rect", width: number }']====],
+            [====[
+                main.luau(10,6): TypeError: Expected this to be
+                	'{ height: number, kind: "rect", width: number } | { kind: "circle", radius: number }'
+                but got
+                	'{ height: string, kind: "rect", width: number }'
+            ]====],
             { "10.6-10.47", "4.38-4.43" },
-            [====[main.luau(10,6): TypeError: Expected this to be
-    type Shape = … | { height: number, kind: "rect", width: number }
-but was given
-    '{ height: string, kind: "rect", … }'
+            [====[
+                main.luau(10,6): TypeError: Expected this to be
+                    type Shape = … | { height: number, kind: "rect", width: number }
+                but was given
+                    '{ height: string, kind: "rect", … }'
 
-'given.kind' is '"rect"', so 'given' was compared with Shape#2:
-  • given.height: expected 'number', got 'string'
-main.luau(4,38): Note: Expected 'height: number' because of this]====]
+                'given.kind' is '"rect"', so 'given' was compared with Shape#2:
+                  • given.height: expected 'number', got 'string'
+                main.luau(4,38): Note: Expected 'height: number' because of this
+            ]====]
         ),
     }),
     example("Empty tables for tagged unions", {
@@ -779,24 +870,28 @@ main.luau(4,38): Note: Expected 'height: number' because of this]====]
             "Luwu lists the tag every variant needs, then what each variant needs on top of it:",
         }),
         checked(
-            [====[--!strict
-type Message =
-    | { kind: "text", body: string }
-    | { kind: "image", url: string, width: number, height: number }
-    | { kind: "poll", question: string, options: { string } }
+            [====[
+                --!strict
+                type Message =
+                    | { kind: "text", body: string }
+                    | { kind: "image", url: string, width: number, height: number }
+                    | { kind: "poll", question: string, options: { string } }
 
-local function send(message: Message) end
+                local function send(message: Message) end
 
-send({})]====],
+                send({})
+            ]====],
             { "9.6-9.7" },
             [====[main.luau(9,6): TypeError: Expected this to be '{ body: string, kind: "text" } | { height: number, kind: "image", url: string, width: number } | { kind: "poll", options: {string}, question: string }', but got '{  }']====],
             { "9.6-9.7" },
-            [====[main.luau(9,6): TypeError: The given table is missing a property every member of 'Message' has:
-  • 'kind: "text" | "image" | "poll"'
-Some members need more:
-  • 'kind = "text"' also needs 'body: string'
-  • 'kind = "image"' also needs 'url: string', 'width: number' and 'height: number'
-  • 'kind = "poll"' also needs 'question: string' and 'options: {string}']====]
+            [====[
+                main.luau(9,6): TypeError: The given table is missing a property every member of 'Message' has:
+                  • 'kind: "text" | "image" | "poll"'
+                Some members need more:
+                  • 'kind = "text"' also needs 'body: string'
+                  • 'kind = "image"' also needs 'url: string', 'width: number' and 'height: number'
+                  • 'kind = "poll"' also needs 'question: string' and 'options: {string}'
+            ]====]
         ),
     }),
     example("Missing properties in a variant", {
@@ -805,22 +900,26 @@ Some members need more:
             "Luwu names the exact item in the list, and the property it needs:",
         }),
         checked(
-            [====[--!strict
-type Action =
-    | { type: "move", x: number, y: number }
-    | { type: "attack", target: string, damage: number }
-    | { type: "wait" }
+            [====[
+                --!strict
+                type Action =
+                    | { type: "move", x: number, y: number }
+                    | { type: "attack", target: string, damage: number }
+                    | { type: "wait" }
 
-local queue: { Action } = {
-    { type = "move", x = 3, y = 4 },
-    { type = "attack", target = "Slime" },
-    { type = "wait" },
-}]====],
+                local queue: { Action } = {
+                    { type = "move", x = 3, y = 4 },
+                    { type = "attack", target = "Slime" },
+                    { type = "wait" },
+                }
+            ]====],
             { "9.5-9.41" },
             [====[main.luau(9,5): TypeError: Table type '{ target: string, type: "attack" }' not compatible with type '{ damage: number, target: string, type: "attack" }' because the former is missing field 'damage']====],
             { "9.5-9.41" },
-            [====[main.luau(9,5): TypeError: 'queue[2]' is missing a property for 'Action':
-  • 'damage: number']====]
+            [====[
+                main.luau(9,5): TypeError: 'queue[2]' is missing a property for 'Action':
+                  • 'damage: number'
+            ]====]
         ),
     }),
     example("Unions", {
@@ -829,35 +928,41 @@ local queue: { Action } = {
             "Luwu shows the member closest to fitting, and what it's missing:",
         }),
         checked(
-            [====[--!strict
-type Stack = { id: string, count: number }
-type Drop = Stack | { id: string, weight: number } | { gold: number }
+            [====[
+                --!strict
+                type Stack = { id: string, count: number }
+                type Drop = Stack | { id: string, weight: number } | { gold: number }
 
-local function describe(item: Stack): string
-    return `{item.count}x {item.id}`
-end
+                local function describe(item: Stack): string
+                    return `{item.count}x {item.id}`
+                end
 
-local last_drop: Drop = { gold = 5 }
-describe(last_drop)]====],
+                local last_drop: Drop = { gold = 5 }
+                describe(last_drop)
+            ]====],
             { "10.10-10.18" },
-            [====[main.luau(10,10): TypeError: Expected this to be 'Stack', but got 'Stack | { gold: number } | { id: string, weight: number }';
-this is because
-	 * `{ gold: number }` is not a subtype of `Stack`
-	 * `{ id: string, weight: number }` is not a subtype of `Stack`]====],
+            [====[
+                main.luau(10,10): TypeError: Expected this to be 'Stack', but got 'Stack | { gold: number } | { id: string, weight: number }';
+                this is because
+                	 * `{ gold: number }` is not a subtype of `Stack`
+                	 * `{ id: string, weight: number }` is not a subtype of `Stack`
+            ]====],
             { "10.10-10.18", "2.28-2.32", "3.21-3.50" },
-            [====[main.luau(10,10): TypeError: Expected 'last_drop' to be
-    'Stack'
-but was given
-    type Drop = … | { id: string, weight: number } | …
+            [====[
+                main.luau(10,10): TypeError: Expected 'last_drop' to be
+                    'Stack'
+                but was given
+                    type Drop = … | { id: string, weight: number } | …
 
-Not every member of 'Drop' is compatible with 'Stack':
-last_drop#2 = { id: string, weight: number } is almost what we expected, but:
-  • missing property 'last_drop.count: number'
-main.luau(2,28): Note: Expected 'count: number' because of this
-main.luau(3,21): Note: 'last_drop' is missing 'count: number'
+                Not every member of 'Drop' is compatible with 'Stack':
+                last_drop#2 = { id: string, weight: number } is almost what we expected, but:
+                  • missing property 'last_drop.count: number'
+                main.luau(2,28): Note: Expected 'count: number' because of this
+                main.luau(3,21): Note: 'last_drop' is missing 'count: number'
 
-Help (paths above):
-  • '#2' is the 2nd member of a union, counting in the order printed]====]
+                Help (paths above):
+                  • '#2' is the 2nd member of a union, counting in the order printed
+            ]====]
         ),
     }),
 
@@ -869,107 +974,129 @@ Help (paths above):
     example("Swapped return values", {
         Paragraph("Luau reports three separate problems with the 1st and 2nd values. Luwu sees that they're swapped:"),
         checked(
-            [====[--!strict
-type Validate = (input: string) -> (boolean, string?)
+            [====[
+                --!strict
+                type Validate = (input: string) -> (boolean, string?)
 
-local validate: Validate = function(input: string): (string?, boolean)
-    return nil, #input > 0
-end]====],
+                local validate: Validate = function(input: string): (string?, boolean)
+                    return nil, #input > 0
+                end
+            ]====],
             { "4.28-6.3" },
-            [====[main.luau(4,28): TypeError: Expected this to be
-	'(string) -> (boolean, string?)'
-but got
-	'(string) -> (string?, boolean)';
-this is because
-	 * Expected the 1st return value to be `boolean`, but got `nil`
-	 * Expected the 1st return value to be `boolean`, but got `string`
-	 * Expected the 2nd return value to be `string?`, but got `boolean`]====],
+            [====[
+                main.luau(4,28): TypeError: Expected this to be
+                	'(string) -> (boolean, string?)'
+                but got
+                	'(string) -> (string?, boolean)';
+                this is because
+                	 * Expected the 1st return value to be `boolean`, but got `nil`
+                	 * Expected the 1st return value to be `boolean`, but got `string`
+                	 * Expected the 2nd return value to be `string?`, but got `boolean`
+            ]====],
             { "4.28-6.3" },
-            [====[main.luau(4,28): TypeError: Expected 'validate' to be
-    '(input: string) -> (boolean, string?)'
-but was given
-    '(input: string) -> (string?, boolean)'
+            [====[
+                main.luau(4,28): TypeError: Expected 'validate' to be
+                    '(input: string) -> (boolean, string?)'
+                but was given
+                    '(input: string) -> (string?, boolean)'
 
-Help (return order):
-  • The 1st and 2nd return values look like they're in the wrong order]====]
+                Help (return order):
+                  • The 1st and 2nd return values look like they're in the wrong order
+            ]====]
         ),
     }),
     example("Callbacks that accept too little", {
         Paragraph("Luau reports that a type isn't a supertype of nil. Luwu explains who passes the nil:"),
         checked(
-            [====[--!strict
-type Stack = { id: string, count: number }
-type Filter = (slot: Stack?, index: number) -> boolean
+            [====[
+                --!strict
+                type Stack = { id: string, count: number }
+                type Filter = (slot: Stack?, index: number) -> boolean
 
-local is_plank: Filter = function(slot: Stack, index: number): boolean
-    return slot.id == "plank"
-end]====],
+                local is_plank: Filter = function(slot: Stack, index: number): boolean
+                    return slot.id == "plank"
+                end
+            ]====],
             { "5.26-7.3" },
-            [====[main.luau(5,26): TypeError: Expected this to be
-	'(Stack?, number) -> boolean'
-but got
-	'(Stack, number) -> boolean';
-Expected the 1st parameter to be a supertype of `nil`, but got `Stack`]====],
+            [====[
+                main.luau(5,26): TypeError: Expected this to be
+                	'(Stack?, number) -> boolean'
+                but got
+                	'(Stack, number) -> boolean';
+                Expected the 1st parameter to be a supertype of `nil`, but got `Stack`
+            ]====],
             { "5.26-7.3" },
-            [====[main.luau(5,26): TypeError: Expected 'is_plank' to be
-    '(slot: Stack?, index: number) -> boolean'
-but was given
-    '(slot: Stack, index: number) -> boolean'
+            [====[
+                main.luau(5,26): TypeError: Expected 'is_plank' to be
+                    '(slot: Stack?, index: number) -> boolean'
+                but was given
+                    '(slot: Stack, index: number) -> boolean'
 
-This function can be passed a value it doesn't accept:
-  • slot: expected 'Stack?', got 'Stack'
+                This function can be passed a value it doesn't accept:
+                  • slot: expected 'Stack?', got 'Stack'
 
-Help (narrowed parameter):
-  • 'slot' can't be narrowed from 'Stack?' to 'Stack'
-  • Code calling this function as the expected type is allowed to pass 'nil' for 'slot'
-  • This parameter must accept 'Stack?' to match the caller's expected signature]====]
+                Help (narrowed parameter):
+                  • 'slot' can't be narrowed from 'Stack?' to 'Stack'
+                  • Code calling this function as the expected type is allowed to pass 'nil' for 'slot'
+                  • This parameter must accept 'Stack?' to match the caller's expected signature
+            ]====]
         ),
     }),
     example("An array instead of a single value", {
         checked(
-            [====[--!strict
-type Stack = { id: string, count: number }
-type Chest = {
-    take: (id: string, count: number?) -> Stack?,
-}
+            [====[
+                --!strict
+                type Stack = { id: string, count: number }
+                type Chest = {
+                    take: (id: string, count: number?) -> Stack?,
+                }
 
-local chest: Chest = {
-    take = function(id: string, count: number?): { Stack }
-        return {}
-    end,
-}]====],
+                local chest: Chest = {
+                    take = function(id: string, count: number?): { Stack }
+                        return {}
+                    end,
+                }
+            ]====],
             { "8.12-10.7" },
-            [====[main.luau(8,12): TypeError: Expected this to be
-	'(string, number?) -> Stack?'
-but got
-	'(string, number?) -> {Stack}';
-Expected the return type to be `Stack?`, but got `{Stack}`]====],
+            [====[
+                main.luau(8,12): TypeError: Expected this to be
+                	'(string, number?) -> Stack?'
+                but got
+                	'(string, number?) -> {Stack}';
+                Expected the return type to be `Stack?`, but got `{Stack}`
+            ]====],
             { "8.12-10.7" },
-            [====[main.luau(8,12): TypeError: Expected 'chest.take' to be
-    '(id: string, count: number?) -> Stack?'
-but was given
-    '(id: string, count: number?) -> {Stack}'
+            [====[
+                main.luau(8,12): TypeError: Expected 'chest.take' to be
+                    '(id: string, count: number?) -> Stack?'
+                but was given
+                    '(id: string, count: number?) -> {Stack}'
 
-This function should return:
-  • a single 'Stack?', not an array of them]====]
+                This function should return:
+                  • a single 'Stack?', not an array of them
+            ]====]
         ),
     }),
     example("Extra parameters", {
         Paragraph("Luau compares the parameter lists as a whole. Luwu names the extra parameter:"),
         checked(
-            [====[--!strict
-type Button = { label: string, on_click: (x: number, y: number) -> () }
+            [====[
+                --!strict
+                type Button = { label: string, on_click: (x: number, y: number) -> () }
 
-local play: Button = {
-    label = "Play",
-    on_click = function(x: number, y: number, double_click: boolean) end,
-}]====],
+                local play: Button = {
+                    label = "Play",
+                    on_click = function(x: number, y: number, double_click: boolean) end,
+                }
+            ]====],
             { "6.16-6.72" },
-            [====[main.luau(6,16): TypeError: Expected this to be
-	'(number, number) -> ()'
-but got
-	'(number, number, boolean) -> ()';
-Expected the parameter types to be a supertype of `number, number`, but got `number, number, boolean`]====],
+            [====[
+                main.luau(6,16): TypeError: Expected this to be
+                	'(number, number) -> ()'
+                but got
+                	'(number, number, boolean) -> ()';
+                Expected the parameter types to be a supertype of `number, number`, but got `number, number, boolean`
+            ]====],
             { "6.16-6.72" },
             [====[main.luau(6,16): TypeError: 'play.on_click' should only have 2 parameters, but was passed a function with an extra parameter 'double_click: boolean'.]====]
         ),
@@ -977,26 +1104,32 @@ Expected the parameter types to be a supertype of `number, number`, but got `num
     example("Swapped parameters", {
         Paragraph("Luau reports both parameters separately. Luwu notices they're in the wrong order:"),
         checked(
-            [====[--!strict
-type Damage = (target: string, amount: number) -> ()
+            [====[
+                --!strict
+                type Damage = (target: string, amount: number) -> ()
 
-local hit: Damage = function(amount: number, target: string) end]====],
+                local hit: Damage = function(amount: number, target: string) end
+            ]====],
             { "4.21-4.64" },
-            [====[main.luau(4,21): TypeError: Expected this to be
-	'(string, number) -> ()'
-but got
-	'(number, string) -> ()';
-this is because
-	 * Expected the 1st parameter to be a supertype of `string`, but got `number`
-	 * Expected the 2nd parameter to be a supertype of `number`, but got `string`]====],
+            [====[
+                main.luau(4,21): TypeError: Expected this to be
+                	'(string, number) -> ()'
+                but got
+                	'(number, string) -> ()';
+                this is because
+                	 * Expected the 1st parameter to be a supertype of `string`, but got `number`
+                	 * Expected the 2nd parameter to be a supertype of `number`, but got `string`
+            ]====],
             { "4.21-4.64" },
-            [====[main.luau(4,21): TypeError: Expected 'hit' to be
-    '(target: string, amount: number) -> ()'
-but was given
-    '(amount: number, target: string) -> ()'
+            [====[
+                main.luau(4,21): TypeError: Expected 'hit' to be
+                    '(target: string, amount: number) -> ()'
+                but was given
+                    '(amount: number, target: string) -> ()'
 
-Help (parameter order):
-  • The parameters 'amount' and 'target' look like they're in the wrong order]====]
+                Help (parameter order):
+                  • The parameters 'amount' and 'target' look like they're in the wrong order
+            ]====]
         ),
     }),
     example("Functions inside tables", {
@@ -1005,42 +1138,48 @@ Help (parameter order):
             "Luwu names the function and the parameter that doesn't fit:",
         }),
         checked(
-            [====[--!strict
-type Plugin = {
-    name: string,
-    hooks: {
-        init: (config: { [string]: string }) -> boolean,
-        shutdown: () -> (),
-    },
-}
+            [====[
+                --!strict
+                type Plugin = {
+                    name: string,
+                    hooks: {
+                        init: (config: { [string]: string }) -> boolean,
+                        shutdown: () -> (),
+                    },
+                }
 
-local legacy = {
-    name = "minimap",
-    hooks = {
-        init = function(config: { [string]: number }): boolean
-            return true
-        end,
-        shutdown = function() end,
-    },
-}
+                local legacy = {
+                    name = "minimap",
+                    hooks = {
+                        init = function(config: { [string]: number }): boolean
+                            return true
+                        end,
+                        shutdown = function() end,
+                    },
+                }
 
-local plugins: { Plugin } = { legacy }]====],
+                local plugins: { Plugin } = { legacy }
+            ]====],
             { "20.31-20.36" },
-            [====[main.luau(20,31): TypeError: Expected this to be 'Plugin', but got 'legacy';
-this is because
-	 * Expected the indexer result of the 1st parameter of property `hooks.init` to be exactly `string`, but got `number`
-	 * the parameter type pack tail of property `hooks.init` is `...any` and the parameter types of property `hooks.init` are `{ [string]: string }`, and `...any` is not exactly `{ [string]: string }`]====],
+            [====[
+                main.luau(20,31): TypeError: Expected this to be 'Plugin', but got 'legacy';
+                this is because
+                	 * Expected the indexer result of the 1st parameter of property `hooks.init` to be exactly `string`, but got `number`
+                	 * the parameter type pack tail of property `hooks.init` is `...any` and the parameter types of property `hooks.init` are `{ [string]: string }`, and `...any` is not exactly `{ [string]: string }`
+            ]====],
             { "20.31-20.36" },
-            [====[main.luau(20,31): TypeError: Expected 'legacy' to be
-    'Plugin'
-but was given
-    '{ hooks: { init: (config: { [string]: number }) -> boolean, … }, … }'
-where
-    type Init = (config: { [string]: number }) -> boolean
+            [====[
+                main.luau(20,31): TypeError: Expected 'legacy' to be
+                    'Plugin'
+                but was given
+                    '{ hooks: { init: (config: { [string]: number }) -> boolean, … }, … }'
+                where
+                    type Init = (config: { [string]: number }) -> boolean
 
-Some properties are incompatible:
-  • legacy.hooks.init = Init
-    In 'legacy.hooks.init', config[string]: expected 'string', got 'number']====]
+                Some properties are incompatible:
+                  • legacy.hooks.init = Init
+                    In 'legacy.hooks.init', config[string]: expected 'string', got 'number'
+            ]====]
         ),
     }),
     example("Overloads", {
@@ -1050,22 +1189,28 @@ Some properties are incompatible:
             "and lists each overload with its parameter names:",
         }),
         checked(
-            [====[--!strict
-type Bus = {
-    on: ((event: "chat", handler: (message: string) -> ()) -> ())
-        & ((event: "join", handler: (player: string, team: number) -> ()) -> ()),
-}
+            [====[
+                --!strict
+                type Bus = {
+                    on: ((event: "chat", handler: (message: string) -> ()) -> ())
+                        & ((event: "join", handler: (player: string, team: number) -> ()) -> ()),
+                }
 
-local function listen(bus: Bus)
-    bus.on("chat", function(message: number) end)
-end]====],
+                local function listen(bus: Bus)
+                    bus.on("chat", function(message: number) end)
+                end
+            ]====],
             { "8.5-8.49", "8.5-8.49" },
-            [====[main.luau(8,5): TypeError: None of the overloads for function that accept 2 arguments are compatible.
-main.luau(8,5): TypeError: Available overloads: ("chat", (string) -> ()) -> (); and ("join", (string, number) -> ()) -> ()]====],
+            [====[
+                main.luau(8,5): TypeError: None of the overloads for function that accept 2 arguments are compatible.
+                main.luau(8,5): TypeError: Available overloads: ("chat", (string) -> ()) -> (); and ("join", (string, number) -> ()) -> ()
+            ]====],
             { "8.5-8.49" },
-            [====[main.luau(8,5): TypeError: None of the overloads of 'bus.on' accept '("chat", (message: number) -> ())':
-  • #1 '(event: "chat", handler: (message: string) -> ()) -> ()'
-  • #2 '(event: "join", handler: (player: string, team: number) -> ()) -> ()']====]
+            [====[
+                main.luau(8,5): TypeError: None of the overloads of 'bus.on' accept '("chat", (message: number) -> ())':
+                  • #1 '(event: "chat", handler: (message: string) -> ()) -> ()'
+                  • #2 '(event: "join", handler: (player: string, team: number) -> ()) -> ()'
+            ]====]
         ),
     }),
 
@@ -1081,96 +1226,107 @@ main.luau(8,5): TypeError: Available overloads: ("chat", (string) -> ()) -> (); 
             "with the overriding method:",
         }),
         checked(
-            [====[--!strict
-type EnemyImpl = {
-    __index: EnemyImpl,
-    new: (name: string, health: number) -> Enemy,
-    take_damage: (self: Enemy, amount: number) -> boolean,
-}
-export type Enemy = typeof(setmetatable({} :: { name: string, health: number }, {} :: EnemyImpl))
+            [====[
+                --!strict
+                type EnemyImpl = {
+                    __index: EnemyImpl,
+                    new: (name: string, health: number) -> Enemy,
+                    take_damage: (self: Enemy, amount: number) -> boolean,
+                }
+                export type Enemy = typeof(setmetatable({} :: { name: string, health: number }, {} :: EnemyImpl))
 
-type BossImpl = EnemyImpl & {
-    phase: (self: Boss) -> number,
-}
-export type Boss = typeof(setmetatable({} :: { name: string, health: number, enraged: boolean }, {} :: BossImpl))
+                type BossImpl = EnemyImpl & {
+                    phase: (self: Boss) -> number,
+                }
+                export type Boss = typeof(setmetatable({} :: { name: string, health: number, enraged: boolean }, {} :: BossImpl))
 
-local Enemy = {} :: EnemyImpl
-local Boss = setmetatable({}, { __index = Enemy }) :: BossImpl
+                local Enemy = {} :: EnemyImpl
+                local Boss = setmetatable({}, { __index = Enemy }) :: BossImpl
 
-Boss.take_damage = function(self: Boss, amount: number): number
-    self.health -= amount
-    return self.health
-end]====],
+                Boss.take_damage = function(self: Boss, amount: number): number
+                    self.health -= amount
+                    return self.health
+                end
+            ]====],
             { "17.20-20.3" },
-            [====[main.luau(17,20): TypeError: Expected this to be
-	'(Enemy, number) -> boolean'
-but got
-	'(t1, number) -> number where t1 = setmetatable<{ enraged: boolean, health: number, name: string }, { __index: *CYCLE*, new: (string, number) -> setmetatable<{ health: number, name: string }, *CYCLE*>, take_damage: (setmetatable<{ health: number, name: string }, *CYCLE*>, number) -> boolean } & { phase: (t1) -> number }>';
-this is because
-	 * Expected the metatable of the 1st parameter to be a supertype of `EnemyImpl`, but got `t1 where t1 = { phase: (setmetatable<{ enraged: boolean, health: number, name: string }, t1 & { __index: *CYCLE*, new: (string, number) -> setmetatable<{ health: number, name: string }, *CYCLE*>, take_damage: (setmetatable<{ health: number, name: string }, *CYCLE*>, number) -> boolean }>) -> number }`
-	 * Expected the return type to be `boolean`, but got `number`
-	 * Expected the table portion of the 1st parameter to be a supertype of `{ health: number, name: string }`, but got `{ enraged: boolean, health: number, name: string }`]====],
+            [====[
+                main.luau(17,20): TypeError: Expected this to be
+                	'(Enemy, number) -> boolean'
+                but got
+                	'(t1, number) -> number where t1 = setmetatable<{ enraged: boolean, health: number, name: string }, { __index: *CYCLE*, new: (string, number) -> setmetatable<{ health: number, name: string }, *CYCLE*>, take_damage: (setmetatable<{ health: number, name: string }, *CYCLE*>, number) -> boolean } & { phase: (t1) -> number }>';
+                this is because
+                	 * Expected the metatable of the 1st parameter to be a supertype of `EnemyImpl`, but got `t1 where t1 = { phase: (setmetatable<{ enraged: boolean, health: number, name: string }, t1 & { __index: *CYCLE*, new: (string, number) -> setmetatable<{ health: number, name: string }, *CYCLE*>, take_damage: (setmetatable<{ health: number, name: string }, *CYCLE*>, number) -> boolean }>) -> number }`
+                	 * Expected the return type to be `boolean`, but got `number`
+                	 * Expected the table portion of the 1st parameter to be a supertype of `{ health: number, name: string }`, but got `{ enraged: boolean, health: number, name: string }`
+            ]====],
             { "17.20-20.3", "12.78-12.84", "7.47-7.78" },
-            [====[main.luau(17,20): TypeError: Expected 'Boss.take_damage' to be
-    '(self: Enemy, amount: number) -> boolean'
-but was given
-    '(self: Boss, amount: number) -> number'
+            [====[
+                main.luau(17,20): TypeError: Expected 'Boss.take_damage' to be
+                    '(self: Enemy, amount: number) -> boolean'
+                but was given
+                    '(self: Boss, amount: number) -> number'
 
-This function can be passed a value it doesn't accept:
-  • missing property 'self.enraged: boolean'
-It should return:
-  • 'boolean', not 'number'
-main.luau(12,78): Note: Expected 'enraged: boolean' because of this
-main.luau(7,47): Note: 'self' is missing 'enraged: boolean']====]
+                This function can be passed a value it doesn't accept:
+                  • missing property 'self.enraged: boolean'
+                It should return:
+                  • 'boolean', not 'number'
+                main.luau(12,78): Note: Expected 'enraged: boolean' because of this
+                main.luau(7,47): Note: 'self' is missing 'enraged: boolean'
+            ]====]
         ),
     }),
     example("Generic metatable classes", {
         Paragraph({
-            Code("Promise.all"), " can't give a list of strings here, since one of the promises resolves to a number. ",
+            Code("Promise.all"), " can't give a list of strings here because one of the promises resolves ",
+            "to a number. ",
             "Luau 0.742 accepts the code without an error. Luwu finds the generic parameter no type can satisfy:",
         }),
         checked(
-            [====[--!strict
-type PromiseImpl = {
-    __index: PromiseImpl,
-    resolve: <T>(value: T) -> Promise<T>,
-    all: <T>(promises: { Promise<T> }) -> Promise<{ T }>,
-    and_then: <T, U>(self: Promise<T>, on_resolve: (T) -> U) -> Promise<U>,
-}
+            [====[
+                --!strict
+                type PromiseImpl = {
+                    __index: PromiseImpl,
+                    resolve: <T>(value: T) -> Promise<T>,
+                    all: <T>(promises: { Promise<T> }) -> Promise<{ T }>,
+                    and_then: <T, U>(self: Promise<T>, on_resolve: (T) -> U) -> Promise<U>,
+                }
 
-export type Promise<T> = typeof(setmetatable(
-    {} :: { status: "Started" | "Resolved" | "Rejected", value: T? },
-    {} :: PromiseImpl
-))
+                export type Promise<T> = typeof(setmetatable(
+                    {} :: { status: "Started" | "Resolved" | "Rejected", value: T? },
+                    {} :: PromiseImpl
+                ))
 
-local Promise = {} :: PromiseImpl
+                local Promise = {} :: PromiseImpl
 
-local function load_names(): Promise<{ string }>
-    return Promise.all({
-        Promise.resolve("Ada"),
-        Promise.resolve(42),
-    })
-end]====],
+                local function load_names(): Promise<{ string }>
+                    return Promise.all({
+                        Promise.resolve("Ada"),
+                        Promise.resolve(42),
+                    })
+                end
+            ]====],
             {},
             [====[]====],
             { "", "17.12-17.22" },
-            [====[main.luau(17,5): TypeError: Expected this to be
-    'Promise'
-but was given
-    '{ @metatable PromiseImpl, { value: {string & number & (((string & number) | (string & nil))?)}?, … } }'
-where
-    type Value = {string & number & (((string & number) | (string & nil))?)}
+            [====[
+                main.luau(17,5): TypeError: Expected this to be
+                    'Promise'
+                but was given
+                    '{ @metatable PromiseImpl, { value: {string & number & (((string & number) | (string & nil))?)}?, … } }'
+                where
+                    type Value = {string & number & (((string & number) | (string & nil))?)}
 
-Some properties are incompatible:
-  • given.value: expected '{string}?', got 'Value?'
-main.luau(17,12): TypeError: This call has no valid type for 'T' that fits every place 'T' is used.
-  'T' is given:   string | number
-  'T' is used as: string & number
+                Some properties are incompatible:
+                  • given.value: expected '{string}?', got 'Value?'
+                main.luau(17,12): TypeError: This call has no valid type for 'T' that fits every place 'T' is used.
+                  'T' is given:   string | number
+                  'T' is used as: string & number
 
-Help (impossible generic parameter instantiation):
-  - A call picks one type for 'T' and uses it everywhere 'T' appears in the function's signature
-  - What 'T' is given has to fit everywhere 'T' is used
-  - To fix this, pass a value that fits 'string & number', or make the code that uses 'T' accept 'string | number']====]
+                Help (impossible generic parameter instantiation):
+                  - A call picks one type for 'T' and uses it everywhere 'T' appears in the function's signature
+                  - What 'T' is given has to fit everywhere 'T' is used
+                  - To fix this, pass a value that fits 'string & number', or make the code that uses 'T' accept 'string | number'
+            ]====]
         ),
     }),
 

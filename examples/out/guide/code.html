@@ -1402,9 +1402,11 @@
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{greeting}</span><span class="hljs-string">, </span><span class="hljs-subst">{name}</span><span class="hljs-string">!`</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
       </div>
-      <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 82"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> greet = <span class="hljs-title class_">CodeBlock</span><span class="chimera-bracket-1">(</span><span class="hljs-string">[==[const function greet(name: string, greeting = "Hello")
-    print(`{greeting}, {name}!`)
-end]==]</span><span class="chimera-bracket-1">)</span>
+      <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 58"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> greet = <span class="hljs-title class_">CodeBlock</span><span class="chimera-bracket-1">(</span><span class="hljs-string">[==[
+    const function greet(name: string, greeting = "Hello")
+        print(`{greeting}, {name}!`)
+    end
+]==]</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">line_numbers</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">copyable</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
@@ -1420,7 +1422,7 @@ end]==]</span><span class="chimera-bracket-1">)</span>
     <h2 id="languages">Languages<a class="chimera-heading-link" href="#languages" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>The language is the second argument: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">CodeBlock</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"cargo build"</span>, <span class="hljs-string">"bash"</span><span class="chimera-bracket-1">)</span></code>. Other languages are highlighted in the browser by highlight.js, and a page only loads it when it has code that needs it. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-string">"plaintext"</span></code> isn't highlighted at all, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">plain</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code> turns the colors off for a single block.</p>
     <h2 id="squiggles">Squiggles<a class="chimera-heading-link" href="#squiggles" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
-    <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Squiggle</span></code> underlines a span of code the way an editor marks an error, and its message shows when the reader points at it:</p>
+    <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Squiggle</span></code> underlines a span of code the way an editor marks an error and shows its message when the reader points at it:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
         <pre data-element="CodeBlock" data-language="luwu" data-line-numbers data-squiggles="2.7-2.10	var(--chimera-syntax-error)	Unknown global 'nmae'

@@ -168,7 +168,7 @@ end]====]):to_html()
         const back = Parser():parse(html)[1]
         equal(back:to_html(), html)
         if class.isinstance(back, CodeBlock) then
-            equal(back.source, "local x = 1\nprint(x)\n")
+            equal(back.source, "local x = 1\nprint(x)")
         end
         excludes(
             CodeBlock("x")
@@ -212,6 +212,14 @@ end]====]):to_html()
         if class.isinstance(reparsed, CodeBlock) then
             equal(reparsed:squiggles()[1].message, "first line\n\tsecond \\ line")
         end
+    end,
+
+    ["code blocks dedent their source"] = function()
+        equal(CodeBlock.dedent("\n    for _, cat in cats do\n        print(cat)\n\n    end\n  "),
+            "for _, cat in cats do\n    print(cat)\n\nend")
+        equal(CodeBlock.dedent("\tlocal x = 1\n\t\tprint(x)"), "local x = 1\n\tprint(x)")
+        equal(CodeBlock.dedent("flush\n    indented"), "flush\n    indented")
+        equal(CodeBlock("\n        local a = 1\n        print(a)\n    ").source, "local a = 1\nprint(a)")
     end,
 
     ["source spans read and print line.column ranges"] = function()

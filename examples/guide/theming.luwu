@@ -30,9 +30,11 @@ return Page("Theming", {
         "Each page has one default theme for light mode and one for dark mode. ",
         "Until the reader picks a theme of their own, the page follows their OS setting:",
     }),
-    CodeBlock([====[site
-    :default_dark_theme(catppuccin.Mocha)
-    :default_light_theme(catppuccin.Latte)]====]),
+    CodeBlock([====[
+        site
+            :default_dark_theme(catppuccin.Mocha)
+            :default_light_theme(catppuccin.Latte)
+    ]====]),
     Paragraph({
         "Without defaults, pages use ", Code("Light"), " and ", Code("Dark"), ". A lone ", Code("Document"),
         " has the same methods.",
@@ -43,11 +45,13 @@ return Page("Theming", {
         Code("offer_theme"), " adds a theme readers can pick, and a ", Code("ThemeSwitcher"),
         " lists it next to the defaults. This site offers six:",
     }),
-    CodeBlock([====[site
-    :offer_theme(catppuccin.Macchiato)
-    :offer_theme(catppuccin.Frappe)
-    :offer_theme(Light)
-    :offer_theme(Dark)]====]),
+    CodeBlock([====[
+        site
+            :offer_theme(catppuccin.Macchiato)
+            :offer_theme(catppuccin.Frappe)
+            :offer_theme(Light)
+            :offer_theme(Dark)
+    ]====]),
     example("switcher", picker),
     Paragraph({
         "The browser saves the reader's pick, and links between pages carry it too. ",
@@ -69,22 +73,24 @@ return Page("Theming", {
         " and a ", Code("palette"), ". Any token you leave out of the ", Code("Palette"),
         " keeps its Light value:",
     }),
-    CodeBlock([====[class Sepia() implements Theme
-    const name = "sepia"
-    const mode = "Light"
+    CodeBlock([====[
+        class Sepia() implements Theme
+            const name = "sepia"
+            const mode = "Light"
 
-    function palette(self): Palette
-        return Palette {
-            background = Color.hex("#f4ecd8"),
-            text = Color.hex("#5b4636"),
-            primary = Color.hex("#8b5e3c"),
-            radius = "2px",
-        }
-    end
-end
+            function palette(self): Palette
+                return Palette {
+                    background = Color.hex("#f4ecd8"),
+                    text = Color.hex("#5b4636"),
+                    primary = Color.hex("#8b5e3c"),
+                    radius = "2px",
+                }
+            end
+        end
 
-Theme.register(Sepia)
-site:offer_theme(Sepia)]====]):copyable(),
+        Theme.register(Sepia)
+        site:offer_theme(Sepia)
+    ]====]):copyable(),
     Paragraph({
         Code("Theme.register"), " lets the parser find the theme by name, and ", Code("label()"),
         " sets the name the switcher shows. To restyle the built-in elements themselves, override ",

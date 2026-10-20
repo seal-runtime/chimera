@@ -96,7 +96,7 @@ return Page("The none Primitive", {
 
         print(full_name(ada))
     ]====]),
-    Paragraph("A list can mark items as left out, without holes:"),
+    Paragraph("A list can mark items as left out without leaving holes:"),
     luwu([====[
         const show_admin = false
 

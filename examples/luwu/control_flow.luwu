@@ -282,5 +282,5 @@ return Page("Expressive Control Flow", {
             print(key, value)
         end
     ]====]),
-    Paragraph("Both loops print the same thing. The second one reads top to bottom, with every exit at the left edge."),
+    Paragraph("Both loops print the same thing. The second one reads top to bottom with every exit at the left edge."),
 }, "expressive-control-flow.html")

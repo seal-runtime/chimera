@@ -13,9 +13,11 @@ const .{ h1, h2 } = Heading
 const example = examples_in("examples/guide/code.luwu")
 
 --@ block
-const greet = CodeBlock([==[const function greet(name: string, greeting = "Hello")
-    print(`{greeting}, {name}!`)
-end]==])
+const greet = CodeBlock([==[
+    const function greet(name: string, greeting = "Hello")
+        print(`{greeting}, {name}!`)
+    end
+]==])
     :line_numbers()
     :copyable()
 --@ end
@@ -85,8 +87,8 @@ return Page("Code", {
 
     h2("Squiggles"),
     Paragraph({
-        "A ", Code("Squiggle"), " underlines a span of code the way an editor marks an error, ",
-        "and its message shows when the reader points at it:",
+        "A ", Code("Squiggle"), " underlines a span of code the way an editor marks an error and shows its ",
+        "message when the reader points at it:",
     }),
     example("squiggles", typo),
     Paragraph({
@@ -119,24 +121,26 @@ return Page("Code", {
         ". Your class gets highlighting, squiggles and hovers too. Call ", Code("render_source(out)"),
         " where the code goes:",
     }),
-    CodeBlock([====[class FileSnippet implements SourceCode
-    function tag(): string
-        return "figure"
-    end
-    function __init(self, file: string?, source: string?, language: Language?)
-        self.source = source or ""
-        self
-            :attr("data-file", file)
-            :attr("data-language", language or "luwu")
-    end
-    function render(self, out: Writer)
-        self:render_open(out)
-        out:write(`<figcaption>{Text.escape(tostring(self:get_attr("data-file")))}</figcaption>`)
-        out:write(`<pre><code class="language-{self:language()}">`)
-        self:render_source(out)
-        out:write("</code></pre></figure>")
-    end
-end
+    CodeBlock([====[
+        class FileSnippet implements SourceCode
+            function tag(): string
+                return "figure"
+            end
+            function __init(self, file: string?, source: string?, language: Language?)
+                self.source = source or ""
+                self
+                    :attr("data-file", file)
+                    :attr("data-language", language or "luwu")
+            end
+            function render(self, out: Writer)
+                self:render_open(out)
+                out:write(`<figcaption>{Text.escape(tostring(self:get_attr("data-file")))}</figcaption>`)
+                out:write(`<pre><code class="language-{self:language()}">`)
+                self:render_source(out)
+                out:write("</code></pre></figure>")
+            end
+        end
 
-Component.register(FileSnippet)]====]),
+        Component.register(FileSnippet)
+    ]====]),
 })

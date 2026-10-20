@@ -114,7 +114,7 @@ return Page("Luwu", {
         end
     ]====]),
     Paragraph({
-        "Most of it is the Luau you already know, with a couple of Luwu touches mixed in. The ",
+        "Most of it is the Luau you already know. The ",
         Code("{ for ... when ... give item }"), " line is a table comprehension: it builds the filtered array in a ",
         "single expression. In the second loop, ", Code("for _, .{ name, price }"), " uses destructuring to pull ",
         "just the fields you need out of each item. You don't need two more lines of code just to put ",
@@ -155,10 +155,10 @@ return Page("Luwu", {
     }),
     Paragraph({
         "That's also why Luwu prints types and errors differently from Luau. Luau is primarily developed against ",
-        "Roblox's Studio script editor, which shows each diagnostic on a single line, and Luau's type ",
-        "stringification is built to fit it. Our language server targets VSCode/Code-OSS (with hopefully more ",
-        "editors coming soon!), which show hovers and diagnostics across several lines. Luwu prints types over ",
-        "multiple lines, formatted like code, and writes its error messages for people reading them in a hover. ",
+        "Roblox's Studio script editor and stringifies types to fit the single-line diagnostics Studio shows. ",
+        "Our language server targets VSCode/Code-OSS (with hopefully more editors coming soon!) where hovers and ",
+        "diagnostics span several lines. Luwu prints types over multiple lines formatted like code and writes its ",
+        "error messages for people reading them in a hover. ",
         "We've also added context to Luwu's type errors that makes them easier for tools to work with.",
     }),
 
@@ -179,7 +179,7 @@ return Page("Luwu", {
     Paragraph({
         "A literal type requires a value written directly at the call, such as ", Code("\"#3b5bdb\""), " or ",
         Code("\"1.5rem\""), ", and a validator is a type function that checks that literal during analysis. ",
-        "Your own APIs can use them to reject a malformed color, size or route in the editor, with an error ",
+        "Your own APIs can use them to reject a malformed color, size or route in the editor with an error ",
         "message you write yourself.",
     }),
     see_more(literal_types),
@@ -193,8 +193,8 @@ return Page("Luwu", {
 
     h3("Better Hovers"),
     Paragraph({
-        "Our hovers target luwu-lsp and the Luwu VSCode/Code-OSS extension, with significant improvements in ",
-        "recursive type stringification. A hover exposes every relevant type, with verbosity levels and go to ",
+        "Our hovers target luwu-lsp and the Luwu VSCode/Code-OSS extension and significantly improve recursive ",
+        "type stringification. A hover exposes every relevant type with verbosity levels and go to ",
         "location links you can click. Overloads and unions are serialized in a more readable way, and each type ",
         "with documentation attached shows one line of it above.",
     }),
@@ -231,14 +231,40 @@ return Page("Luwu", {
     Paragraph({ PageLink(FULL_HEALTH_EXAMPLE, "See the full example on the Classes and Traits page →") }),
 
     h3("Destructuring"),
-    Paragraph("Destructuring pulls several fields out of a table in one line. You write each name once."),
+    Paragraph({
+        "Destructuring pulls several fields into locals at once from anything you can index with a dot: tables, ",
+        "objects, classes and userdata. It's similar to destructuring assignment in JavaScript and destructuring ",
+        "patterns in Rust. Use it in ", Code("local"), " and ", Code("const"), " declarations:",
+    }),
     luwu([====[
         const player = { name = "Ada", level = 12 }
-
         const .{ name, level } = player
         print(name, level)
     ]====]),
+    Paragraph({ "And in a ", Code("for"), " loop's header:" }),
+    luwu([====[
+        const tasks = {
+            { title = "Feed Nyla", done = true },
+            { title = "Write docs", done = false },
+        }
+        for _, .{ title, done } in tasks do
+            print(title, done)
+        end
+    ]====]),
     see_more(destructuring),
+
+    h3("Restructuring"),
+    Paragraph({
+        "The same syntax on the right of ", Code("="), " builds a table instead: ", Code(".{ name, age }"),
+        " is equivalent to ", Code("{ name = name, age = age }"), ". It's similar to shorthand properties in ",
+        "JavaScript and field init shorthand in Rust. ", Code("Class.{ name, age }"),
+        " builds a class without a primary constructor the same way.",
+    }),
+    luwu([====[
+        const name, age = "Ada", 36
+        const person = .{ name, age }
+        print(person.name, person.age)
+    ]====]),
 
     h3("The none Primitive"),
     Paragraph({ Code("none"), " means \"intentionally empty\". Unlike nil, you can store it in a table." }),
@@ -252,15 +278,54 @@ return Page("Luwu", {
 
     h3("Expressive Control Flow"),
     Paragraph({
-        Code("if local"), " checks a value right where you get it. ",
-        Code("when"), " chains add more conditions, in ifs and in loops.",
+        "Expressive control flow is a set of features that let you get a value, check it and decide what to do ",
+        "with it in one expression. Combined, they make Luwu a more expression-focused language than Python or ",
+        "Luau and make data transformation code much easier to read.",
     }),
-    Paragraph({ Code("do"), " expressions and ", Code("or return"), " cut down on temporary variables and nesting." }),
+    Paragraph({
+        Code("if local"), " and ", Code("if const"), " bind a value inside the condition and ", Code("when"),
+        " adds more checks that can use it:",
+    }),
+    luwu([====[
+        const users: { [string]: { name: string, admin: boolean }? } = {
+            ada = { name = "Ada", admin = true },
+            grace = { name = "Grace", admin = false },
+        }
+        if const user = users["ada"] when user.admin then
+            print(`{user.name} is an admin`)
+        end
+    ]====]),
+    Paragraph({ "Loops take ", Code("when"), " chains too and skip the items that fail them:" }),
     luwu([====[
         const prices: { [string]: number? } = { apple = 1.25, pear = 0.8 }
-
-        for _, fruit in { "apple", "kiwi", "pear" } when const price = prices[fruit] do
+        for
+            _, fruit in { "apple", "kiwi", "pear" }
+            when const price = prices[fruit]
+        do
             print(`{fruit} costs {price}`)
+        end
+    ]====]),
+    Paragraph({
+        "A ", Code("do"), " expression runs a block and gives back a value without leaking its temporary locals:",
+    }),
+    luwu([====[
+        const scores = { 72, 95, 88 }
+        const best = do
+            local top = 0
+            for _, score in scores do
+                top = math.max(top, score)
+            end
+            give top
+        print(best)
+    ]====]),
+    Paragraph({
+        Code("or return"), ", ", Code("or continue"), " and ", Code("or break"),
+        " leave as soon as a value is missing:",
+    }),
+    luwu([====[
+        const function describe(fruit: string): string
+            const price = prices[fruit] or return `{fruit} isn't sold here`
+            return `{fruit} costs {price}`
         end
     ]====]),
     see_more(control_flow),
@@ -320,23 +385,31 @@ return Page("Luwu", {
 
     h3("Importing classes with their types"),
     Paragraph("In Luau, a value and a type are imported separately. A class-like table needs both lines:"),
-    CodeBlock([====[local shapes = require("./shapes")
-local Circle = shapes.Circle
-type Circle = shapes.Circle]====], "luau"),
+    CodeBlock([====[
+        local shapes = require("./shapes")
+        local Circle = shapes.Circle
+        type Circle = shapes.Circle
+    ]====], "luau"),
     Paragraph("A Luwu class is a value and a type at once. Given a module that exports one:"),
-    CodeBlock([====[export class Circle(radius: number)
-    function area(self): number
-        return math.pi * self.radius ^ 2
-    end
-end]====]),
+    CodeBlock([====[
+        export class Circle(radius: number)
+            function area(self): number
+                return math.pi * self.radius ^ 2
+            end
+        end
+    ]====]),
     Paragraph("Importing the class brings its type along, whichever way you import it:"),
-    CodeBlock([====[const shapes = require("./shapes")
-const Circle = shapes.Circle]====]),
-    CodeBlock([====[const .{ Circle } = require("./shapes")
+    CodeBlock([====[
+        const shapes = require("./shapes")
+        const Circle = shapes.Circle
+    ]====]),
+    CodeBlock([====[
+        const .{ Circle } = require("./shapes")
 
-const function describe(circle: Circle): string
-    return `a circle with area {circle:area()}`
-end]====]),
+        const function describe(circle: Circle): string
+            return `a circle with area {circle:area()}`
+        end
+    ]====]),
     Paragraph({
         "Traits work the same way. ", Code("type Circle = shapes.Circle"), " still works, but isn't needed.",
     }),

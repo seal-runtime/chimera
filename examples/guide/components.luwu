@@ -79,7 +79,7 @@ return Page("Components", {
     }),
 
     h2("Tabs"),
-    Paragraph({ Code("Tabs"), " shows one panel at a time, with a row of tabs to switch between them:" }),
+    Paragraph({ Code("Tabs"), " shows one panel at a time with a row of tabs to switch between them:" }),
     example("tabs", install),
     Paragraph({
         "The first tab starts selected unless ", Code("select(\"Windows\")"), " picks another. ",

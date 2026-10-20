@@ -131,7 +131,7 @@ home:add(
 
     h2("A quick look"),
     Paragraph({
-        "Here's a small release notes section, with the code that builds it underneath. The tabs, the ",
+        "Here's a small release notes section with the code that builds it underneath. The tabs, the ",
         "\"What changed?\" toggle and all of the colors come with chimera and follow whichever theme you pick, ",
         "and you didn't have to write any CSS or JavaScript for them.",
     }),
@@ -143,10 +143,12 @@ home:add(
         "validators. The analyzer checks every style you write against them. A wrong unit or a misspelled ",
         "keyword shows up in your editor before you ever build the page. Hover the squiggles:",
     }),
-    CodeBlock([====[const .{ elements.{ Paragraph }, components.{ Card } } = require("@chimera")
+    CodeBlock([====[
+        const .{ elements.{ Paragraph }, components.{ Card } } = require("@chimera")
 
-const note = Card("Heads up", Paragraph("Back up your saves."))
-    :style({ padding = "1rx", display = "flexx" })]====])
+        const note = Card("Heads up", Paragraph("Back up your saves."))
+            :style({ padding = "1rx", display = "flexx" })
+    ]====])
         :line_numbers()
         :squiggle(
             Squiggle.error(SourceSpan.on_line(4, 24, 28), "TypeError: CSS length '1rx' has the unknown unit 'rx'"),

@@ -116,7 +116,9 @@ later.
   `luwu` submodule must track luwu's latest `integration` commit.
 - Visual checks: `firefox --headless --no-remote --profile <scratch>/ffprofile
   --window-size=WxH --screenshot out.png file://...`. Headless renders the light
-  defaults.
+  defaults; add `?theme=catppuccin-mocha` (any offered theme's name) to the URL
+  for another. The window height sets how much of the page the shot covers, and
+  headless reports no mouse, so `(hover: hover)` media rules don't apply.
 
 ### Layout
 
@@ -251,6 +253,11 @@ can shrink the font slightly to fit. `luwu-highlight` (the Luwu playground's
 TextMate highlighter) was evaluated and rejected here: it needs a JavaScript
 regex engine, and chimera must not shell out to Node.
 
+`CodeBlock` dedents its source (`CodeBlock.dedent`): write code strings indented
+one level past the surrounding code, on their own lines after `[====[`, never
+flush left. Helpers that read code strings themselves call `CodeBlock.dedent`
+first.
+
 `SourceCode` also carries `Squiggle`s (wavy, a message; stored in
 `data-squiggles`) and `Hover`s (dotted underline, any `Content`; each rendered
 into a `<template data-hover="N">` inside the code). Both mark `SourceSpan`s,
@@ -286,5 +293,62 @@ These add to the global style rules:
   parameters optional). Rename instead of overriding when the meanings differ
   (`SiteFooter:link_column` vs `Layout.column`).
 - Use seal's datetime library (`@std/time/datetime`), not `os.date`.
-- Describe Luwu as its own language (modern, object oriented, expressive,
-  strictly and gradually typed, embeddable), never as "Luau plus extras".
+- Describe Luwu as its own language, never as "Luau plus extras". The
+  canonical description is the opening of `examples/luwu/index.luwu` ("a fast,
+  object oriented, and highly expressive embeddable scripting language forked
+  from Luau 0.730 ..."): reuse it instead of paraphrasing. Say strict type
+  checking by default and gradual typing as separate facts, never "strictly
+  and gradually typed" in one phrase.
+
+### Docs wording
+
+These cover the guide (`examples/guide/`), the home page (`examples/site.luwu`)
+and the Luwu docs (`examples/luwu/`, also copied to luwu.org).
+
+- When deviaze hands over sentences, use them. Fix typos and grammar only;
+  don't rewrite them into vaguer prose. Rephrase only what they ask for.
+- Open a page with what the feature is and why it exists, through a concrete
+  scenario. Never "This page is for ..." or "This page covers ...".
+- Vary sentence length. A run of short, same-shaped sentences reads as
+  unreviewed machine prose. Join related facts with "and", "because" or
+  "when". Keep the tone friendly and direct.
+- No quips: no punchy one-liners that add nothing ("A class can.", "You
+  write the rules.", "for free", "never goes stale", "minus the confusing
+  parts"). A short sentence that states a fact is fine.
+- No comma add-on clauses. Follow "Writing prose, docs and code comments" in
+  the global `~/.claude/CLAUDE.md`: remove the comma, restructure the
+  sentence, or drop the clause. Never split it into its own sentence.
+- Use the real terms and introduce them gently. A class represents a domain
+  concept; it groups data (fields) with behavior (methods), and encapsulates
+  the data to protect its invariants. Don't say a class "describes a kind of
+  object".
+- Upstream Luau: state differences, not disagreements ("Since the fork, Luau
+  and Luwu have diverged. The main differences today are ..."). Comparisons
+  stay factual: say what each tool prints or does, never "Luau gives up",
+  "narrates" or "has nothing like it". Where Luwu is objectively better, show
+  it side by side; don't hide it.
+- Luwu type errors limit jargon. When a term is needed, Luwu attaches a
+  "Help" explanation; say so rather than implying the term never appears.
+- Feature names follow what the feature covers: "Default Arguments" (functions
+  and class constructors), not "Function Default Arguments".
+- Name seal precisely: "seal, a Luau and Luwu runtime"; fully qualify std
+  imports in examples (`@std/io/colors`).
+- Examples must be true:
+  - Run every example whose output is shown. Guide examples render from their
+    own source (`--@ name` snippets via `examples/guide/example.luwu`); Luwu
+    samples in `examples/luwu/samples/` run at build time
+    (`examples/luwu/terminal.luwu`).
+  - Show real tool output (luwu-analyze, luwu-lsp hovers) instead of writing
+    it by hand. Verify every claim about behavior before publishing it.
+  - Examples that teach a principle must actually follow it (a class that
+    "protects its invariant" keeps its fields and constructor private).
+- Example code style: no blank lines between methods; blank lines only
+  separate groups (fields from functions, private from public fields).
+  Shorten long examples on overview pages with a `-- ...` comment and link the
+  full version on the feature's page.
+- Check docs changes visually with headless Firefox (see Commands). Append
+  `?theme=<name>` to the page URL to render a theme other than the light
+  default, like `?theme=catppuccin-mocha`. Headless can't hover, so to check a
+  hover-only style, inject a style that forces it on a copy of the page in
+  your scratch directory. Crop screenshots by cropping the image, never by
+  hiding page elements (that hides the contents box too).

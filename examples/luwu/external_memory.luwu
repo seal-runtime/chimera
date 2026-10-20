@@ -58,16 +58,18 @@ return Page("External Buffers and Strings", {
     ]====]),
 
     h3("The C API"),
-    CodeBlock([====[#define LUA_BLUAU 0
-#define LUA_BHOST_IMMUTABLE 1
-#define LUA_BHOST_MUTABLE 2
+    CodeBlock([====[
+        #define LUA_BLUAU 0
+        #define LUA_BHOST_IMMUTABLE 1
+        #define LUA_BHOST_MUTABLE 2
 
-typedef void (*lua_BufferFree)(lua_State* L, void* data, size_t sz, void* userdata);
+        typedef void (*lua_BufferFree)(lua_State* L, void* data, size_t sz, void* userdata);
 
-LUA_API void* lua_newexternalbuffer(
-    lua_State* L, size_t sz, void* data, void* userdata, lua_BufferFree free_cb, int mode);
-LUA_API int lua_getbuffermode(lua_State* L, int idx);
-LUA_API void* lua_getbufferuserdata(lua_State* L, int idx);]====], "c"),
+        LUA_API void* lua_newexternalbuffer(
+            lua_State* L, size_t sz, void* data, void* userdata, lua_BufferFree free_cb, int mode);
+        LUA_API int lua_getbuffermode(lua_State* L, int idx);
+        LUA_API void* lua_getbufferuserdata(lua_State* L, int idx);
+    ]====], "c"),
     UnorderedList({
         ListItem({
             Code("lua_newexternalbuffer"), " wraps ", Code("sz"), " bytes at ", Code("data"), ". ",
@@ -105,12 +107,14 @@ LUA_API void* lua_getbufferuserdata(lua_State* L, int idx);]====], "c"),
     }),
 
     h3("The C API"),
-    CodeBlock([====[typedef void (*lua_StringFree)(lua_State* L, const char* data, size_t sz, void* userdata);
+    CodeBlock([====[
+        typedef void (*lua_StringFree)(lua_State* L, const char* data, size_t sz, void* userdata);
 
-LUA_API const char* lua_pushexternalstring(
-    lua_State* L, const char* data, size_t len, void* userdata, lua_StringFree free_cb);
-LUA_API int lua_isstringexternal(lua_State* L, int idx);
-LUA_API void* lua_getstringexternaluserdata(lua_State* L, int idx);]====], "c"),
+        LUA_API const char* lua_pushexternalstring(
+            lua_State* L, const char* data, size_t len, void* userdata, lua_StringFree free_cb);
+        LUA_API int lua_isstringexternal(lua_State* L, int idx);
+        LUA_API void* lua_getstringexternaluserdata(lua_State* L, int idx);
+    ]====], "c"),
     UnorderedList({
         ListItem({
             Code("data"), " must end in a null byte, at ", Code("data[len]"), ". ",

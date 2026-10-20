@@ -49,7 +49,7 @@ return Page("Custom components", {
     h1("Custom components"),
     Paragraph({
         "Say your docs need a callout box on 40 pages. Pasting its HTML and CSS 40 times works until the day ",
-        "you change it. In chimera you write the callout once as a class, and it gets the same methods, ",
+        "you change it. In chimera you write the callout once as a class that gets the same methods, ",
         "type checking and theming as the built-in components.",
     }),
     TableOfContents(),
@@ -86,9 +86,11 @@ return Page("Custom components", {
         ", return it from ", Code("head_elements"), ". A page gets each one once, however many of the ",
         "components it holds:",
     }),
-    CodeBlock([====[function head_elements(self): { Metadata }?
-    return { Script(nil, "https://cdn.example.com/charts.js"):defer() }
-end]====]),
+    CodeBlock([====[
+        function head_elements(self): { Metadata }?
+            return { Script(nil, "https://cdn.example.com/charts.js"):defer() }
+        end
+    ]====]),
     Paragraph({
         "For a small handler, ", Code("on(\"click\", script)"), " is enough. It writes the code into the ",
         "element's ", Code("onclick", "html"), " attribute.",
@@ -99,14 +101,16 @@ end]====]),
         "By default a component renders its tag, its attributes and its children. For anything else, ",
         "override ", Code("render"), " and use ", Code("render_open"), " to write the opening tag:",
     }),
-    CodeBlock([====[function render(self, out: Writer)
-    self:render_open(out)
-    out:write(`<span class="count">{#self.children}</span>`)
-    for _, child in self.children do
-        child:render(out)
-    end
-    out:write("</aside>")
-end]====]),
+    CodeBlock([====[
+        function render(self, out: Writer)
+            self:render_open(out)
+            out:write(`<span class="count">{#self.children}</span>`)
+            for _, child in self.children do
+                child:render(out)
+            end
+            out:write("</aside>")
+        end
+    ]====]),
     Paragraph({
         "The ", Code("Writer"), " knows about the page being rendered, including its path, the site's pages ",
         "and the themes on offer. ", Code("out:href_to(path)"), " turns a path from the site's root into a link ",

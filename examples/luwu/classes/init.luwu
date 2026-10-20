@@ -32,22 +32,24 @@ return Page("Classes and Traits", {
 
     h2("From metatables to classes"),
     Paragraph("In Luau, objects are usually tables with a metatable. Each one needs some setup code:"),
-    CodeBlock([====[const Account = {}
-Account.__index = Account
+    CodeBlock([====[
+        const Account = {}
+        Account.__index = Account
 
-function Account.new(owner: string)
-    return setmetatable({ owner = owner, balance = 0 }, Account)
-end
+        function Account.new(owner: string)
+            return setmetatable({ owner = owner, balance = 0 }, Account)
+        end
 
-export type Account = typeof(Account.new(...))
+        export type Account = typeof(Account.new(...))
 
-function Account.deposit(self: Account, amount: number)
-    self.balance += amount
-end
+        function Account.deposit(self: Account, amount: number)
+            self.balance += amount
+        end
 
-const account = Account.new("Ada")
-account:deposit(50)
-print(account.balance)]====], "luau"),
+        const account = Account.new("Ada")
+        account:deposit(50)
+        print(account.balance)
+    ]====], "luau"),
     Paragraph({
         "That's well-typed Luau. The type comes from ", Code("typeof(Account.new(...))"), ". ",
         "Each method takes ", Code("self: Account"), " by hand.",
@@ -81,9 +83,8 @@ print(account.balance)]====], "luau"),
     }),
     Paragraph({
         "Metatables still work, and Luwu doesn't ask you to give them up. ",
-        "Tables with metatables stay structurally typed, as in Luau, ",
-        "and Luwu's type checker handles them better than Luau's does, ",
-        "with improvements like type references and method calls on union types.",
+        "Luwu still types tables with metatables structurally like Luau but checks them better through ",
+        "improvements like type references and method calls on union types.",
     }),
 
     h3("Performance"),
@@ -97,14 +98,14 @@ print(account.balance)]====], "luau"),
 
     h3("Inheritance through traits"),
     Paragraph({
-        "Upstream Luau is adding classical inheritance, with ", Code("open class"), " and ", Code("extends"), ". ",
+        "Upstream Luau is adding classical inheritance through ", Code("open class"), " and ", Code("extends"), ". ",
         "Luwu keeps the useful parts of inheritance and calls them traits. ",
         "A trait gives classes shared methods with default implementations they can override, ",
         "lists members each class is expected to provide, and can build on other traits.",
     }),
     Paragraph({
         "What Luwu leaves out is the confusing part of classical inheritance. ",
-        "Building an object only ever runs its own class's constructor, with no chain of parent constructors. ",
+        "Building an object only ever runs its own class's constructor. ",
         "There's no is-a identity either: an object belongs to exactly one class, and ",
         Code("class.isinstance"), " checks that class alone. ",
         "Whether an object has some trait's behavior is a separate question, answered by ",
