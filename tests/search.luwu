@@ -72,6 +72,7 @@ const function sample(search: Search?): Site
         Paragraph("Whether text starts with a prefix."),
         h2("Encodings"),
         Paragraph({ "Most functions expect utf8 text. Use ", chimera.components.Code("str.convert"), " first." }),
+        chimera.components.CodeBlock("const clean = str.convert(raw, \"utf-16\")"),
     }, "str.html")
     const node_page = Page("Node compat", {
         h1("Node compat"),
@@ -162,7 +163,9 @@ const tests: { [string]: () -> () } = {
         const sync = by_title["readFileSync"] or error("no readFileSync entry")
         equal(sync.k, "function")
         equal(sync.p, "node.html#readFileSync")
-        contains(tostring((by_title["Encodings"] or {}).x), "utf8 text. Use str.convert first.")
+        const encodings = by_title["Encodings"] or error("no Encodings entry")
+        contains(tostring(encodings.x), "utf8 text. Use str.convert first.")
+        equal(encodings.c, "const clean = str.convert(raw, \"utf-16\")", "code blocks go in their own field")
         equal(by_title["Not a section"], nil, "a card's heading isn't a section")
         equal(by_title["Contents"], nil, "the table of contents isn't indexed")
     end,

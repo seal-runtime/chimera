@@ -107,13 +107,17 @@ later.
 - Tests: `scl test` runs `tests/run.luwu`; `scl test site` runs one suite.
 - Example site: `scl ./examples/site.luwu` writes `examples/out/`. It is checked in, so people without a
   Luwu-enabled seal can read the docs: rebuild it after any change that affects the site.
-- Typecheck a file: `~/Repositories/luwu/luwu-analyze
-  --defs=.seal/typedefs/globals.d.luau <file>`. Sweep with `for f in $(fd -e
-  luwu . src tests examples --exclude out) init.luwu; do luwu-analyze ... $f;
-  done`. Keep it at zero diagnostics, lints included. Lines stay at 120
-  characters or fewer.
-- Editor errors that `luwu-analyze` doesn't show mean luwu-lsp is stale: its
-  `luwu` submodule must track luwu's latest `integration` commit.
+- Typecheck everything in one call: `~/Repositories/luwu-lsp/build/luwu-lsp
+  analyze --defs=.seal/typedefs/globals.d.luau $(fd -e luwu . src tests
+  examples --exclude out) init.luwu`. One process checks each module once and
+  takes under a second. A loop with one process per file re-checks
+  `theme.luwu` for every file and takes many seconds. Keep it at zero
+  diagnostics, lints included. Lines stay at 120 characters or fewer.
+- luwu-lsp builds from its `luwu` submodule, which must track luwu's latest
+  `integration` commit. Until deviaze rebuilds it after a qa, check new Luwu
+  features with `~/Repositories/luwu/luwu-analyze`, which takes the same
+  `--defs` and file list. Editor errors that the analyzer doesn't show also
+  mean luwu-lsp is stale.
 - Visual checks: `firefox --headless --no-remote --profile <scratch>/ffprofile
   --window-size=WxH --screenshot out.png file://...`. Headless renders the light
   defaults; add `?theme=catppuccin-mocha` (any offered theme's name) to the URL

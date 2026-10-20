@@ -167,8 +167,9 @@ return Page("Sites and pages", {
         ListItem({ Code("Typos"), ": a name within one or two typos, so ", Code("splitlnies", "plaintext"),
             " finds ", Code("splitlines"), ". Words under four letters allow none, which keeps ",
             Code("os", "plaintext"), " from finding ", Code("fs"), "." }),
-        ListItem({ Code("FullText"), ": words in an entry's text, so ", Code("utf8", "plaintext"),
-            " finds the section that explains encodings even when its title doesn't say so." }),
+        ListItem({ Code("FullText"), ": words in an entry's text and code samples, so ", Code("utf8", "plaintext"),
+            " finds the section that explains encodings even when its title doesn't say so. Prose counts more ",
+            "than code, and a query that appears word for word ranks higher." }),
     }),
     Paragraph({
         "A query with capital letters ranks names written in the same case higher. Pass ", Code("Search"),

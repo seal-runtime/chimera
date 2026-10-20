@@ -1665,7 +1665,7 @@
   }
   function config_of(form) {
     var data = form ? form.dataset : {};
-    var fields = { title: 1, keywords: 0.8, page: 0.4, text: 1 };
+    var fields = { title: 1, keywords: 0.8, page: 0.4, text: 1, code: 0.6 };
     parse_pairs(data.fields).forEach(function (pair) { fields[pair.name] = pair.weight; });
     return {
       matchers: parse_pairs(data.matchers || DEFAULT_MATCHERS),
@@ -1694,6 +1694,7 @@
       order: order,
       names: names,
       body: prepare_text(raw.x || ""),
+      code: prepare_text(raw.c || ""),
     };
   }
   function load(form) {
@@ -1734,6 +1735,7 @@
       if (!found || use.weight <= 0) return;
       if (found.text) {
         if (entry.body.lower) offer(use.weight * config.fields.text * found.match(term, entry.body, use.options), TEXT);
+        if (entry.code.lower) offer(use.weight * config.fields.code * found.match(term, entry.code, use.options), TEXT);
         return;
       }
       entry.names.forEach(function (name) {
@@ -1750,6 +1752,8 @@
   function rank(query, config) {
     var terms = query.trim().split(/\s+/).filter(Boolean).map(prepare);
     if (!terms.length || !entries) return [];
+    // A query of several words that appears word for word, like `when const`, is likely the reader's exact phrase.
+    var phrase = terms.length > 1 ? terms.map(function (term) { return term.lower; }).join(" ") : null;
     var results = [];
     entries.forEach(function (entry) {
       if (config.kinds && config.kinds.indexOf(entry.kind) < 0) return;
@@ -1762,6 +1766,13 @@
         tier = Math.min(tier, matched.tier);
       }
       total -= Math.min(entry.title.length, 60) * 0.01;
+      // A page outranks a section that shares its title, since the page is the topic's home.
+      if (entry.kind === "page") total += 1;
+      if (phrase) {
+        if (entry.names[0].value.lower.indexOf(phrase) >= 0) total += 30;
+        else if (entry.body.lower.indexOf(phrase) >= 0) total += 15;
+        else if (entry.code.lower.indexOf(phrase) >= 0) total += 10;
+      }
       if (total >= config.min_score) results.push({ entry: entry, score: total, tier: tier });
     });
     // An entry whose headings match every term comes before one that only mentions the terms.
@@ -2073,7 +2084,7 @@ faq:<span class="hljs-title function_ invoke__">add</span><span class="chimera-b
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Initials</span></code>: the first letter of each word, so <code data-language="plaintext" class="chimera-code">rfs</code> finds <code data-language="luwu" data-highlighted="yes" class="chimera-code">readFileSync</code> and <code data-language="plaintext" class="chimera-code">gcd</code> finds <code data-language="luwu" data-highlighted="yes" class="chimera-code">get_current_dir</code>.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Substring</span></code>: anywhere inside a name, so <code data-language="plaintext" class="chimera-code">lines</code> finds <code data-language="luwu" data-highlighted="yes" class="chimera-code">splitlines</code>.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Typos</span></code>: a name within one or two typos, so <code data-language="plaintext" class="chimera-code">splitlnies</code> finds <code data-language="luwu" data-highlighted="yes" class="chimera-code">splitlines</code>. Words under four letters allow none, which keeps <code data-language="plaintext" class="chimera-code">os</code> from finding <code data-language="luwu" data-highlighted="yes" class="chimera-code">fs</code>.</li>
-      <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">FullText</span></code>: words in an entry's text, so <code data-language="plaintext" class="chimera-code">utf8</code> finds the section that explains encodings even when its title doesn't say so.</li>
+      <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">FullText</span></code>: words in an entry's text and code samples, so <code data-language="plaintext" class="chimera-code">utf8</code> finds the section that explains encodings even when its title doesn't say so. Prose counts more than code, and a query that appears word for word ranks higher.</li>
     </ul>
     <p>A query with capital letters ranks names written in the same case higher. Pass <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Search</span></code> your own list of matchers to drop some or change how much each one counts. A matcher left out never matches, and <code data-language="luwu" data-highlighted="yes" class="chimera-code">weigh</code> sets how much each part of an entry counts:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 62"><code class="hljs language-luwu" data-highlighted="yes">site:<span class="hljs-title function_ invoke__">search</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Search</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>

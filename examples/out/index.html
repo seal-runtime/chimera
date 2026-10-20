@@ -1705,7 +1705,7 @@
   }
   function config_of(form) {
     var data = form ? form.dataset : {};
-    var fields = { title: 1, keywords: 0.8, page: 0.4, text: 1 };
+    var fields = { title: 1, keywords: 0.8, page: 0.4, text: 1, code: 0.6 };
     parse_pairs(data.fields).forEach(function (pair) { fields[pair.name] = pair.weight; });
     return {
       matchers: parse_pairs(data.matchers || DEFAULT_MATCHERS),
@@ -1734,6 +1734,7 @@
       order: order,
       names: names,
       body: prepare_text(raw.x || ""),
+      code: prepare_text(raw.c || ""),
     };
   }
   function load(form) {
@@ -1774,6 +1775,7 @@
       if (!found || use.weight <= 0) return;
       if (found.text) {
         if (entry.body.lower) offer(use.weight * config.fields.text * found.match(term, entry.body, use.options), TEXT);
+        if (entry.code.lower) offer(use.weight * config.fields.code * found.match(term, entry.code, use.options), TEXT);
         return;
       }
       entry.names.forEach(function (name) {
@@ -1790,6 +1792,8 @@
   function rank(query, config) {
     var terms = query.trim().split(/\s+/).filter(Boolean).map(prepare);
     if (!terms.length || !entries) return [];
+    // A query of several words that appears word for word, like `when const`, is likely the reader's exact phrase.
+    var phrase = terms.length > 1 ? terms.map(function (term) { return term.lower; }).join(" ") : null;
     var results = [];
     entries.forEach(function (entry) {
       if (config.kinds && config.kinds.indexOf(entry.kind) < 0) return;
@@ -1802,6 +1806,13 @@
         tier = Math.min(tier, matched.tier);
       }
       total -= Math.min(entry.title.length, 60) * 0.01;
+      // A page outranks a section that shares its title, since the page is the topic's home.
+      if (entry.kind === "page") total += 1;
+      if (phrase) {
+        if (entry.names[0].value.lower.indexOf(phrase) >= 0) total += 30;
+        else if (entry.body.lower.indexOf(phrase) >= 0) total += 15;
+        else if (entry.code.lower.indexOf(phrase) >= 0) total += 10;
+      }
       if (total >= config.min_score) results.push({ entry: entry, score: total, tier: tier });
     });
     // An entry whose headings match every term comes before one that only mentions the terms.

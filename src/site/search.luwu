@@ -7,7 +7,7 @@ const markup = require("@core/markup")
 const .{ Element, Component, Text } = require("@core/markup")
 const .{ Heading } = require("@elements/text")
 const .{ Script } = require("@elements/head")
-const .{ Code } = require("@components/code")
+const .{ Code, CodeBlock } = require("@components/code")
 type .{ Markup, Writer, Metadata, SearchEntry, AttributeValue } = markup
 
 --- The file [Site:build][site.Site.build] writes the search index to, at the site's root.
@@ -189,7 +189,7 @@ const SEARCH_JS = [=====[(function () {
   }
   function config_of(form) {
     var data = form ? form.dataset : {};
-    var fields = { title: 1, keywords: 0.8, page: 0.4, text: 1 };
+    var fields = { title: 1, keywords: 0.8, page: 0.4, text: 1, code: 0.6 };
     parse_pairs(data.fields).forEach(function (pair) { fields[pair.name] = pair.weight; });
     return {
       matchers: parse_pairs(data.matchers || DEFAULT_MATCHERS),
@@ -218,6 +218,7 @@ const SEARCH_JS = [=====[(function () {
       order: order,
       names: names,
       body: prepare_text(raw.x || ""),
+      code: prepare_text(raw.c || ""),
     };
   }
   function load(form) {
@@ -258,6 +259,7 @@ const SEARCH_JS = [=====[(function () {
       if (!found || use.weight <= 0) return;
       if (found.text) {
         if (entry.body.lower) offer(use.weight * config.fields.text * found.match(term, entry.body, use.options), TEXT);
+        if (entry.code.lower) offer(use.weight * config.fields.code * found.match(term, entry.code, use.options), TEXT);
         return;
       }
       entry.names.forEach(function (name) {
@@ -274,6 +276,8 @@ const SEARCH_JS = [=====[(function () {
   function rank(query, config) {
     var terms = query.trim().split(/\s+/).filter(Boolean).map(prepare);
     if (!terms.length || !entries) return [];
+    // A query of several words that appears word for word, like `when const`, is likely the reader's exact phrase.
+    var phrase = terms.length > 1 ? terms.map(function (term) { return term.lower; }).join(" ") : null;
     var results = [];
     entries.forEach(function (entry) {
       if (config.kinds && config.kinds.indexOf(entry.kind) < 0) return;
@@ -286,6 +290,13 @@ const SEARCH_JS = [=====[(function () {
         tier = Math.min(tier, matched.tier);
       }
       total -= Math.min(entry.title.length, 60) * 0.01;
+      // A page outranks a section that shares its title, since the page is the topic's home.
+      if (entry.kind === "page") total += 1;
+      if (phrase) {
+        if (entry.names[0].value.lower.indexOf(phrase) >= 0) total += 30;
+        else if (entry.body.lower.indexOf(phrase) >= 0) total += 15;
+        else if (entry.code.lower.indexOf(phrase) >= 0) total += 10;
+      }
       if (total >= config.min_score) results.push({ entry: entry, score: total, tier: tier });
     });
     // An entry whose headings match every term comes before one that only mentions the terms.
@@ -747,9 +758,12 @@ export type FieldWeights = {
     page: number?,
     --- Body text, read by [FullText]. 1 by default, because FullText's own weight is low.
     text: number?,
+    --- The code in an entry's code blocks, read by [FullText]. 0.6 by default, so prose that explains a name ranks
+    --- above code that only uses it.
+    code: number?,
 }
 
-const FIELD_NAMES = { "title", "keywords", "page", "text" }
+const FIELD_NAMES = { "title", "keywords", "page", "text", "code" }
 
 const function default_matchers(): { Matcher }
     return { Exact(), Prefix(), Words(), Initials(), Substring(), Typos(), FullText() }
@@ -867,6 +881,7 @@ export class Search implements Component
         self.field_weights.keywords = weights.keywords or self.field_weights.keywords
         self.field_weights.page = weights.page or self.field_weights.page
         self.field_weights.text = weights.text or self.field_weights.text
+        self.field_weights.code = weights.code or self.field_weights.code
         return self
     end
 
@@ -1074,6 +1089,7 @@ type IndexedEntry = {
     g: string,
     s: string?,
     x: string?,
+    c: string?,
     w: { string }?,
 }
 
@@ -1084,6 +1100,7 @@ type Collecting = {
     entries: { IndexedEntry },
     current: IndexedEntry,
     text: { string },
+    code: { string },
 }
 
 const function collapse(text: string): string
@@ -1108,7 +1125,10 @@ end
 const function finish_entry(state: Collecting)
     const text = collapse(table.concat(state.text, " "))
     state.current.x = if text == "" then state.current.x else text
+    const code = collapse(table.concat(state.code, " "))
+    state.current.c = if code == "" then nil else code
     table.clear(state.text)
+    table.clear(state.code)
 end
 
 const function collect(node: Markup, state: Collecting, sections: boolean)
@@ -1151,6 +1171,9 @@ const function collect(node: Markup, state: Collecting, sections: boolean)
         return
     elseif class.isinstance(node, Code) then
         table.insert(state.text, node.source)
+        return
+    elseif class.isinstance(node, CodeBlock) then
+        table.insert(state.code, node.source)
         return
     end
     const inside_sections = sections and (not class.implements(node, Element) or node:contributes_headings())
@@ -1204,6 +1227,7 @@ export class SearchIndex
             entries = self.entries,
             current = page_entry,
             text = {},
+            code = {},
         }
         collect(content, state, true)
         finish_entry(state)
