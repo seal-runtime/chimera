@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1172,6 +1194,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1191,22 +1227,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1364,7 +1395,7 @@
     <p>chimera builds static websites from Luwu code. You describe each page as a tree of objects like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Paragraph</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Menu</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">CodeBlock</span></code>, and chimera renders that tree to HTML with a stylesheet, light and dark themes and a theme switcher. Parse the HTML later and you get the same objects back.</p>
     <p>This whole site is built that way. Its source is the <a href="https://github.com/seal-runtime/chimera/tree/main/examples" target="_blank" rel="noopener noreferrer">examples</a> folder of the repository, and every example on these pages renders from the code shown under it.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#install">Install</a></li><li><a href="#your-first-page">Your first page</a></li><li><a href="#your-first-site">Your first site</a></li><li><a href="#what-s-where">What's where</a></li></ul></section><section><p class="chimera-toc-title">Subpages</p><ul><li><a href="guide/sites-and-pages.html">Sites and pages</a></li><li><a href="guide/elements.html">Elements</a></li><li><a href="guide/layout.html">Layout</a></li><li><a href="guide/components.html">Components</a></li><li><a href="guide/code.html">Code</a></li><li><a href="guide/styling.html">Styling</a></li><li><a href="guide/theming.html">Theming</a></li><li><a href="guide/custom-components.html">Custom components</a></li><li><a href="guide/parsing-html.html">Parsing HTML</a></li></ul></section></div></details></nav>
-    <h2 id="install">Install</h2>
+    <h2 id="install">Install<a class="chimera-heading-link" href="#install" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>chimera runs on seal, a runtime for Luwu. You need a seal built with Luwu support: seal 0.9, from the <a href="https://github.com/seal-runtime/seal/tree/luwu-classes" target="_blank" rel="noopener noreferrer">luwu-classes</a> branch. Clone chimera into your project:</p>
     <pre data-element="CodeBlock" data-language="bash" data-copyable class="chimera-code-block" style="--chimera-code-columns: 67"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-bash">git clone https://github.com/seal-runtime/chimera libraries/chimera</code></pre>
     <p>Then point an alias at it in your project's <code data-language="plaintext" class="chimera-code">.luaurc</code>, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@chimera"</span><span class="chimera-bracket-1">)</span></code> will find it:</p>
@@ -1373,7 +1404,7 @@
         "chimera": "./libraries/chimera"
     }
 }</code></pre>
-    <h2 id="your-first-page">Your first page</h2>
+    <h2 id="your-first-page">Your first page<a class="chimera-heading-link" href="#your-first-page" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Document</span></code> is one HTML page. Add elements to it, render it with <code data-language="luwu" data-highlighted="yes" class="chimera-code">to_html</code>, and write the result with seal's <code data-language="luwu" data-highlighted="yes" class="chimera-code">fs</code> library:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 102"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> fs = <span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@std/fs"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">const</span> chimera = <span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@chimera"</span><span class="chimera-bracket-1">)</span>
@@ -1401,7 +1432,7 @@ fs.<span class="hljs-title function_ invoke__">writefile</span><span class="chim
 <span class="chimera-bracket-1">}</span></code></pre>
     </figure>
     <p>You didn't write any CSS, but the page is styled and follows the reader's light or dark mode. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">to_html</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">true</span><span class="chimera-bracket-1">)</span></code> indents the HTML for reading. Leave out <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">true</span></code> for compact output.</p>
-    <h2 id="your-first-site">Your first site</h2>
+    <h2 id="your-first-site">Your first site<a class="chimera-heading-link" href="#your-first-site" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Once you have more than one page, use a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Site</span></code>. It renders every page with the same header, footer and themes, and the default header already has a menu of your pages and a theme switcher.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 79"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> site<span class="chimera-bracket-2">.{</span> <span class="hljs-title class_">Site</span>, <span class="hljs-title class_">Page</span> <span class="chimera-bracket-2">}</span> <span class="chimera-bracket-1">}</span> = chimera
 
@@ -1412,7 +1443,7 @@ fs.<span class="hljs-title function_ invoke__">writefile</span><span class="chim
     :<span class="hljs-title function_ invoke__">add_page</span><span class="chimera-bracket-1">(</span>home, notes<span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">build</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"out"</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>That writes <code data-language="plaintext" class="chimera-code">out/index.html</code> and <code data-language="plaintext" class="chimera-code">out/notes.html</code>. <a data-element="PageLink" data-page="guide/sites-and-pages.html" href="guide/sites-and-pages.html">Sites and pages</a> covers nested pages, links between them and tables of contents.</p>
-    <h2 id="what-s-where">What's where</h2>
+    <h2 id="what-s-where">What's where<a class="chimera-heading-link" href="#what-s-where" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>chimera groups its classes by what they're for. Destructure the ones you need from <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@chimera"</span><span class="chimera-bracket-1">)</span></code>:</p>
     <table>
       <thead>

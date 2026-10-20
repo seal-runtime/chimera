@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1338,7 +1369,7 @@
     <p>Some strings follow rules: hex colors, CSS sizes, routes, ids.</p>
     <p>Luwu can check those rules while you type. A wrong string becomes a type error with your own message.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#literal-types">Literal types</a></li><li><a href="#validators">Validators</a></li><li><a href="#naming-a-validated-type">Naming a validated type</a></li><li><a href="#in-tables-and-unions">In tables and unions</a></li><li><a href="#things-to-know">Things to know</a></li></ul></section></div></details></nav>
-    <h2 id="literal-types">Literal types</h2>
+    <h2 id="literal-types">Literal types<a class="chimera-heading-link" href="#literal-types" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A literal is a value written straight into the code, like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-string">"red"</span></code>. A type can be a single literal.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 52"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">type</span> <span class="hljs-title class_">Direction</span> = <span class="hljs-string">"north"</span> | <span class="hljs-string">"south"</span> | <span class="hljs-string">"east"</span> | <span class="hljs-string">"west"</span>
 
@@ -1355,7 +1386,7 @@
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">tag</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"main"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>Passing a string variable to <code data-language="luwu" data-highlighted="yes" class="chimera-code">tag</code> is a type error. The argument has to be written out.</p>
-    <h2 id="validators">Validators</h2>
+    <h2 id="validators">Validators<a class="chimera-heading-link" href="#validators" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A validator is a type function that checks a literal. It runs while the code is checked, not at runtime.</p>
     <p>It gets the literal's type. It returns that type when the value is fine, or <code data-language="luwu" data-highlighted="yes" class="chimera-code">types.error</code> with a message.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 75"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">type</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">HexColor</span><span class="chimera-bracket-1">(</span>value: <span class="hljs-keyword">type</span><span class="chimera-bracket-1">)</span>: <span class="hljs-keyword">type</span>
@@ -1380,7 +1411,7 @@
 <span class="hljs-comment">-- paint("3b5bdb") is a type error: '3b5bdb' is missing its '#'</span>
 <span class="hljs-comment">-- paint("#12345") is a type error: '#12345' isn't a hex color</span></code></pre>
     <p>The error shows up in your editor, right at the call.</p>
-    <h2 id="naming-a-validated-type">Naming a validated type</h2>
+    <h2 id="naming-a-validated-type">Naming a validated type<a class="chimera-heading-link" href="#naming-a-validated-type" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Give the validated type a name to use it in many places:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 89"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">type</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">Percent</span><span class="chimera-bracket-1">(</span>value: <span class="hljs-keyword">type</span><span class="chimera-bracket-1">)</span>: <span class="hljs-keyword">type</span>
     <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> value:<span class="hljs-title function_ invoke__">is</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"singleton"</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">then</span>
@@ -1405,7 +1436,7 @@
 
 <span class="hljs-title function_ invoke__">set_volume</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"80%"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">set_brightness</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"100%"</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="in-tables-and-unions">In tables and unions</h2>
+    <h2 id="in-tables-and-unions">In tables and unions<a class="chimera-heading-link" href="#in-tables-and-unions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Validated types work on table fields too. Each field is checked where it's written.</p>
     <p>A union can mix one validated literal with other types, like numbers:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 78"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">type</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">Size</span><span class="chimera-bracket-1">(</span>value: <span class="hljs-keyword">type</span><span class="chimera-bracket-1">)</span>: <span class="hljs-keyword">type</span>
@@ -1432,7 +1463,7 @@
 
 <span class="hljs-title function_ invoke__">button</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Play"</span>, <span class="chimera-bracket-2">{</span> width = <span class="hljs-string">"120px"</span>, height = <span class="hljs-number">40</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-comment">-- button("Quit", { width = "120" }) is a type error: '120' isn't a pixel size</span></code></pre>
-    <h2 id="things-to-know">Things to know</h2>
+    <h2 id="things-to-know">Things to know<a class="chimera-heading-link" href="#things-to-know" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li>Validators only see literals. A string built at runtime can't be checked this way.</li>
       <li>Inside the function, the parameter is a plain <code data-language="luwu" data-highlighted="yes" class="chimera-code">string</code>.</li>

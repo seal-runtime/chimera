@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1182,6 +1204,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1201,22 +1237,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1374,7 +1405,7 @@
     <h1 id="custom-components">Custom components</h1>
     <p>Say your docs need a callout box on 40 pages. Pasting its HTML and CSS 40 times works until the day you change it. In chimera you write the callout once as a class, and it gets the same methods, type checking and theming as the built-in components.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#a-component">A component</a></li><li><a href="#registering-it">Registering it</a></li><li><a href="#arranging-children">Arranging children</a></li><li><a href="#scripts-and-stylesheets">Scripts and stylesheets</a></li><li><a href="#rendering-your-own-html">Rendering your own HTML</a></li><li><a href="#printing-in-the-terminal">Printing in the terminal</a></li></ul></section></div></details></nav>
-    <h2 id="a-component">A component</h2>
+    <h2 id="a-component">A component<a class="chimera-heading-link" href="#a-component" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Implementing <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Component</span></code> lets your class go anywhere content goes, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Container</span></code> lets it hold children. <code data-language="luwu" data-highlighted="yes" class="chimera-code">tag</code> names the HTML tag it renders as:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1410,17 +1441,17 @@
 <span class="hljs-keyword">const</span> warning = <span class="hljs-title class_">Callout</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Heads up"</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Saves from version 1 don't load in version 2."</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code">default_styles</code> returns the CSS the component needs, and every page that uses the component includes those rules once. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">style_selector</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code> gives the selector for the class's elements. Rules built on it only ever match your component.</p>
-    <h2 id="registering-it">Registering it</h2>
+    <h2 id="registering-it">Registering it<a class="chimera-heading-link" href="#registering-it" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Component</span>.<span class="hljs-title function_ invoke__">register</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Callout</span><span class="chimera-bracket-1">)</span></code> records the class under its name. Its elements then render with <code data-language="html" class="chimera-code language-html">data-element="Callout"</code>, and the parser uses that attribute to rebuild them as <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Callout</span></code>s (see <a data-element="PageLink" data-page="guide/parsing-html.html" href="parsing-html.html">Parsing HTML</a>).</p>
-    <h2 id="arranging-children">Arranging children</h2>
+    <h2 id="arranging-children">Arranging children<a class="chimera-heading-link" href="#arranging-children" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Implement <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Layout</span></code> instead of <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Container</span></code> and your component also gets <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">row</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">grid</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">gap</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code> and the rest of the methods <a data-element="PageLink" data-page="guide/layout.html" href="layout.html">Layout</a> describes.</p>
-    <h2 id="scripts-and-stylesheets">Scripts and stylesheets</h2>
+    <h2 id="scripts-and-stylesheets">Scripts and stylesheets<a class="chimera-heading-link" href="#scripts-and-stylesheets" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>When a component needs a script or a stylesheet in the page's <code data-language="html" class="chimera-code language-html">&lt;head&gt;</code>, return it from <code data-language="luwu" data-highlighted="yes" class="chimera-code">head_elements</code>. A page gets each one once, however many of the components it holds:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 71"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">function</span> <span class="hljs-title function_">head_elements</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="chimera-bracket-1">{</span> <span class="hljs-title class_">Metadata</span> <span class="chimera-bracket-1">}</span>?
     <span class="hljs-keyword">return</span> <span class="chimera-bracket-1">{</span> <span class="hljs-title class_">Script</span><span class="chimera-bracket-2">(</span><span class="hljs-literal">nil</span>, <span class="hljs-string">"https://cdn.example.com/charts.js"</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">defer</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span> <span class="chimera-bracket-1">}</span>
 <span class="hljs-keyword">end</span></code></pre>
     <p>For a small handler, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">on</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"click"</span>, script<span class="chimera-bracket-1">)</span></code> is enough. It writes the code into the element's <code data-language="html" class="chimera-code language-html">onclick</code> attribute.</p>
-    <h2 id="rendering-your-own-html">Rendering your own HTML</h2>
+    <h2 id="rendering-your-own-html">Rendering your own HTML<a class="chimera-heading-link" href="#rendering-your-own-html" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>By default a component renders its tag, its attributes and its children. For anything else, override <code data-language="luwu" data-highlighted="yes" class="chimera-code">render</code> and use <code data-language="luwu" data-highlighted="yes" class="chimera-code">render_open</code> to write the opening tag:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 60"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">function</span> <span class="hljs-title function_">render</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, out: <span class="hljs-title class_">Writer</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-literal">self</span>:<span class="hljs-title function_ invoke__">render_open</span><span class="chimera-bracket-1">(</span>out<span class="chimera-bracket-1">)</span>
@@ -1431,7 +1462,7 @@
     out:<span class="hljs-title function_ invoke__">write</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"&lt;/aside&gt;"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
     <p>The <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Writer</span></code> knows about the page being rendered, including its path, the site's pages and the themes on offer. <code data-language="luwu" data-highlighted="yes" class="chimera-code">out:<span class="hljs-title function_ invoke__">href_to</span><span class="chimera-bracket-1">(</span>path<span class="chimera-bracket-1">)</span></code> turns a path from the site's root into a link that works from the current page.</p>
-    <h2 id="printing-in-the-terminal">Printing in the terminal</h2>
+    <h2 id="printing-in-the-terminal">Printing in the terminal<a class="chimera-heading-link" href="#printing-in-the-terminal" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>warning<span class="chimera-bracket-1">)</span></code> shows the element in the terminal as a tree rather than as HTML. Override <code data-language="luwu" data-highlighted="yes" class="chimera-code">outline</code> to change the one-line summary each node gets.</p>
   </main>
   <footer data-element="SiteFooter" class="chimera-footer">

@@ -73,6 +73,20 @@ const RUNTIME_JS = [====[(function () {
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -92,22 +106,17 @@ const RUNTIME_JS = [====[(function () {
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -338,13 +347,13 @@ const function heading_id(text: string, used: { [string]: boolean }): string
     return candidate
 end
 
---- The page's headings, each given an id from its text unless it has one.
-const function outline(body: Markup): { HeadingEntry }
+--- The page's headings from `min_level` down, each given an id from its text unless it has one.
+const function outline(body: Markup, min_level: number): { HeadingEntry }
     const headings: { Heading } = {}
     collect_headings(body, headings)
     const used: { [string]: boolean } = {}
     const entries: { HeadingEntry } = {}
-    for _, heading in headings do
+    for _, heading in headings when heading.level >= min_level do
         const text = heading_text(heading)
         const id = heading:get_id() or do
             const generated = heading_id(text, used)
@@ -426,6 +435,8 @@ export class Document implements Element
     ---
     --- [site = require("@site/site")]
     site_pages: { PageEntry } = {}
+    --- Set with [Document:heading_links].
+    link_headings = true
 
     function __init(self, title: string?)
         self.head:add(Meta.charset("utf-8"), Meta.viewport())
@@ -495,6 +506,29 @@ export class Document implements Element
     ]=]
     function get_title(self): string?
         return if const title = self.head:title() then title.text else nil
+    end
+
+    --[=[
+        Gives each heading below the page title a link to its own section, shown beside the heading. Readers click
+        it to jump to the section and copy its address. On by default; `heading_links(false)` turns it off.
+
+        Headings get ids from their text for the links to point to. Headings inside a [Card][components.Card] or
+        other element that doesn't [contribute headings][markup.Element.contributes_headings] get neither.
+
+        [components = require("@components/components")]
+        [markup = require("@core/markup")]
+
+        ## Usage
+
+        ```luwu
+        Document("Notes")
+            :heading_links(false)
+            :add(Main { h1("Notes"), h2("Monday") })
+        ```
+    ]=]
+    function heading_links(self, on: boolean = true): Document
+        self.link_headings = on
+        return self
     end
 
     --[=[
@@ -813,8 +847,11 @@ export class Document implements Element
         out.themes = { for _, theme in self:all_themes() give theme_option(theme) }
         out.location = self.location
         out.pages = self.site_pages
+        out.link_headings = self.link_headings
         if lists_headings(self.body) then
-            out.headings = outline(self.body)
+            out.headings = outline(self.body, 1)
+        elseif self.link_headings then
+            outline(self.body, 2)
         end
         const theme_names = { for _, option in out.themes give option.name }
         out:write("<!DOCTYPE html>")

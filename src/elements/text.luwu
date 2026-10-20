@@ -4,7 +4,11 @@
 
 const markup = require("@core/markup")
 const .{ Element, Component, Container } = require("@core/markup")
-type .{ Content } = markup
+type .{ Content, Markup, Writer } = markup
+
+const LINK_ICON = [=[<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" ]=]
+    .. [=[stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 ]=]
+    .. [=[0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>]=]
 
 --- A `"p"` element that holds a paragraph of text.
 export class Paragraph implements Component, Container
@@ -128,6 +132,34 @@ export class Heading implements Component, Container
     ]=]
     function h6(content: Content?): Heading
         return Heading(content, 6)
+    end
+
+    --- Leaves out a parsed section link: rendering adds it back.
+    function adopt(self, node: Markup): boolean
+        if class.implements(node, Element) when node:has_style_class("chimera-heading-link") then
+            return true
+        end
+        return Container.adopt(self, node)
+    end
+
+    --[=[
+        Below the page title, a heading with an id gets a link to its own section when the page links headings
+        (see [Document:heading_links][document.Document.heading_links]). Clicking the link also copies it.
+
+        [document = require("@document/document")]
+    ]=]
+    function render(self, out: Writer)
+        const id = if out.link_headings and self.level >= 2 then self:get_id() else nil
+        if not id then
+            return Element.render(self, out)
+        end
+        self:render_open(out)
+        for _, child in self.children do
+            child:render(out)
+        end
+        const href = string.gsub(id, "[\"&<>]", "")
+        out:write(`<a class="chimera-heading-link" href="#{href}" aria-label="Link to this section"`)
+        out:write(` onclick="chimera.copyLink(this)">{LINK_ICON}</a></{self:current_tag()}>`)
     end
 end
 

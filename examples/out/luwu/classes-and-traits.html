@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1342,7 +1373,7 @@
     <p>A trait is behavior that many classes share, written once and implemented by each of them.</p>
     <p>Classes and objects are primitives in Luwu, like numbers and strings. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">type</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code> of a class is <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-string">"class"</span></code>. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">type</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code> of an object is <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-string">"object"</span></code>.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#from-metatables-to-classes">From metatables to classes</a><ul><li><a href="#type-checking">Type checking</a></li><li><a href="#performance">Performance</a></li><li><a href="#inheritance-through-traits">Inheritance through traits</a></li></ul></li><li><a href="#classes">Classes</a><ul><li><a href="#your-first-class">Your first class</a></li><li><a href="#plain-old-data-pod-classes">Plain old data (POD) classes</a></li><li><a href="#static-functions">Static functions</a></li><li><a href="#computed-fields">Computed fields</a></li><li><a href="#constructors-with-init">Constructors with __init</a></li><li><a href="#public-private-and-const">Public, private and const</a></li><li><a href="#protecting-invariants">Protecting invariants</a></li><li><a href="#operators-on-objects">Operators on objects</a></li><li><a href="#checking-what-an-object-is">Checking what an object is</a></li></ul></li><li><a href="#traits">Traits</a><ul><li><a href="#sharing-behavior">Sharing behavior</a></li><li><a href="#expected-members">Expected members</a></li><li><a href="#overriding-a-trait-s-function">Overriding a trait's function</a></li><li><a href="#building-on-other-traits">Building on other traits</a></li><li><a href="#final-members">Final members</a></li><li><a href="#traits-with-parameters">Traits with parameters</a></li><li><a href="#working-with-any-implementer">Working with any implementer</a></li></ul></li><li><a href="#things-to-know">Things to know</a></li></ul></section><section><p class="chimera-toc-title">Subpages</p><ul><li><a href="classes-and-traits/performance-innovations.html">Performance Innovations</a></li></ul></section></div></details></nav>
-    <h2 id="from-metatables-to-classes">From metatables to classes</h2>
+    <h2 id="from-metatables-to-classes">From metatables to classes<a class="chimera-heading-link" href="#from-metatables-to-classes" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>In Luau, objects are usually tables with a metatable. Each one needs some setup code:</p>
     <pre data-element="CodeBlock" data-language="luau" class="chimera-code-block" style="--chimera-code-columns: 64"><code class="hljs language-luau" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-title class_">Account</span> = <span class="chimera-bracket-1">{</span><span class="chimera-bracket-1">}</span>
 <span class="hljs-title class_">Account</span>.__index = <span class="hljs-title class_">Account</span>
@@ -1373,18 +1404,18 @@ account:<span class="hljs-title function_ invoke__">deposit</span><span class="c
 <span class="hljs-keyword">const</span> account = <span class="hljs-title class_">Account</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Ada"</span><span class="chimera-bracket-1">)</span>
 account:<span class="hljs-title function_ invoke__">deposit</span><span class="chimera-bracket-1">(</span><span class="hljs-number">50</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>account.balance<span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="type-checking">Type checking</h3>
+    <h3 id="type-checking">Type checking<a class="chimera-heading-link" href="#type-checking" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Metatables are hard for the type checker to follow, and types and autocomplete often break on them. With a class, the checker knows every field and method of every object, and a misspelled field is a type error instead of a silent nil.</p>
     <p>Classes and traits are nominally typed: what matters is the name, not the shape. Two classes with the same fields are still different types, and one can't be passed where the other is expected. A trait's name is a type too, and an object of any class that implements the trait fits it.</p>
     <p>Metatables still work, and Luwu doesn't ask you to give them up. Tables with metatables stay structurally typed, as in Luau, and Luwu's type checker handles them better than Luau's does, with improvements like type references and method calls on union types.</p>
-    <h3 id="performance">Performance</h3>
+    <h3 id="performance">Performance<a class="chimera-heading-link" href="#performance" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Classes are also faster than metatable objects. Objects take less memory than tables, and reading or writing a field skips the key lookup a table needs. At <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!optimize 2</span></code>, Luwu can also copy small methods straight into the code that calls them. You don't need to do anything special to get this: write classes, and the compiler does the rest.</p>
     <p><a data-element="PageLink" data-page="luwu/classes-and-traits/performance-innovations.html" href="classes-and-traits/performance-innovations.html">See Performance Innovations →</a></p>
-    <h3 id="inheritance-through-traits">Inheritance through traits</h3>
+    <h3 id="inheritance-through-traits">Inheritance through traits<a class="chimera-heading-link" href="#inheritance-through-traits" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Upstream Luau is adding classical inheritance, with <code data-language="luwu" data-highlighted="yes" class="chimera-code">open <span class="hljs-keyword">class</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">extends</code>. Luwu keeps the useful parts of inheritance and calls them traits. A trait gives classes shared methods with default implementations they can override, lists members each class is expected to provide, and can build on other traits.</p>
     <p>What Luwu leaves out is the confusing part of classical inheritance. Building an object only ever runs its own class's constructor, with no chain of parent constructors. There's no is-a identity either: an object belongs to exactly one class, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span>.isinstance</code> checks that class alone. Whether an object has some trait's behavior is a separate question, answered by <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span>.implements</code>. Traits are covered further down.</p>
-    <h2 id="classes">Classes</h2>
-    <h3 id="your-first-class">Your first class</h3>
+    <h2 id="classes">Classes<a class="chimera-heading-link" href="#classes" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
+    <h3 id="your-first-class">Your first class<a class="chimera-heading-link" href="#your-first-class" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>The parameters after the class name are its primary constructor.</p>
     <p>Each parameter becomes a field of the object.</p>
     <p>Functions that take <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">self</span></code> are methods. You call them with <code data-language="luwu" data-highlighted="yes" class="chimera-code">:</code>.</p>
@@ -1403,7 +1434,7 @@ oreo:<span class="hljs-title function_ invoke__">birthday</span><span class="chi
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>oreo.age<span class="chimera-bracket-1">)</span></code></pre>
     <p>Calling a class like a function builds a new object.</p>
     <p>Passing the wrong number or type of arguments is a type error.</p>
-    <h3 id="plain-old-data-pod-classes">Plain old data (POD) classes</h3>
+    <h3 id="plain-old-data-pod-classes">Plain old data (POD) classes<a class="chimera-heading-link" href="#plain-old-data-pod-classes" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Some classes just hold data, like a named table or a struct. Luwu calls these plain old data (POD) classes. Give each field a default value, and leave out the constructor.</p>
     <p>Then build objects from a table with the POD constructor. Fields you leave out keep their defaults.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 66"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Settings</span>
@@ -1424,7 +1455,7 @@ oreo:<span class="hljs-title function_ invoke__">birthday</span><span class="chi
 <span class="hljs-keyword">const</span> b = <span class="hljs-title class_">Inventory</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">insert</span><span class="chimera-bracket-1">(</span>a.items, <span class="hljs-string">"sword"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#a.items, #b.items<span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="static-functions">Static functions</h3>
+    <h3 id="static-functions">Static functions<a class="chimera-heading-link" href="#static-functions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A function without <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">self</span></code> belongs to the class itself. Call it with a dot.</p>
     <p>Static functions are a good place for alternative ways to build an object.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 61"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Temperature</span><span class="chimera-bracket-1">(</span>celsius: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>
@@ -1437,7 +1468,7 @@ oreo:<span class="hljs-title function_ invoke__">birthday</span><span class="chi
 <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Temperature</span>.<span class="hljs-title function_ invoke__">from_fahrenheit</span><span class="chimera-bracket-2">(</span><span class="hljs-number">212</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="computed-fields">Computed fields</h3>
+    <h3 id="computed-fields">Computed fields<a class="chimera-heading-link" href="#computed-fields" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A field's default can use the constructor's parameters. That's how you clean up or derive data on the way in.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 55"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Username</span><span class="chimera-bracket-1">(</span>raw: <span class="hljs-type">string</span><span class="chimera-bracket-1">)</span>
     text = <span class="hljs-built_in">string</span>.<span class="hljs-title function_ invoke__">lower</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">(</span><span class="hljs-built_in">string</span>.<span class="hljs-title function_ invoke__">gsub</span><span class="chimera-bracket-3">(</span>raw, <span class="hljs-string">"%s+"</span>, <span class="hljs-string">"_"</span><span class="chimera-bracket-3">)</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
@@ -1446,7 +1477,7 @@ oreo:<span class="hljs-title function_ invoke__">birthday</span><span class="chi
 <span class="hljs-keyword">const</span> name = <span class="hljs-title class_">Username</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Ada Lovelace"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>name.text, name.raw<span class="chimera-bracket-1">)</span></code></pre>
     <p>The parameter stays a field too: <code data-language="luwu" data-highlighted="yes" class="chimera-code">name.raw</code> is still there.</p>
-    <h3 id="constructors-with-init">Constructors with __init</h3>
+    <h3 id="constructors-with-init">Constructors with __init<a class="chimera-heading-link" href="#constructors-with-init" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Add an <code data-language="luwu" data-highlighted="yes" class="chimera-code">__init</code> function when building an object needs custom logic. Luwu creates the object, then calls <code data-language="luwu" data-highlighted="yes" class="chimera-code">__init</code> with it and your arguments. Reach for it when:</p>
     <ul>
       <li>the constructor takes parameters that shouldn't become fields</li>
@@ -1469,7 +1500,7 @@ oreo:<span class="hljs-title function_ invoke__">birthday</span><span class="chi
 <span class="hljs-keyword">const</span> point = <span class="hljs-title class_">Point</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"3,4"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>point.x, point.y<span class="chimera-bracket-1">)</span></code></pre>
     <p>A class has either a primary constructor or <code data-language="luwu" data-highlighted="yes" class="chimera-code">__init</code>, not both.</p>
-    <h3 id="public-private-and-const">Public, private and const</h3>
+    <h3 id="public-private-and-const">Public, private and const<a class="chimera-heading-link" href="#public-private-and-const" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Mark a member <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">private</span></code> to keep it inside the class.</p>
     <p>Code outside the class can't read or change it. Trying is a type error, and an error at runtime.</p>
     <p>Mark a field <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">const</span></code> when it should never change after the object is built.</p>
@@ -1493,7 +1524,7 @@ account:<span class="hljs-title function_ invoke__">deposit</span><span class="c
 account:<span class="hljs-title function_ invoke__">deposit</span><span class="chimera-bracket-1">(</span>-<span class="hljs-number">10</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>account.owner, account:<span class="hljs-title function_ invoke__">get_balance</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>Only the class's own methods can change the balance. Every deposit goes through the same check.</p>
-    <h3 id="protecting-invariants">Protecting invariants</h3>
+    <h3 id="protecting-invariants">Protecting invariants<a class="chimera-heading-link" href="#protecting-invariants" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Some data is only valid when certain properties always hold: health stays between 0 and its maximum, an age is never negative, a position is never NaN. Those properties are the class's invariants, and encapsulation is how a class protects them. When the fields are private and every change goes through the class's own methods, no code outside it can leave the data in an invalid state.</p>
     <p>This <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Health</span></code> class represents a player's health points. Its constructor and <code data-language="luwu" data-highlighted="yes" class="chimera-code">current</code> are private, every change goes through <code data-language="luwu" data-highlighted="yes" class="chimera-code">clamped</code>, and its metamethods let you use <code data-language="luwu" data-highlighted="yes" class="chimera-code">+</code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code">-</code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code">==</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">&lt;</code> on it directly. Printing it draws a healthbar:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 88"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> colors = <span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@std/io/colors"</span><span class="chimera-bracket-1">)</span>
@@ -1553,7 +1584,7 @@ hp -= <span class="hljs-number">90</span>
 <span style="color: #a6e3a1">████████████████████</span> 100/100, <span style="color: var(--chimera-syntax-warning)">true</span>
 <span style="color: #eb93a7">██</span><span style="color: var(--chimera-muted)">░░░░░░░░░░░░░░░░░░</span> 10/100, <span style="color: var(--chimera-syntax-warning)">true</span></pre>
     <p>Overhealing by 500 stops at 100/100 because every result passes through <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">math</span>.clamp</code>. From outside the class, <code data-language="luwu" data-highlighted="yes" class="chimera-code">hp.current = -<span class="hljs-number">20</span></code> is a type error and a runtime error, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Health</span><span class="chimera-bracket-1">(</span>-<span class="hljs-number">5</span>, <span class="hljs-number">100</span><span class="chimera-bracket-1">)</span></code> fails because the constructor is private.</p>
-    <h3 id="operators-on-objects">Operators on objects</h3>
+    <h3 id="operators-on-objects">Operators on objects<a class="chimera-heading-link" href="#operators-on-objects" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Metamethods let your objects work with operators like <code data-language="luwu" data-highlighted="yes" class="chimera-code">+</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">==</code>. Name a method after the metamethod.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 58"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Vector2</span><span class="chimera-bracket-1">(</span>x: <span class="hljs-type">number</span>, y: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">__add</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, other: <span class="hljs-title class_">Vector2</span><span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Vector2</span>
@@ -1570,7 +1601,7 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-keyword">const</span> position = <span class="hljs-title class_">Vector2</span><span class="chimera-bracket-1">(</span><span class="hljs-number">1</span>, <span class="hljs-number">2</span><span class="chimera-bracket-1">)</span> + <span class="hljs-title class_">Vector2</span><span class="chimera-bracket-1">(</span><span class="hljs-number">3</span>, <span class="hljs-number">4</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{position}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>position == <span class="hljs-title class_">Vector2</span><span class="chimera-bracket-2">(</span><span class="hljs-number">4</span>, <span class="hljs-number">6</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="checking-what-an-object-is">Checking what an object is</h3>
+    <h3 id="checking-what-an-object-is">Checking what an object is<a class="chimera-heading-link" href="#checking-what-an-object-is" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span>.isinstance</code> tells you whether a value is an object of a class.</p>
     <p>Inside the check, Luwu knows the value's type.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 51"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Circle</span><span class="chimera-bracket-1">(</span>radius: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">end</span>
@@ -1585,11 +1616,11 @@ hp -= <span class="hljs-number">90</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">area</span><span class="chimera-bracket-2">(</span><span class="hljs-title class_">Circle</span><span class="chimera-bracket-3">(</span><span class="hljs-number">1</span><span class="chimera-bracket-3">)</span><span class="chimera-bracket-2">)</span>, <span class="hljs-title function_ invoke__">area</span><span class="chimera-bracket-2">(</span><span class="hljs-title class_">Square</span><span class="chimera-bracket-3">(</span><span class="hljs-number">3</span><span class="chimera-bracket-3">)</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-keyword">class</span>.<span class="hljs-title function_ invoke__">name</span><span class="chimera-bracket-2">(</span><span class="hljs-title class_">Square</span><span class="chimera-bracket-3">(</span><span class="hljs-number">3</span><span class="chimera-bracket-3">)</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="traits">Traits</h2>
+    <h2 id="traits">Traits<a class="chimera-heading-link" href="#traits" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Traits are how classes inherit behavior in Luwu.</p>
     <p>A trait lists what it expects from a class, and what it gives the class in return.</p>
     <p>A class can implement as many traits as it needs.</p>
-    <h3 id="sharing-behavior">Sharing behavior</h3>
+    <h3 id="sharing-behavior">Sharing behavior<a class="chimera-heading-link" href="#sharing-behavior" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Here, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Lootable</span></code> gives any class a working <code data-language="luwu" data-highlighted="yes" class="chimera-code">drop</code> method. It only asks the class for a <code data-language="luwu" data-highlighted="yes" class="chimera-code">loot</code> list.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 65"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Lootable</span>
     <span class="hljs-keyword">expect</span> loot: <span class="chimera-bracket-1">{</span> <span class="hljs-type">string</span> <span class="chimera-bracket-1">}</span>
@@ -1608,7 +1639,7 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-keyword">const</span> slime = <span class="hljs-title class_">Slime</span><span class="chimera-bracket-1">(</span><span class="hljs-number">5</span>, <span class="chimera-bracket-2">{</span> <span class="hljs-string">"goo"</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#chest:<span class="hljs-title function_ invoke__">drop</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>, #chest:<span class="hljs-title function_ invoke__">drop</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>, slime:<span class="hljs-title function_ invoke__">drop</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-2">[</span><span class="hljs-number">1</span><span class="chimera-bracket-2">]</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>Both classes get the trait's methods without writing them again.</p>
-    <h3 id="expected-members">Expected members</h3>
+    <h3 id="expected-members">Expected members<a class="chimera-heading-link" href="#expected-members" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">expect</span></code> lists what an implementing class must provide: fields, functions or both.</p>
     <p>Leaving one out is a type error, and an error when the class is created.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 46"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Describable</span>
@@ -1630,7 +1661,7 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Sword</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="overriding-a-trait-s-function">Overriding a trait's function</h3>
+    <h3 id="overriding-a-trait-s-function">Overriding a trait's function<a class="chimera-heading-link" href="#overriding-a-trait-s-function" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A class can replace a trait's function with its own version.</p>
     <p>The class can still reach the trait's version with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Trait</span>.<span class="hljs-title function_ invoke__">function</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span></code>.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 46"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Greeting</span>
@@ -1647,7 +1678,7 @@ hp -= <span class="hljs-number">90</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Pirate</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">greet</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>The override must take the same arguments the trait's version does. Extra arguments must be optional.</p>
-    <h3 id="building-on-other-traits">Building on other traits</h3>
+    <h3 id="building-on-other-traits">Building on other traits<a class="chimera-heading-link" href="#building-on-other-traits" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A trait can <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">needs</span></code> another trait. Implementing it implements both.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 36"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Named</span>
     <span class="hljs-keyword">expect</span> <span class="hljs-keyword">const</span> name: <span class="hljs-type">string</span>
@@ -1664,7 +1695,7 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Robot</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">introduce</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="final-members">Final members</h3>
+    <h3 id="final-members">Final members<a class="chimera-heading-link" href="#final-members" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Mark a trait's member <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">final</span></code> when classes must not replace it.</p>
     <p>A final function without self is a static function on the trait, for helpers that belong with it.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 63"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Shape</span>
@@ -1692,7 +1723,7 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Shape</span>.<span class="hljs-title function_ invoke__">total_area</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-3">{</span> <span class="hljs-title class_">Rectangle</span><span class="chimera-bracket-1">(</span><span class="hljs-number">2</span>, <span class="hljs-number">3</span><span class="chimera-bracket-1">)</span>, <span class="hljs-title class_">Circle</span><span class="chimera-bracket-1">(</span><span class="hljs-number">1</span><span class="chimera-bracket-1">)</span> <span class="chimera-bracket-3">}</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="traits-with-parameters">Traits with parameters</h3>
+    <h3 id="traits-with-parameters">Traits with parameters<a class="chimera-heading-link" href="#traits-with-parameters" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A trait can take parameters, like a class's constructor. The class passes them when it implements the trait.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 48"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Stackable</span><span class="chimera-bracket-1">(</span>max_stack: <span class="hljs-type">number</span> = <span class="hljs-number">64</span><span class="chimera-bracket-1">)</span>
     count = <span class="hljs-number">1</span>
@@ -1709,7 +1740,7 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-keyword">class</span> <span class="hljs-title class_">Potion</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Stackable</span><span class="chimera-bracket-1">(</span><span class="hljs-number">8</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Arrow</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">add</span><span class="chimera-bracket-2">(</span><span class="hljs-number">100</span><span class="chimera-bracket-2">)</span>, <span class="hljs-title class_">Potion</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">add</span><span class="chimera-bracket-2">(</span><span class="hljs-number">100</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="working-with-any-implementer">Working with any implementer</h3>
+    <h3 id="working-with-any-implementer">Working with any implementer<a class="chimera-heading-link" href="#working-with-any-implementer" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A trait is also a type. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="chimera-bracket-1">{</span> <span class="hljs-title class_">Shape</span> <span class="chimera-bracket-1">}</span></code> is a list of anything that implements <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Shape</span></code>.</p>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span>.implements</code> checks a value at runtime. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span>&lt;<span class="hljs-title class_">Trait</span>&gt;</code> is the type of a class that implements it.</p>
     <p>Together they make registries: look up a class by name, then build it.</p>
@@ -1735,7 +1766,7 @@ hp -= <span class="hljs-number">90</span>
     <span class="hljs-keyword">const</span> mob = <span class="hljs-title function_ invoke__">spawn</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>mob.kind, <span class="hljs-keyword">class</span>.<span class="hljs-title function_ invoke__">implements</span><span class="chimera-bracket-2">(</span>mob, <span class="hljs-title class_">Spawnable</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
-    <h2 id="things-to-know">Things to know</h2>
+    <h2 id="things-to-know">Things to know<a class="chimera-heading-link" href="#things-to-know" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li>Classes and traits are defined at the top level of a file.</li>
       <li>Objects have exactly the fields their class lists. Reading a missing field is an error.</li>

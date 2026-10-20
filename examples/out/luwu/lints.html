@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1337,7 +1368,7 @@
     <h1 id="lints">Lints</h1>
     <p>Luwu expands Luau's built-in lint system with more than 40 new lints for Luau and Luwu code. They help you write more idiomatic and performant code, and catch mistakes the type checker can't see.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#lint-control">Lint control</a></li><li><a href="#optimization-hints">Optimization hints</a></li><li><a href="#loops">Loops</a></li><li><a href="#values">Values</a></li><li><a href="#expressive-control-flow">Expressive control flow</a></li><li><a href="#names">Names</a></li><li><a href="#idiomatic-luwu">Idiomatic Luwu</a></li><li><a href="#style">Style</a></li></ul></section></div></details></nav>
-    <h2 id="lint-control">Lint control</h2>
+    <h2 id="lint-control">Lint control<a class="chimera-heading-link" href="#lint-control" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Most lints are on by default. Turn one off for a file with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!nolint Name</span></code>, or for one statement with <code data-language="luwu" data-highlighted="yes" class="chimera-code">@<span class="chimera-bracket-1">[</span><span class="hljs-title function_ invoke__">nolint</span><span class="chimera-bracket-2">(</span><span class="hljs-title class_">Name</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">]</span></code> above it. Turn on a lint that's off by default with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!lint Name</span></code>:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 31"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-comment">--!lint ConstLocal</span>
 
@@ -1351,7 +1382,7 @@
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">All</span></code> (not a lint): the name for every lint, as in <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!nolint All</span></code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code">@<span class="chimera-bracket-1">[</span><span class="hljs-title function_ invoke__">nolint</span><span class="chimera-bracket-2">(</span><span class="hljs-title class_">All</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">]</span></code>, to turn them all off on purpose.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">BareNolint</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!nolint</span></code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code">@nolint</code> with no lint names, which silences everything, probably by accident.</li>
     </ul>
-    <h2 id="optimization-hints">Optimization hints</h2>
+    <h2 id="optimization-hints">Optimization hints<a class="chimera-heading-link" href="#optimization-hints" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">OptimizationHint</span></code> is the parent of every hint below: code the compiler could optimize better if it were written differently. Turning it off turns them all off.</p>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">LoopConcat</span></code>: a string grown with <code data-language="luwu" data-highlighted="yes" class="chimera-code">..</code> inside a loop, which copies the whole string every iteration. It reports the cost for the loop nest (O(n²), O(n⁴), ...).</li>
@@ -1370,7 +1401,7 @@
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">FloorDivision</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">math</span>.<span class="hljs-title function_ invoke__">floor</span><span class="chimera-bracket-1">(</span>a / b<span class="chimera-bracket-1">)</span></code>, which is a division plus a call. <code data-language="luwu" data-highlighted="yes" class="chimera-code">a // b</code> is one instruction.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">FenvDeoptimization</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code">getfenv</code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code">setfenv</code>, which turn off optimizations for the entire module.</li>
     </ul>
-    <h2 id="loops">Loops</h2>
+    <h2 id="loops">Loops<a class="chimera-heading-link" href="#loops" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">RemoveWhileIterating</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">remove</span><span class="chimera-bracket-1">(</span>t, i<span class="chimera-bracket-1">)</span></code> while iterating <code data-language="luwu" data-highlighted="yes" class="chimera-code">t</code> forwards by <code data-language="luwu" data-highlighted="yes" class="chimera-code">i</code>, which skips the element after each removal.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">LoopVariableWrite</span></code>: a loop variable that's written to but never read afterwards.</li>
@@ -1378,7 +1409,7 @@
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">ForeverLoop</span></code>: a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">while</span></code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">repeat</span></code> loop whose condition nothing inside the loop can change.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">UselessLoop</span></code>: a loop that only ever iterates once, because every path through it <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">break</span></code>s (or errors) on the first iteration. Loops that leave by <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">return</span></code> aren't reported, and neither is a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">for</span></code> loop that leaves on its first iteration after using a loop variable.</li>
     </ul>
-    <h2 id="values">Values</h2>
+    <h2 id="values">Values<a class="chimera-heading-link" href="#values" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">StringIndexZero</span></code>: string functions called with index 0 (<code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">string</span>.<span class="hljs-title function_ invoke__">byte</span><span class="chimera-bracket-1">(</span>s, <span class="hljs-number">0</span><span class="chimera-bracket-1">)</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">string</span>.<span class="hljs-title function_ invoke__">sub</span><span class="chimera-bracket-1">(</span>s, <span class="hljs-number">0</span>, n<span class="chimera-bracket-1">)</span></code>). Strings start at 1.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">NewValueComparison</span></code>: comparing against a table or function literal (<code data-language="luwu" data-highlighted="yes" class="chimera-code">x == <span class="chimera-bracket-1">{</span><span class="chimera-bracket-1">}</span></code>), which is always false.</li>
@@ -1392,27 +1423,27 @@
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">DeadStore</span></code>: a computed value that's overwritten before anything reads it.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">DeclareMismatch</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code">declare x: <span class="hljs-title class_">T</span></code> giving a global from the loaded definitions a different type.</li>
     </ul>
-    <h2 id="expressive-control-flow">Expressive control flow</h2>
+    <h2 id="expressive-control-flow">Expressive control flow<a class="chimera-heading-link" href="#expressive-control-flow" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">ReturnOnNextLine</span></code>: a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">return</span></code> in a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code> expression whose value starts on the next line, where it's easy to misread.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">OrContinue</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code">x <span class="hljs-keyword">or</span> <span class="hljs-keyword">continue</span></code> in a module that uses <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">continue</span></code> as a name, where it reads that binding instead of continuing.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">OrReturnComma</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">f</span><span class="chimera-bracket-1">(</span>x <span class="hljs-keyword">or</span> <span class="hljs-keyword">return</span> a, b<span class="chimera-bracket-1">)</span></code>, where <code data-language="luwu" data-highlighted="yes" class="chimera-code">b</code> is the next argument, not a second return value.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">BindingSwallowsCondition</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">if</span> <span class="hljs-keyword">local</span> x = <span class="hljs-title function_ invoke__">f</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">and</span> x &gt; <span class="hljs-number">1</span></code>, where the <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">and</span></code> is part of the bound value.</li>
     </ul>
-    <h2 id="names">Names</h2>
+    <h2 id="names">Names<a class="chimera-heading-link" href="#names" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">KeywordShadow</span></code>: a binding named after a contextual keyword (<code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">continue</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">implements</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code">declare</code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">export</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">const</span></code>).</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">BuiltinShadow</span></code>: a binding that hides a builtin global (<code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">type</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">typeof</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code">table</code>, ...).</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">ReturnSelf</span></code>: a trait method returning <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">self</span></code> typed as the trait, instead of <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Self</span></code>.</li>
     </ul>
-    <h2 id="idiomatic-luwu">Idiomatic Luwu</h2>
+    <h2 id="idiomatic-luwu">Idiomatic Luwu<a class="chimera-heading-link" href="#idiomatic-luwu" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">ConstLocal</span></code>: off by default. A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">local</span></code> that's never reassigned, and could be <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">const</span></code>.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">LuaIterators</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">pairs</span><span class="chimera-bracket-1">(</span>t<span class="chimera-bracket-1">)</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">ipairs</span><span class="chimera-bracket-1">(</span>t<span class="chimera-bracket-1">)</span></code>, which generalized iteration replaces. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Pairs</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Ipairs</span></code> turn off each one on its own.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">LuaGuard</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> x <span class="hljs-keyword">then</span> <span class="hljs-keyword">return</span> <span class="hljs-keyword">end</span></code> on one line, which Luwu can write as <code data-language="luwu" data-highlighted="yes" class="chimera-code">x <span class="hljs-keyword">or</span> <span class="hljs-keyword">return</span></code>.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">LuwuOnlyApi</span></code>: a Luwu-only library function, like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.drop</code>, used in a <code data-language="luwu" data-highlighted="yes" class="chimera-code">.luau</code> file.</li>
     </ul>
-    <h2 id="style">Style</h2>
+    <h2 id="style">Style<a class="chimera-heading-link" href="#style" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Style</span></code> is the group of layout lints. Turning it off turns all of them off, including <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">ConstLocal</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">SameLineStatement</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">MultiLineStatement</span></code>.</p>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">OneLineStatement</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">if</span> x <span class="hljs-keyword">then</span> y <span class="hljs-keyword">end</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">while</span> c <span class="hljs-keyword">do</span> <span class="hljs-title function_ invoke__">f</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">end</span></code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">function</span> <span class="hljs-title function_">f</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">return</span> <span class="hljs-number">1</span> <span class="hljs-keyword">end</span></code> written on one line.</li>

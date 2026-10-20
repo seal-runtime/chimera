@@ -114,6 +114,8 @@ export class Writer(pretty = false, indent = "  ")
     location = ""
     --- The page's headings, when an element on it [lists headings][Element.lists_headings].
     headings: { HeadingEntry } = {}
+    --- Whether headings below the page title render a link to their own section.
+    link_headings = false
     --- The site's pages, top level first; empty outside a site.
     pages: { PageEntry } = {}
 

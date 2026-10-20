@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1349,13 +1380,13 @@
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>name, level<span class="chimera-bracket-1">)</span></code></pre>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="chimera-bracket-1">.{</span> name, level <span class="chimera-bracket-1">}</span></code> reads <code data-language="luwu" data-highlighted="yes" class="chimera-code">player.name</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">player.level</code>. The table is evaluated once.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#renaming-with-as">Renaming with as</a></li><li><a href="#nested-tables">Nested tables</a></li><li><a href="#keeping-the-whole-value">Keeping the whole value</a></li><li><a href="#imports">Imports</a></li><li><a href="#loops">Loops</a></li><li><a href="#in-if-local">In if local</a></li><li><a href="#building-tables-with">Building tables with .{ }</a></li><li><a href="#things-to-know">Things to know</a></li></ul></section></div></details></nav>
-    <h2 id="renaming-with-as">Renaming with as</h2>
+    <h2 id="renaming-with-as">Renaming with as<a class="chimera-heading-link" href="#renaming-with-as" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Use <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">as</span></code> to give a field a different local name. The field's name comes first.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 50"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> response = <span class="chimera-bracket-1">{</span> status = <span class="hljs-number">200</span>, body = <span class="hljs-string">"ok"</span> <span class="chimera-bracket-1">}</span>
 
 <span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> status <span class="hljs-keyword">as</span> code, body <span class="hljs-keyword">as</span> text <span class="chimera-bracket-1">}</span> = response
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>code, text<span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="nested-tables">Nested tables</h2>
+    <h2 id="nested-tables">Nested tables<a class="chimera-heading-link" href="#nested-tables" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Patterns nest. Add a dot and braces after a name to reach inside it.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 50"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> user = <span class="chimera-bracket-1">{</span>
     name = <span class="hljs-string">"Ada"</span>,
@@ -1369,7 +1400,7 @@
 
 <span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> address <span class="hljs-keyword">as</span> <span class="chimera-bracket-2">.{</span> city, country <span class="chimera-bracket-2">}</span> <span class="chimera-bracket-1">}</span> = user
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>city, country<span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="keeping-the-whole-value">Keeping the whole value</h2>
+    <h2 id="keeping-the-whole-value">Keeping the whole value<a class="chimera-heading-link" href="#keeping-the-whole-value" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Put a name before the braces to keep the whole table too.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 57"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">load_config</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">return</span> <span class="chimera-bracket-1">{</span> width = <span class="hljs-number">1280</span>, height = <span class="hljs-number">720</span>, title = <span class="hljs-string">"Game"</span> <span class="chimera-bracket-1">}</span>
@@ -1377,7 +1408,7 @@
 
 <span class="hljs-keyword">const</span> config<span class="chimera-bracket-1">.{</span> width, height <span class="chimera-bracket-1">}</span> = <span class="hljs-title function_ invoke__">load_config</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>width * height, config.title<span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="imports">Imports</h2>
+    <h2 id="imports">Imports<a class="chimera-heading-link" href="#imports" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Destructuring shines at the top of a file. Take just what you need from a module.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 73"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> readfile, writefile <span class="chimera-bracket-1">}</span> = <span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@std/fs"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">const</span> fs<span class="chimera-bracket-1">.{</span> path <span class="chimera-bracket-1">}</span> = <span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@std/fs"</span><span class="chimera-bracket-1">)</span>
@@ -1392,7 +1423,7 @@
 <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-keyword">typeof</span><span class="chimera-bracket-2">(</span>succeeded<span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="loops">Loops</h2>
+    <h2 id="loops">Loops<a class="chimera-heading-link" href="#loops" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Destructure each item right in a for loop's header.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 40"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> books = <span class="chimera-bracket-1">{</span>
     <span class="chimera-bracket-2">{</span> title = <span class="hljs-string">"Dune"</span>, year = <span class="hljs-number">1965</span> <span class="chimera-bracket-2">}</span>,
@@ -1402,7 +1433,7 @@
 <span class="hljs-keyword">for</span> _, <span class="chimera-bracket-1">.{</span> title, year <span class="chimera-bracket-1">}</span> <span class="hljs-keyword">in</span> books <span class="hljs-keyword">do</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{title}</span><span class="hljs-string"> came out in </span><span class="hljs-subst">{year}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
-    <h2 id="in-if-local">In if local</h2>
+    <h2 id="in-if-local">In if local<a class="chimera-heading-link" href="#in-if-local" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A destructuring binding in an if local passes when every name it binds is truthy.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 78"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">lookup</span><span class="chimera-bracket-1">(</span>id: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>: <span class="chimera-bracket-1">{</span> name: <span class="hljs-type">string</span>?, email: <span class="hljs-type">string</span>? <span class="chimera-bracket-1">}</span>
     <span class="hljs-keyword">return</span> <span class="hljs-keyword">if</span> id == <span class="hljs-number">1</span> <span class="hljs-keyword">then</span> <span class="chimera-bracket-1">{</span> name = <span class="hljs-string">"Ada"</span>, email = <span class="hljs-string">"ada@example.com"</span> <span class="chimera-bracket-1">}</span> <span class="hljs-keyword">else</span> <span class="chimera-bracket-1">{</span><span class="chimera-bracket-1">}</span>
@@ -1411,7 +1442,7 @@
 <span class="hljs-keyword">if</span> <span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> name, email <span class="chimera-bracket-1">}</span> = <span class="hljs-title function_ invoke__">lookup</span><span class="chimera-bracket-1">(</span><span class="hljs-number">1</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">then</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`Mail </span><span class="hljs-subst">{name}</span><span class="hljs-string"> at </span><span class="hljs-subst">{email}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
-    <h2 id="building-tables-with">Building tables with .{ }</h2>
+    <h2 id="building-tables-with">Building tables with .{ }<a class="chimera-heading-link" href="#building-tables-with" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>The same braces work the other way around. A bare name becomes a field of the same name.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 46"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> name = <span class="hljs-string">"Ada"</span>
 <span class="hljs-keyword">const</span> email = <span class="hljs-string">"ada@example.com"</span>
@@ -1442,7 +1473,7 @@
 <span class="hljs-keyword">const</span> r, g, b = <span class="hljs-number">255</span>, <span class="hljs-number">128</span>, <span class="hljs-number">0</span>
 <span class="hljs-keyword">const</span> orange = <span class="hljs-title class_">Color</span><span class="chimera-bracket-1">.{</span> r, g, b <span class="chimera-bracket-1">}</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>orange.r, orange.g, orange.b<span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="things-to-know">Things to know</h2>
+    <h2 id="things-to-know">Things to know<a class="chimera-heading-link" href="#things-to-know" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li>Destructuring reads fields by name. A missing field on a plain table gives nil.</li>
       <li>On a class object, a missing field is an error, like any other read.</li>

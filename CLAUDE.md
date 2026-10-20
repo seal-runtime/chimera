@@ -218,8 +218,11 @@ Hot render paths live in the class's own module so methods inline.
 - `Document` renders a whole page. Its head gets, all marked `data-chimera`: the
   base stylesheet; an overrides stylesheet (`style_every`, `style_inside`); the
   runtime script; and the deduplicated `head_elements`. The parser drops the
-  generated parts and reads the overrides back into `rules`. Headings get ids
-  from their text only when an element on the page lists headings.
+  generated parts and reads the overrides back into `rules`. Headings below the
+  title get ids from their text and a section link after their text
+  (`heading_links`, on by default; the parser drops the link). With a table of
+  contents on the page, the title gets an id too. Headings inside an element
+  whose `contributes_headings()` is false (cards) get neither.
 - `Site` builds one `Document` per `Page`. Shared parts can't drift. It holds
   the themes, header, footer and sidebar (defaults: a menu of top-level pages
   with a brand link and theme switcher, and a `SiteFooter` with the site's

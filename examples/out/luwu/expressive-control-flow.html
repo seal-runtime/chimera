@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1338,7 +1369,7 @@
     <p>Luwu adds a few control flow tools that Luau doesn't have.</p>
     <p>They let you check a value right where you get it. Code needs fewer nested ifs and fewer temporary variables.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#if-local">if local</a><ul><li><a href="#when-chains">when chains</a></li><li><a href="#if-const-in-expressions">if const in expressions</a></li></ul></li><li><a href="#when-in-loops">when in loops</a><ul><li><a href="#while-local">while local</a></li><li><a href="#for-when">for ... when</a></li></ul></li><li><a href="#do-expressions">do expressions</a></li><li><a href="#or-return-or-continue-or-break">or return, or continue, or break</a></li></ul></section></div></details></nav>
-    <h2 id="if-local">if local</h2>
+    <h2 id="if-local">if local<a class="chimera-heading-link" href="#if-local" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>In Luau, you often get a value, then check that it exists:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 50"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> scores: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="hljs-type">number</span>? <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span> ada = <span class="hljs-number">92</span> <span class="chimera-bracket-1">}</span>
 
@@ -1374,7 +1405,7 @@
 <span class="hljs-keyword">else</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Nobody here"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
-    <h3 id="when-chains">when chains</h3>
+    <h3 id="when-chains">when chains<a class="chimera-heading-link" href="#when-chains" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Add more checks with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">when</span></code>. Each clause must pass for the branch to run.</p>
     <p>A clause can be a plain condition or another binding. Later clauses can use earlier bindings.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 66"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> players: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="chimera-bracket-2">{</span> level: <span class="hljs-type">number</span>, guild: <span class="hljs-type">string</span>? <span class="chimera-bracket-2">}</span> <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span>
@@ -1406,7 +1437,7 @@
 <span class="hljs-keyword">if</span> <span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> x, y <span class="chimera-bracket-1">}</span> = <span class="hljs-title function_ invoke__">parse_point</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"3,4"</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">then</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>x + y<span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
-    <h3 id="if-const-in-expressions">if const in expressions</h3>
+    <h3 id="if-const-in-expressions">if const in expressions<a class="chimera-heading-link" href="#if-const-in-expressions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>if local and if const also work in if-else expressions.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 68"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> nicknames: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="hljs-type">string</span>? <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span> grace = <span class="hljs-string">"Amazing Grace"</span> <span class="chimera-bracket-1">}</span>
 
@@ -1415,9 +1446,9 @@
 <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">display_name</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"grace"</span><span class="chimera-bracket-2">)</span>, <span class="hljs-title function_ invoke__">display_name</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"ada"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="when-in-loops">when in loops</h2>
+    <h2 id="when-in-loops">when in loops<a class="chimera-heading-link" href="#when-in-loops" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Luwu's loops take <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">when</span></code> chains too.</p>
-    <h3 id="while-local">while local</h3>
+    <h3 id="while-local">while local<a class="chimera-heading-link" href="#while-local" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">while</span> <span class="hljs-keyword">local</span></code> binds a fresh value on every pass. The loop ends as soon as the chain fails.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 42"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> jobs = <span class="chimera-bracket-1">{</span> <span class="hljs-string">"build"</span>, <span class="hljs-string">"test"</span>, <span class="hljs-string">"deploy"</span> <span class="chimera-bracket-1">}</span>
 
@@ -1432,7 +1463,7 @@
     index += <span class="hljs-number">1</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>line<span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
-    <h3 id="for-when">for ... when</h3>
+    <h3 id="for-when">for ... when<a class="chimera-heading-link" href="#for-when" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">when</span></code> chain after a for loop's header skips the items that fail it.</p>
     <p>No more wrapping the whole loop body in an if.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 47"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> inventory = <span class="chimera-bracket-1">{</span>
@@ -1455,7 +1486,7 @@
 <span class="hljs-keyword">for</span> n = <span class="hljs-number">1</span>, <span class="hljs-number">20</span> <span class="hljs-keyword">when</span> n % <span class="hljs-number">3</span> == <span class="hljs-number">0</span> <span class="hljs-keyword">and</span> n % <span class="hljs-number">2</span> == <span class="hljs-number">1</span> <span class="hljs-keyword">do</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>n<span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
-    <h2 id="do-expressions">do expressions</h2>
+    <h2 id="do-expressions">do expressions<a class="chimera-heading-link" href="#do-expressions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Sometimes one value takes several statements to work out. A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code> expression runs a block and gives back a value.</p>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">give</span></code> ends the block and produces its value. There's no <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">end</span></code>.</p>
     <p>The point is to nest the code that computes a value inside the expression that produces it. Temporary values and the logic around them belong in the <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code> expression for the value you actually want. This is considered good practice in Luwu.</p>
@@ -1503,7 +1534,7 @@
     <span class="hljs-keyword">end</span>
     <span class="hljs-keyword">give</span> <span class="hljs-string">"nobody"</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>host<span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="or-return-or-continue-or-break">or return, or continue, or break</h2>
+    <h2 id="or-return-or-continue-or-break">or return, or continue, or break<a class="chimera-heading-link" href="#or-return-or-continue-or-break" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Guard clauses check for a missing value and leave early, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">or</span> <span class="hljs-keyword">return</span></code> writes one in a single line.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 66"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> prices: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="hljs-type">number</span>? <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span> apple = <span class="hljs-number">1.25</span>, pear = <span class="hljs-number">0.8</span> <span class="chimera-bracket-1">}</span>
 

@@ -500,6 +500,8 @@ export class Site(const name: string)
     description: string? = nil
     language = "en"
     show_breadcrumbs = true
+    --- Set with [Site:heading_links].
+    link_headings = true
     customizers: { (Document, Page) -> () } = {}
 
     --[=[
@@ -692,6 +694,23 @@ export class Site(const name: string)
     end
 
     --[=[
+        Whether headings below each page's title get a link to their own section, the same as
+        [Document:heading_links][document.Document.heading_links]. On by default.
+
+        [document = require("@document/document")]
+
+        ## Usage
+
+        ```luwu
+        site:heading_links(false)
+        ```
+    ]=]
+    function heading_links(self, on: boolean = true): Site
+        self.link_headings = on
+        return self
+    end
+
+    --[=[
         Runs `customize` on each page's [Document] before it's written, for anything a site doesn't set itself.
 
         ## Usage
@@ -788,7 +807,9 @@ export class Site(const name: string)
     ]=]
     function document(self, page: Page): Document
         const title = if page.title == self.name then page.title else `{page.title} · {self.name}`
-        const document = Document(title):attr("lang", self.language)
+        const document = Document(title)
+            :attr("lang", self.language)
+            :heading_links(self.link_headings)
         if const light = self.light_theme then
             document:default_light_theme(light)
         end

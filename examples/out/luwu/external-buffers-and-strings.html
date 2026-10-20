@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1340,11 +1371,11 @@
     <p>If an embedder wants to expose a 2 GB archive or dozens of 400 MB .flac files to a Luau script, it has to clone the entire file in memory. In Luwu, it can use an external buffer instead.</p>
     <p>External buffers and strings are backed by embedder-defined memory, but work seamlessly with the existing <code data-language="luwu" data-highlighted="yes" class="chimera-code">buffer</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">string</code> libraries. Like regular buffers, external buffers are mutable by default. Like regular strings, external strings are always immutable.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#external-buffers">External buffers</a><ul><li><a href="#frozen-buffers">Frozen buffers</a></li><li><a href="#the-c-api">The C API</a></li></ul></li><li><a href="#external-strings">External strings</a><ul><li><a href="#the-c-api-2">The C API</a></li><li><a href="#interning">Interning</a></li></ul></li><li><a href="#things-to-know">Things to know</a></li></ul></section></div></details></nav>
-    <h2 id="external-buffers">External buffers</h2>
+    <h2 id="external-buffers">External buffers<a class="chimera-heading-link" href="#external-buffers" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>An external buffer is a regular buffer whose bytes live in host memory.</p>
     <p>The whole <code data-language="luwu" data-highlighted="yes" class="chimera-code">buffer</code> library works on it, at full speed, including the native code fast paths. Wrapping host data in a userdata instead would lose all of that.</p>
     <p>seal uses them for bytes it builds in Rust, like archive contents and websocket frames. The Rust allocation becomes the buffer, instead of being copied into one.</p>
-    <h3 id="frozen-buffers">Frozen buffers</h3>
+    <h3 id="frozen-buffers">Frozen buffers<a class="chimera-heading-link" href="#frozen-buffers" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>The host decides whether scripts may write to an external buffer. A read-only one is frozen. Writing to it is an error.</p>
     <p>That makes it safe to share memory the host must not see change, like a reference-counted file. Scripts check with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">buffer</span>.isfrozen</code>:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 66"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">patch</span><span class="chimera-bracket-1">(</span>bytes: <span class="hljs-type">buffer</span>, offset: <span class="hljs-type">number</span>, value: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>
@@ -1357,7 +1388,7 @@
 <span class="hljs-keyword">const</span> bytes = <span class="hljs-built_in">buffer</span>.<span class="hljs-title function_ invoke__">create</span><span class="chimera-bracket-1">(</span><span class="hljs-number">4</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">patch</span><span class="chimera-bracket-1">(</span>bytes, <span class="hljs-number">0</span>, <span class="hljs-number">42</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-built_in">buffer</span>.<span class="hljs-title function_ invoke__">readu8</span><span class="chimera-bracket-2">(</span>bytes, <span class="hljs-number">0</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="the-c-api">The C API</h3>
+    <h3 id="the-c-api">The C API<a class="chimera-heading-link" href="#the-c-api" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <pre data-element="CodeBlock" data-language="c" class="chimera-code-block" style="--chimera-code-columns: 91"><code class="hljs language-c">#define LUA_BLUAU 0
 #define LUA_BHOST_IMMUTABLE 1
 #define LUA_BHOST_MUTABLE 2
@@ -1375,11 +1406,11 @@ LUA_API void* lua_getbufferuserdata(lua_State* L, int idx);</code></pre>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code">lua_getbufferuserdata</code> gives back the <code data-language="luwu" data-highlighted="yes" class="chimera-code">userdata</code> pointer, or NULL for a VM buffer. Use it to find your own resource when a script passes the buffer back.</li>
     </ul>
     <p>From Rust, mluau has <code data-language="luwu" data-highlighted="yes" class="chimera-code">create_external_buffer</code> (frozen) and <code data-language="luwu" data-highlighted="yes" class="chimera-code">create_external_buffer_mut</code>.</p>
-    <h2 id="external-strings">External strings</h2>
+    <h2 id="external-strings">External strings<a class="chimera-heading-link" href="#external-strings" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>An external string is a string whose bytes live in host memory. Scripts can't tell it apart from any other string.</p>
     <p>It works with the <code data-language="luwu" data-highlighted="yes" class="chimera-code">string</code> library, concatenation, and string patterns. It can be a table key. It compares equal to the same text made any other way.</p>
     <p>Use one when a script expects a string, not a buffer. Error tracebacks, file contents and strings inside JSON are all strings by convention. Lua 5.5 has external strings too.</p>
-    <h3 id="the-c-api-2">The C API</h3>
+    <h3 id="the-c-api-2">The C API<a class="chimera-heading-link" href="#the-c-api-2" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <pre data-element="CodeBlock" data-language="c" class="chimera-code-block" style="--chimera-code-columns: 90"><code class="hljs language-c">typedef void (*lua_StringFree)(lua_State* L, const char* data, size_t sz, void* userdata);
 
 LUA_API const char* lua_pushexternalstring(
@@ -1391,13 +1422,13 @@ LUA_API void* lua_getstringexternaluserdata(lua_State* L, int idx);</code></pre>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code">lua_isstringexternal</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">lua_getstringexternaluserdata</code> find your resource again, like with buffers.</li>
       <li>From Rust, mluau has <code data-language="luwu" data-highlighted="yes" class="chimera-code">create_external_string</code>.</li>
     </ul>
-    <h3 id="interning">Interning</h3>
+    <h3 id="interning">Interning<a class="chimera-heading-link" href="#interning" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luwu interns strings: it keeps one copy of each distinct string and compares strings by pointer. External strings are interned like any other. That has two effects on when your memory gets freed:</p>
     <ul>
       <li>If the VM already has the same text, you get the existing string back. Your <code data-language="luwu" data-highlighted="yes" class="chimera-code">free_cb</code> runs before <code data-language="luwu" data-highlighted="yes" class="chimera-code">lua_pushexternalstring</code> returns.</li>
       <li>The VM may keep a string alive after scripts drop it, for example as a fast lookup key. Its <code data-language="luwu" data-highlighted="yes" class="chimera-code">free_cb</code> can run later than you expect.</li>
     </ul>
-    <h2 id="things-to-know">Things to know</h2>
+    <h2 id="things-to-know">Things to know<a class="chimera-heading-link" href="#things-to-know" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li>Strings are immutable. Changing the bytes under a live external string is undefined behavior.</li>
       <li>If the host needs to change shared memory, use a mutable external buffer instead.</li>

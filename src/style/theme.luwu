@@ -242,6 +242,22 @@ export trait Theme
             }),
             Rule("h1", { font_size = "clamp(2.2rem, 5vw, 3rem)" }),
             Rule("h2", { font_size = "1.75rem" }),
+            Rule(":is(h2, h3, h4, h5, h6)[id]", { ["scroll-margin-top"] = "5rem" }),
+            Rule(".chimera-heading-link", {
+                display = "inline-flex",
+                margin_left = "0.4em",
+                color = token("muted"),
+                vertical_align = "middle",
+                opacity = 0,
+                transition = "opacity 0.15s, color 0.15s",
+            }),
+            Rule(":is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible", {
+                opacity = 1,
+            }),
+            Rule(".chimera-heading-link:hover, .chimera-heading-link[data-copied]", { color = token("primary") }),
+            Rule("@media (hover: none)", {}, {
+                Rule(".chimera-heading-link", { opacity = 0.55 }),
+            }),
             Rule("p", { margin = "0 0 1em" }),
             Rule("a", {
                 color = token("primary"),

@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1337,17 +1368,17 @@
     <h1 id="library-extensions">Library Extensions</h1>
     <p>Luwu's standard library is Luau's, with a few additions that fix real problems.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#table-drop">table.drop</a><ul><li><a href="#the-table-remove-footgun">The table.remove footgun</a></li><li><a href="#removing-by-value">Removing by value</a></li><li><a href="#the-lint">The lint</a></li><li><a href="#things-to-know">Things to know</a></li></ul></li><li><a href="#buffer-isfrozen">buffer.isfrozen</a></li><li><a href="#the-class-library">The class library</a></li></ul></section></div></details></nav>
-    <h2 id="table-drop">table.drop</h2>
+    <h2 id="table-drop">table.drop<a class="chimera-heading-link" href="#table-drop" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.drop</code> removes items from a list by value. It returns how many it removed.</p>
     <p>It exists to fix one of Luau's most common bugs.</p>
-    <h3 id="the-table-remove-footgun">The table.remove footgun</h3>
+    <h3 id="the-table-remove-footgun">The table.remove footgun<a class="chimera-heading-link" href="#the-table-remove-footgun" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luau added <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.find</code> to get the index of a value in a list. Pairing it with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.remove</code> looks like the obvious way to remove a value:</p>
     <pre data-element="CodeBlock" data-language="luau" class="chimera-code-block" style="--chimera-code-columns: 47"><code class="hljs language-luau" data-highlighted="yes"><span class="hljs-keyword">local</span> party = <span class="chimera-bracket-1">{</span> <span class="hljs-string">"Ada"</span>, <span class="hljs-string">"Grace"</span>, <span class="hljs-string">"Alan"</span> <span class="chimera-bracket-1">}</span>
 <span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">remove</span><span class="chimera-bracket-1">(</span>party, <span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">find</span><span class="chimera-bracket-2">(</span>party, <span class="hljs-string">"Linus"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#party, party<span class="chimera-bracket-2">[</span><span class="hljs-number">3</span><span class="chimera-bracket-2">]</span><span class="chimera-bracket-1">)</span> <span class="hljs-comment">-- 2, nil</span></code></pre>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.find</code> gives nil for Linus, who isn't in the party. Given nil as its index, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.remove</code> removes the last item instead. Alan is gone, and nothing reports an error.</p>
     <p>The bug only shows up when the value is missing. That makes it easy to miss in testing. Luau doesn't warn about it. The safe version needs an if around every removal.</p>
-    <h3 id="removing-by-value">Removing by value</h3>
+    <h3 id="removing-by-value">Removing by value<a class="chimera-heading-link" href="#removing-by-value" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.drop</code> takes the value itself. A missing value removes nothing:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 41"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> party = <span class="chimera-bracket-1">{</span> <span class="hljs-string">"Ada"</span>, <span class="hljs-string">"Grace"</span>, <span class="hljs-string">"Alan"</span> <span class="chimera-bracket-1">}</span>
 
@@ -1364,19 +1395,19 @@
 
 <span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">drop</span><span class="chimera-bracket-1">(</span>queue, <span class="hljs-string">"retry"</span>, <span class="hljs-number">2</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#queue, queue<span class="chimera-bracket-2">[</span><span class="hljs-number">1</span><span class="chimera-bracket-2">]</span>, queue<span class="chimera-bracket-2">[</span><span class="hljs-number">2</span><span class="chimera-bracket-2">]</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h3 id="the-lint">The lint</h3>
+    <h3 id="the-lint">The lint<a class="chimera-heading-link" href="#the-lint" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luwu also warns when <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.remove</code> gets an index that might be nil. The old pattern is underlined, with this message:</p>
     <pre data-element="CodeBlock" data-language="plaintext" class="chimera-code-block" style="--chimera-code-columns: 109"><code class="hljs language-plaintext">If this is `nil`, `table.remove` will remove the last element of the array.
 Consider using `table.drop` instead. If order is not important, use a key/value table for better performance.</code></pre>
     <p>Passing nil on purpose, like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">remove</span><span class="chimera-bracket-1">(</span>t, <span class="hljs-literal">nil</span><span class="chimera-bracket-1">)</span></code>, doesn't warn.</p>
-    <h3 id="things-to-know">Things to know</h3>
+    <h3 id="things-to-know">Things to know<a class="chimera-heading-link" href="#things-to-know" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.drop</code> compares values like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.find</code>, including <code data-language="luwu" data-highlighted="yes" class="chimera-code">__eq</code>.</li>
       <li>The items after a removed one shift down. The list never gets holes.</li>
       <li>Dropping from a read-only table is an error. So is a count of zero or less.</li>
       <li>If order doesn't matter, a set (a table of values mapped to true) removes faster.</li>
     </ul>
-    <h2 id="buffer-isfrozen">buffer.isfrozen</h2>
+    <h2 id="buffer-isfrozen">buffer.isfrozen<a class="chimera-heading-link" href="#buffer-isfrozen" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Programs that embed Luwu can hand it read-only buffers. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">buffer</span>.isfrozen</code> tells you whether a buffer is one of them.</p>
     <p>Writing to a frozen buffer is an error. Buffers you create in Luwu are never frozen:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 30"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> bytes = <span class="hljs-built_in">buffer</span>.<span class="hljs-title function_ invoke__">create</span><span class="chimera-bracket-1">(</span><span class="hljs-number">8</span><span class="chimera-bracket-1">)</span>
@@ -1384,7 +1415,7 @@ Consider using `table.drop` instead. If order is not important, use a key/value 
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-built_in">buffer</span>.<span class="hljs-title function_ invoke__">isfrozen</span><span class="chimera-bracket-2">(</span>bytes<span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>Only the runtime can freeze a buffer, by creating it as a read-only external buffer.</p>
-    <h2 id="the-class-library">The class library</h2>
+    <h2 id="the-class-library">The class library<a class="chimera-heading-link" href="#the-class-library" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>The <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span></code> library works with classes and objects:</p>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span>.<span class="hljs-title function_ invoke__">isinstance</span><span class="chimera-bracket-1">(</span>value, <span class="hljs-title class_">Class</span><span class="chimera-bracket-1">)</span></code> checks whether a value is an object of a class.</li>

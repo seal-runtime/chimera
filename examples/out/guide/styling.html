@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1175,6 +1197,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1194,22 +1230,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1367,7 +1398,7 @@
     <h1 id="styling">Styling</h1>
     <p>CSS has hundreds of properties, and a browser silently ignores a typo in any of them. In chimera a style is a Luwu table whose values Luwu's type function validators check during analysis: <code data-language="luwu" data-highlighted="yes" class="chimera-code">padding = <span class="hljs-string">"1rx"</span></code> is a type error, and <code data-language="luwu" data-highlighted="yes" class="chimera-code">dispaly = <span class="hljs-string">"flex"</span></code> gets a "did you mean". Styles can also read theme tokens, and then they follow the reader's theme with no extra CSS.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#one-element">One element</a></li><li><a href="#theme-tokens">Theme tokens</a></li><li><a href="#colors">Colors</a></li><li><a href="#inside-one-element">Inside one element</a></li><li><a href="#every-element-of-a-kind">Every element of a kind</a></li><li><a href="#rules-and-stylesheets">Rules and stylesheets</a></li></ul></section></div></details></nav>
-    <h2 id="one-element">One element</h2>
+    <h2 id="one-element">One element<a class="chimera-heading-link" href="#one-element" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code">style</code> sets an element's inline style:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1382,14 +1413,14 @@
     <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
     <p>Keys are CSS property names with underscores instead of dashes. Keyword properties like <code data-language="luwu" data-highlighted="yes" class="chimera-code">display</code> only accept their real values, while lengths also take plain numbers like <code data-language="luwu" data-highlighted="yes" class="chimera-code">margin = <span class="hljs-number">0</span></code>. Vendor prefixes start with <code data-language="luwu" data-highlighted="yes" class="chimera-code">webkit_</code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code">moz_</code>, and custom properties go in brackets: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="chimera-bracket-1">[</span><span class="hljs-string">"--gap"</span><span class="chimera-bracket-1">]</span> = <span class="hljs-string">"1rem"</span></code>.</p>
-    <h2 id="theme-tokens">Theme tokens</h2>
+    <h2 id="theme-tokens">Theme tokens<a class="chimera-heading-link" href="#theme-tokens" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">token</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"accent"</span><span class="chimera-bracket-1">)</span></code> stands for <code data-language="css" class="chimera-code language-css">var(--chimera-accent)</code>, the current theme's accent color. When the reader switches themes, every style that uses it changes with them. These are the tokens every theme sets:</p>
     <pre data-element="CodeBlock" data-language="plaintext" class="chimera-code-block" style="--chimera-code-columns: 64"><code class="hljs language-plaintext">background  surface  text  muted  border
 primary  primary_text  accent
 radius  spacing  font  mono_font  shadow
 syntax_keyword  syntax_string  syntax_comment  ...  syntax_error</code></pre>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">token</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"radius"</span><span class="chimera-bracket-1">)</span>:<span class="hljs-title function_ invoke__">times</span><span class="chimera-bracket-1">(</span><span class="hljs-number">1.5</span><span class="chimera-bracket-1">)</span></code> scales a length token, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">token</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"primary"</span><span class="chimera-bracket-1">)</span>:<span class="hljs-title function_ invoke__">mix</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">token</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"background"</span><span class="chimera-bracket-2">)</span>, <span class="hljs-number">20</span><span class="chimera-bracket-1">)</span></code> blends 20% of one color token into another.</p>
-    <h2 id="colors">Colors</h2>
+    <h2 id="colors">Colors<a class="chimera-heading-link" href="#colors" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
         <p style="background: #2c44a4; border-radius: calc(var(--chimera-radius) * 2); color: #ffffff; padding: 0.5rem 1rem">Tinted</p>
@@ -1403,7 +1434,7 @@ syntax_keyword  syntax_string  syntax_comment  ...  syntax_error</code></pre>
     <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Color</span>.hex</code> checks its literal while you type, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Color</span>.named</code> takes any CSS color name. Colors also convert to and from vectors, packed numbers, buffers and ANSI codes.</p>
-    <h2 id="inside-one-element">Inside one element</h2>
+    <h2 id="inside-one-element">Inside one element<a class="chimera-heading-link" href="#inside-one-element" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code">style_inside</code> styles the matching elements inside one element and leaves the rest of the page alone:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1413,13 +1444,13 @@ syntax_keyword  syntax_string  syntax_comment  ...  syntax_error</code></pre>
     :<span class="hljs-title function_ invoke__">row</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">style_inside</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Link</span>, <span class="chimera-bracket-2">{</span> color = <span class="hljs-title function_ invoke__">token</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"muted"</span><span class="chimera-bracket-3">)</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
-    <h2 id="every-element-of-a-kind">Every element of a kind</h2>
+    <h2 id="every-element-of-a-kind">Every element of a kind<a class="chimera-heading-link" href="#every-element-of-a-kind" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code">style_every</code> on a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Document</span></code> or a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Site</span></code> styles everything that matches an element class or a CSS selector. These rules come after the theme's and win over them:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 53"><code class="hljs language-luwu" data-highlighted="yes">site
     :<span class="hljs-title function_ invoke__">style_every</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Button</span>, <span class="chimera-bracket-2">{</span> border_radius = <span class="hljs-string">"999px"</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">style_every</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Card</span>, <span class="chimera-bracket-2">{</span> padding = <span class="hljs-string">"2rem"</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">style_every</span><span class="chimera-bracket-1">(</span><span class="hljs-string">".hero h1"</span>, <span class="chimera-bracket-2">{</span> font_size = <span class="hljs-string">"3rem"</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="rules-and-stylesheets">Rules and stylesheets</h2>
+    <h2 id="rules-and-stylesheets">Rules and stylesheets<a class="chimera-heading-link" href="#rules-and-stylesheets" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Rule</span></code> pairs a selector with a style. For media queries, nest rules inside one:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 51"><code class="hljs language-luwu" data-highlighted="yes">document:<span class="hljs-title function_ invoke__">css</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span>
     <span class="hljs-title class_">Rule</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"nav a"</span>, <span class="chimera-bracket-1">{</span> color = <span class="hljs-title function_ invoke__">token</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"text"</span><span class="chimera-bracket-2">)</span> <span class="chimera-bracket-1">}</span><span class="chimera-bracket-3">)</span>,

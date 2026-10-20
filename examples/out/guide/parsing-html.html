@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1339,7 +1370,7 @@
     <h1 id="parsing-html">Parsing HTML</h1>
     <p>Say you have 200 pages of hand-written HTML and want to move them to chimera. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Parser</span></code> reads HTML back into chimera objects, turning a <code data-language="html" class="chimera-code language-html">&lt;p&gt;</code> into a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Paragraph</span></code> and a rendered <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Menu</span></code> back into a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Menu</span></code>. You change the objects, then render them again.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#parsing">Parsing</a></li><li><a href="#whole-pages">Whole pages</a></li><li><a href="#problems">Problems</a></li><li><a href="#your-own-components">Your own components</a></li></ul></section></div></details></nav>
-    <h2 id="parsing">Parsing</h2>
+    <h2 id="parsing">Parsing<a class="chimera-heading-link" href="#parsing" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code">parse</code> returns the top-level nodes it found:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 96"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> nodes = <span class="hljs-title class_">Parser</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>:<span class="hljs-title function_ invoke__">parse</span><span class="chimera-bracket-1">(</span><span class="hljs-string">[==[
 &lt;nav data-element="Menu" class="chimera-menu"&gt;&lt;a href="/"&gt;Home&lt;/a&gt;&lt;a href="/blog"&gt;Blog&lt;/a&gt;&lt;/nav&gt;
@@ -1363,19 +1394,19 @@ Paragraph&lt;p&gt;
 Tag&lt;dialog&gt; open
 └─ "Sure?"</code></pre>
     <p>Tags that have a class become that class, and the rest become a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Tag</span></code> that keeps its name. Components come back from their <code data-language="html" class="chimera-code language-html">data-element</code> attribute.</p>
-    <h2 id="whole-pages">Whole pages</h2>
+    <h2 id="whole-pages">Whole pages<a class="chimera-heading-link" href="#whole-pages" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>To edit a whole page, <code data-language="luwu" data-highlighted="yes" class="chimera-code">parse_document</code> reads it into a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Document</span></code>:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 67"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> page = <span class="hljs-title class_">Parser</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>:<span class="hljs-title function_ invoke__">parse_document</span><span class="chimera-bracket-1">(</span>fs.<span class="hljs-title function_ invoke__">readfile</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"out/index.html"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
 page:<span class="hljs-title function_ invoke__">style_every</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Card</span>, <span class="chimera-bracket-2">{</span> padding = <span class="hljs-string">"2rem"</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
 fs.<span class="hljs-title function_ invoke__">writefile</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"out/index.html"</span>, page:<span class="hljs-title function_ invoke__">to_html</span><span class="chimera-bracket-2">(</span><span class="hljs-literal">true</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>The parser drops the stylesheet and script chimera generated, because the document writes them again when it renders. Your own <code data-language="luwu" data-highlighted="yes" class="chimera-code">style_every</code> rules come back as rules. Any page chimera rendered parses back into the objects it came from.</p>
-    <h2 id="problems">Problems</h2>
+    <h2 id="problems">Problems<a class="chimera-heading-link" href="#problems" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Bad HTML never stops the parser. It drops whatever doesn't fit and notes each drop in <code data-language="luwu" data-highlighted="yes" class="chimera-code">warnings</code>:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 47"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> parser = <span class="hljs-title class_">Parser</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
 parser:<span class="hljs-title function_ invoke__">parse</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"&lt;ul&gt;&lt;p&gt;Not a list item&lt;/p&gt;&lt;/ul&gt;"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>parser.warnings<span class="chimera-bracket-2">[</span><span class="hljs-number">1</span><span class="chimera-bracket-2">]</span><span class="chimera-bracket-1">)</span></code></pre>
     <pre data-element="CodeBlock" data-language="plaintext" class="chimera-code-block" style="--chimera-code-columns: 62"><code class="hljs language-plaintext">UnorderedList can't hold Paragraph&lt;p&gt;; dropped it (at byte 27)</code></pre>
-    <h2 id="your-own-components">Your own components</h2>
+    <h2 id="your-own-components">Your own components<a class="chimera-heading-link" href="#your-own-components" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Components you write parse back as themselves once you register them with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Component</span>.register</code>. Their <code data-language="luwu" data-highlighted="yes" class="chimera-code">adopt</code> method decides which parsed children they keep (see <a data-element="PageLink" data-page="guide/custom-components.html" href="custom-components.html">Custom components</a>).</p>
   </main>
   <footer data-element="SiteFooter" class="chimera-footer">

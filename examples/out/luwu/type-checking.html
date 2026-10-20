@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1337,7 +1368,7 @@
     <h1 id="type-checking">Type Checking</h1>
     <p>By default, Luwu type checks your code in strict mode and reports mistakes in your editor as you write them. A file that needs to can opt out of strict checking. Values are still dynamically typed at runtime, and typing is gradual: you can start from untyped code, add type annotations a piece at a time and let inference handle most of the rest.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#catching-mistakes">Catching mistakes</a></li><li><a href="#inference">Inference</a></li><li><a href="#gradual-typing">Gradual typing</a></li><li><a href="#annotations-and-the-compiler">Annotations and the compiler</a></li><li><a href="#error-messages">Error messages</a><ul><li><a href="#typos">Typos</a></li><li><a href="#unknown-names">Unknown names</a></li><li><a href="#tables">Tables</a></li><li><a href="#unions-and-tagged-unions">Unions and tagged unions</a></li><li><a href="#functions">Functions</a></li><li><a href="#metatable-classes">Metatable classes</a></li></ul></li><li><a href="#things-to-know">Things to know</a></li></ul></section></div></details></nav>
-    <h2 id="catching-mistakes">Catching mistakes</h2>
+    <h2 id="catching-mistakes">Catching mistakes<a class="chimera-heading-link" href="#catching-mistakes" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A typo in a field name is a type error, reported where you made it:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-line-numbers data-squiggles="7.25-7.28	var(--chimera-syntax-error)	Typo: Did you mean 'level' instead of 'levl'?" class="chimera-code-block" style="--chimera-code-columns: 45"><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">type</span> <span class="hljs-title class_">Player</span> = <span class="chimera-bracket-1">{</span> name: <span class="hljs-type">string</span>, level: <span class="hljs-type">number</span> <span class="chimera-bracket-1">}</span>
 
@@ -1350,7 +1381,7 @@
 TypeError: The given table is missing a property for 'Player':
   • 'level: number'</code></pre>
     <p>Without the checker, this program would fail later, when something reads the missing level.</p>
-    <h2 id="inference">Inference</h2>
+    <h2 id="inference">Inference<a class="chimera-heading-link" href="#inference" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Most code needs few annotations. Luwu infers the types of locals, return values and tables for you:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable data-line-numbers class="chimera-code-block" style="--chimera-code-columns: 43"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">average</span><span class="chimera-bracket-1">(</span>numbers: <span class="chimera-bracket-2">{</span> <span class="hljs-type">number</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">local</span> total = <span class="hljs-number">0</span>
@@ -1363,7 +1394,7 @@ TypeError: The given table is missing a property for 'Player':
 <span class="hljs-keyword">const</span> result = <span class="hljs-title function_ invoke__">average</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> <span class="hljs-number">4</span>, <span class="hljs-number">8</span>, <span class="hljs-number">15</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>result<span class="chimera-bracket-1">)</span></code></pre>
     <p>Here only the parameter is annotated. <code data-language="luwu" data-highlighted="yes" class="chimera-code">total</code> and the return value are inferred as numbers, and <code data-language="luwu" data-highlighted="yes" class="chimera-code">result</code> is a number too.</p>
-    <h2 id="gradual-typing">Gradual typing</h2>
+    <h2 id="gradual-typing">Gradual typing<a class="chimera-heading-link" href="#gradual-typing" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Untyped code still runs and still type checks. Its parameters accept anything until you annotate them:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable data-line-numbers class="chimera-code-block" style="--chimera-code-columns: 33"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">label</span><span class="chimera-bracket-1">(</span>name, count<span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">return</span> <span class="hljs-string">`</span><span class="hljs-subst">{name}</span><span class="hljs-string"> x</span><span class="hljs-subst">{count}</span><span class="hljs-string">`</span>
@@ -1377,9 +1408,9 @@ TypeError: The given table is missing a property for 'Player':
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">label</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Potion"</span>, <span class="hljs-number">3</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>To opt a file out of strict checking, put <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!nonstrict</span></code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!nocheck</span></code> on its first line.</p>
-    <h2 id="annotations-and-the-compiler">Annotations and the compiler</h2>
+    <h2 id="annotations-and-the-compiler">Annotations and the compiler<a class="chimera-heading-link" href="#annotations-and-the-compiler" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Type annotations also inform the compiler. Upstream Luau already uses them as optimization hints. Luwu goes further: in a file marked <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!trust</span></code>, the compiler relies on annotations to inline methods, and an annotation that doesn't match the actual value becomes a runtime error.</p>
-    <h2 id="error-messages">Error messages</h2>
+    <h2 id="error-messages">Error messages<a class="chimera-heading-link" href="#error-messages" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Luau's type errors describe where the checker's subtyping test failed. Luwu's describe the mistake in terms of your code: the variable's name, the path to the bad property, and how to fix it when there's a common fix.</p>
     <p>We purposely limit jargon in type errors. Terms like subtyping, variance or invariance stay out of a message unless it can't be understood without them. And when one is needed, we like to attach a "Help" explanation to describe what the term is and why we've flagged your code because of it.</p>
     <figure style="margin: 1.5rem auto; max-width: 22rem; text-align: center">
@@ -1389,7 +1420,7 @@ TypeError: The given table is missing a property for 'Player':
     <p>Luwu names things the way your code does. Where Luau says "this" or expands a whole expanded type, Luwu uses the variable's name or the path to the property (like <code data-language="luwu" data-highlighted="yes" class="chimera-code">stool.inputs<span class="chimera-bracket-1">[</span>i<span class="chimera-bracket-1">]</span>.count</code>), or the type's alias.</p>
     <p>Where possible, Luwu will try to add blue 'Info' notes (spans) to error messages to help you track down the root cause of a property mismatch, following it through multiple variables if needed. This means you don't have to manually trace error string paths back to where they came from.</p>
     <p>The examples below were checked with upstream Luau 0.742's <code data-language="luwu" data-highlighted="yes" class="chimera-code">luau-analyze</code> and with <code data-language="luwu" data-highlighted="yes" class="chimera-code">luwu-analyze</code>. The output is unedited apart from the file name.</p>
-    <h3 id="typos">Typos</h3>
+    <h3 id="typos">Typos<a class="chimera-heading-link" href="#typos" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luwu looks for typos wherever a name or a string is checked against a known set: locals, globals, properties, methods, library functions, type names, string literals and tagged union tags. Luau reports most of these as something else, like a missing property, or not at all.</p>
     <details style="background: var(--chimera-background)">
       <summary>Misspelled locals</summary>
@@ -1651,7 +1682,7 @@ but got
 	'{ kind: string, player: string, reason: string }'</code></pre>
       </div></div>
     </details>
-    <h3 id="unknown-names">Unknown names</h3>
+    <h3 id="unknown-names">Unknown names<a class="chimera-heading-link" href="#unknown-names" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luau reports every name it can't find as an unknown global, and suggests assigning to it. Luwu knows code rarely means to create a global, so it suggests defining a local instead. When there's a better explanation, Luwu gives that: a local used too early, one out of scope, or a module that was never required.</p>
     <details style="background: var(--chimera-background)">
       <summary>Undefined variables</summary>
@@ -1748,7 +1779,7 @@ main.luau(4,15): Note: Consider moving this binding above this 'if' statement to
         <pre data-element="CodeBlock" data-language="plaintext" data-copyable class="chimera-code-block" style="white-space: pre-wrap; --chimera-code-columns: 59"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-plaintext">main.luau(3,14): TypeError: Unknown type 'math_utils.Point'</code></pre>
       </div></div>
     </details>
-    <h3 id="tables">Tables</h3>
+    <h3 id="tables">Tables<a class="chimera-heading-link" href="#tables" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luwu names the variable, writes the path to each bad property the way you'd index it, and lists every problem at once.</p>
     <details style="background: var(--chimera-background)">
       <summary>Tables with several mistakes</summary>
@@ -2183,7 +2214,7 @@ Expected the indexer result to be exactly `nil`, but got `Stack`">packed</span><
 Expected the indexer result to be exactly `nil`, but got `Stack`</code></pre>
       </div></div>
     </details>
-    <h3 id="unions-and-tagged-unions">Unions and tagged unions</h3>
+    <h3 id="unions-and-tagged-unions">Unions and tagged unions<a class="chimera-heading-link" href="#unions-and-tagged-unions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luwu reads a tagged union's tag to find the variant you meant, then explains what doesn't fit that variant.</p>
     <details style="background: var(--chimera-background)">
       <summary>Wrong property types in tagged unions</summary>
@@ -2473,7 +2504,7 @@ this is because
 	 * `{ id: string, weight: number }` is not a subtype of `Stack`</code></pre>
       </div></div>
     </details>
-    <h3 id="functions">Functions</h3>
+    <h3 id="functions">Functions<a class="chimera-heading-link" href="#functions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luwu prints function types with their parameter names, and explains each parameter and return value that doesn't fit.</p>
     <details style="background: var(--chimera-background)">
       <summary>Swapped return values</summary>
@@ -3751,7 +3782,7 @@ this is because
 main.luau(8,5): TypeError: Available overloads: ("chat", (string) -&gt; ()) -&gt; (); and ("join", (string, number) -&gt; ()) -&gt; ()</code></pre>
       </div></div>
     </details>
-    <h3 id="metatable-classes">Metatable classes</h3>
+    <h3 id="metatable-classes">Metatable classes<a class="chimera-heading-link" href="#metatable-classes" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Metatables are how Luau code builds objects. Their types are large and refer back to themselves. Luwu prints them by name instead of expanding them.</p>
     <details style="background: var(--chimera-background)">
       <summary>Metatable inheritance</summary>
@@ -4224,7 +4255,7 @@ Help (impossible generic parameter instantiation):
         <pre data-element="CodeBlock" data-language="plaintext" data-copyable class="chimera-code-block" style="white-space: pre-wrap; --chimera-code-columns: 10"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-plaintext">No errors.</code></pre>
       </div></div>
     </details>
-    <h2 id="things-to-know">Things to know</h2>
+    <h2 id="things-to-know">Things to know<a class="chimera-heading-link" href="#things-to-know" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li>Classes and traits are nominal types. Two classes with the same fields are still different types.</li>
       <li>Validators check string literals, like colors or sizes, with your own error messages.</li>

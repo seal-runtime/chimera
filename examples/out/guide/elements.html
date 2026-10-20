@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1172,6 +1194,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1191,22 +1227,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1364,13 +1395,13 @@
     <h1 id="elements">Elements</h1>
     <p>Elements are classes that correspond to specific HTML tags: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Paragraph</span></code> is <code data-language="html" class="chimera-code language-html">&lt;p&gt;</code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">UnorderedList</span></code> is <code data-language="html" class="chimera-code language-html">&lt;ul&gt;</code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Link</span></code> is <code data-language="html" class="chimera-code language-html">&lt;a&gt;</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Image</span></code> is <code data-language="html" class="chimera-code language-html">&lt;img&gt;</code>. Each one is named after what the tag is rather than its abbreviation, and they all live in <code data-language="luwu" data-highlighted="yes" class="chimera-code">chimera.elements</code>.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#content">Content</a></li><li><a href="#text">Text</a></li><li><a href="#lists">Lists</a></li><li><a href="#tables">Tables</a></li><li><a href="#details">Details</a></li><li><a href="#forms">Forms</a></li><li><a href="#attributes-classes-and-events">Attributes, classes and events</a></li><li><a href="#all-elements">All elements</a></li></ul></section></div></details></nav>
-    <h2 id="content">Content</h2>
+    <h2 id="content">Content<a class="chimera-heading-link" href="#content" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>An element's content can be a string, a number, another element or a list of any of those. When an item is optional, put <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">none</span></code> in its place:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 68"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Plain text"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> <span class="hljs-string">"Mixed "</span>, <span class="hljs-title class_">Strong</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"content"</span><span class="chimera-bracket-3">)</span>, <span class="hljs-string">" and numbers: "</span>, <span class="hljs-number">42</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> <span class="hljs-string">"Hello"</span>, <span class="hljs-keyword">if</span> signed_in <span class="hljs-keyword">then</span> <span class="hljs-title class_">Strong</span><span class="chimera-bracket-3">(</span><span class="hljs-string">" again"</span><span class="chimera-bracket-3">)</span> <span class="hljs-keyword">else</span> <span class="hljs-literal">none</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>Text is always escaped: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"&lt;b&gt;"</span><span class="chimera-bracket-1">)</span></code> shows the characters instead of bold text.</p>
-    <h2 id="text">Text</h2>
+    <h2 id="text">Text<a class="chimera-heading-link" href="#text" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
         <div>
@@ -1393,7 +1424,7 @@
 <span class="chimera-bracket-1">}</span></code></pre>
     </figure>
     <p>Headings have six levels, from <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Heading</span>.h1</code> to <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Heading</span>.h6</code>. Most pages destructure the ones they use with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> h1, h2 <span class="chimera-bracket-1">}</span> = <span class="hljs-title class_">Heading</span></code>.</p>
-    <h2 id="lists">Lists</h2>
+    <h2 id="lists">Lists<a class="chimera-heading-link" href="#lists" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
         <div>
@@ -1415,7 +1446,7 @@
 <span class="chimera-bracket-1">}</span></code></pre>
     </figure>
     <p>Lists take strings or <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">ListItem</span></code>s, and a list item can hold any content. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">OrderedList</span>:<span class="hljs-title function_ invoke__">start</span><span class="chimera-bracket-1">(</span><span class="hljs-number">5</span><span class="chimera-bracket-1">)</span></code> starts the count at 5.</p>
-    <h2 id="tables">Tables</h2>
+    <h2 id="tables">Tables<a class="chimera-heading-link" href="#tables" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A table's columns are part of its type, and the analyzer checks every row against them. A misspelled or missing column is an error. <code data-language="luwu" data-highlighted="yes" class="chimera-code">row_for</code> makes a function that builds rows from values in column order:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1459,7 +1490,7 @@
     :<span class="hljs-title function_ invoke__">table_style</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> striped = <span class="hljs-literal">true</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
     <p>Besides stripes, <code data-language="luwu" data-highlighted="yes" class="chimera-code">table_style</code> can highlight the row under the pointer with <code data-language="luwu" data-highlighted="yes" class="chimera-code">hover = <span class="hljs-literal">true</span></code>. Pass <code data-language="luwu" data-highlighted="yes" class="chimera-code">bold_header = <span class="hljs-literal">false</span></code> for plain headings.</p>
-    <h2 id="details">Details</h2>
+    <h2 id="details">Details<a class="chimera-heading-link" href="#details" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Details</span></code> shows a summary that opens to reveal the rest, without any JavaScript:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1473,7 +1504,7 @@
     <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Only for the theme switcher, tabs and toggles. Pages read fine without it."</span><span class="chimera-bracket-2">)</span>
 <span class="chimera-bracket-1">)</span></code></pre>
     </figure>
-    <h2 id="forms">Forms</h2>
+    <h2 id="forms">Forms<a class="chimera-heading-link" href="#forms" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
         <form action="/signup" method="post">
@@ -1496,7 +1527,7 @@
 <span class="chimera-bracket-3">}</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">gap</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"0.5rem"</span><span class="chimera-bracket-2">)</span>, <span class="hljs-string">"/signup"</span>, <span class="hljs-string">"post"</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
     <p>A static site has no server of its own to receive forms. Point <code data-language="luwu" data-highlighted="yes" class="chimera-code">action</code> at a form service, or handle the submit event in a script.</p>
-    <h2 id="attributes-classes-and-events">Attributes, classes and events</h2>
+    <h2 id="attributes-classes-and-events">Attributes, classes and events<a class="chimera-heading-link" href="#attributes-classes-and-events" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Every element shares the same methods for attributes, classes and events. Each one returns the element it was called on, and that lets you chain them:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 62"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-title class_">Link</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Docs"</span>, <span class="hljs-string">"/docs"</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">id</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"docs-link"</span><span class="chimera-bracket-1">)</span>
@@ -1506,7 +1537,7 @@
     :<span class="hljs-title function_ invoke__">on</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"click"</span>, <span class="hljs-string">"console.log('clicked')"</span><span class="chimera-bracket-1">)</span></code></pre>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">hidden</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code> hides an element until a script shows it. When a chain needs a step that isn't a method, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">tap</span><span class="chimera-bracket-1">(</span><span class="hljs-keyword">function</span><span class="chimera-bracket-2">(</span>element<span class="chimera-bracket-2">)</span> ... <span class="hljs-keyword">end</span><span class="chimera-bracket-1">)</span></code> runs your function and carries on.</p>
     <p>For a tag chimera has no class for, use <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Tag</span></code>: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Tag</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"dialog"</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Sure?"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code>.</p>
-    <h2 id="all-elements">All elements</h2>
+    <h2 id="all-elements">All elements<a class="chimera-heading-link" href="#all-elements" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <table>
       <thead>
         <tr>

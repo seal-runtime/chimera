@@ -106,8 +106,8 @@ const tests: { [string]: () -> () } = {
         contains(html, `<p class="chimera-toc-title">On this page</p>`)
         contains(html, `<li><a href="#install">Install</a><ul><li><a href="#with-seal">With seal</a></li></ul></li>`)
         contains(html, `<li><a href="#themes-colors">Themes &amp; colors</a></li><li><a href="#install-2">`)
-        contains(html, `<h2 id="install">Install</h2>`)
-        contains(html, `<h3 id="with-seal">With seal</h3>`)
+        contains(html, `<h2 id="install">Install<a class="chimera-heading-link" href="#install"`)
+        contains(html, `<h3 id="with-seal">With seal<a class="chimera-heading-link" href="#with-seal"`)
         excludes(html, `href="#guide"`)
     end,
 
@@ -246,12 +246,24 @@ const tests: { [string]: () -> () } = {
         equal(html, "<p>Help</p>")
     end,
 
-    ["headings keep ids only where a table of contents needs them"] = function()
+    ["headings below the title link to their own section"] = function()
         const .{ site, home } = sample()
         home:add(h2("Plain"))
+        const html = site
+            :document(home)
+            :to_html()
+        contains(html, `<h2 id="plain">Plain<a class="chimera-heading-link" href="#plain"`)
+        contains(html, `onclick="chimera.copyLink(this)"`)
+        excludes(html, `<h1 id=`)
+        const _, links = string.gsub(Parser():parse_document(html):to_html(), "chimera%-heading%-link", "")
+        const _, expected = string.gsub(html, "chimera%-heading%-link", "")
+        equal(links, expected)
+        const unlinked = sample()
+        unlinked.home:add(h2("Plain"))
         contains(
-            site
-                :document(home)
+            unlinked.site
+                :heading_links(false)
+                :document(unlinked.home)
                 :to_html(),
             "<h2>Plain</h2>"
         )

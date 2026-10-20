@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1211,6 +1233,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1230,22 +1266,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1411,7 +1442,7 @@
       </ul>
       <div data-element="Row" class="chimera-row actions" style="gap: 0.75rem"><a data-element="PageLink" data-page="guide.html" href="guide.html" class="primary">Get started</a><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source on GitHub</a></div>
     </section>
-    <h2>A quick look</h2>
+    <h2 id="a-quick-look">A quick look<a class="chimera-heading-link" href="#a-quick-look" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Here's a small release notes section, with the code that builds it underneath. The tabs, the "What changed?" toggle and all of the colors come with chimera and follow whichever theme you pick, and you didn't have to write any CSS or JavaScript for them.</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1441,7 +1472,7 @@
     changes:<span class="hljs-title function_ invoke__">hidden</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>,
 <span class="chimera-bracket-1">}</span></code></pre>
     </figure>
-    <h2>Checked by default</h2>
+    <h2 id="checked-by-default">Checked by default<a class="chimera-heading-link" href="#checked-by-default" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Luwu type checks in strict mode by default, and chimera describes CSS values with Luwu's type function validators. The analyzer checks every style you write against them. A wrong unit or a misspelled keyword shows up in your editor before you ever build the page. Hover the squiggles:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-line-numbers data-squiggles="4.24-4.28	var(--chimera-syntax-error)	TypeError: CSS length '1rx' has the unknown unit 'rx'
 4.41-4.47	var(--chimera-syntax-error)	Typo: Did you mean '&quot;flex&quot;' instead of '&quot;flexx&quot;'?" class="chimera-code-block" style="--chimera-code-columns: 76"><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> elements<span class="chimera-bracket-2">.{</span> <span class="hljs-title class_">Paragraph</span> <span class="chimera-bracket-2">}</span>, components<span class="chimera-bracket-2">.{</span> <span class="hljs-title class_">Card</span> <span class="chimera-bracket-2">}</span> <span class="chimera-bracket-1">}</span> = <span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@chimera"</span><span class="chimera-bracket-1">)</span>
@@ -1449,7 +1480,7 @@
 <span class="hljs-keyword">const</span> note = <span class="hljs-title class_">Card</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Heads up"</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Back up your saves."</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">style</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> padding = <span class="hljs-string"><span class="chimera-squiggle" style="--chimera-squiggle-color: var(--chimera-syntax-error)" data-message="TypeError: CSS length '1rx' has the unknown unit 'rx'">"1rx"</span></span>, display = <span class="hljs-string"><span class="chimera-squiggle" style="--chimera-squiggle-color: var(--chimera-syntax-error)" data-message="Typo: Did you mean '&quot;flex&quot;' instead of '&quot;flexx&quot;'?">"flexx"</span></span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>Both messages come straight from <code data-language="bash" class="chimera-code language-bash">luwu-analyze</code>.</p>
-    <h2>Where to go next</h2>
+    <h2 id="where-to-go-next">Where to go next<a class="chimera-heading-link" href="#where-to-go-next" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <div data-element="Grid" class="chimera-grid" style="--chimera-grid-min: 16rem">
       <div class="topic">
         <a data-element="PageLink" data-page="guide/sites-and-pages.html" href="guide/sites-and-pages.html">Sites and pages</a>

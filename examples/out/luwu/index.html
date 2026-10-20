@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1339,7 +1370,7 @@
     <p>Luwu is a fast, object oriented, and highly expressive embeddable scripting language forked from Luau 0.730 and influenced by Kotlin, Rust, Ruby, and Python.</p>
     <p>Luwu is designed around improving the developer experience, with a user-first type system focused on surfacing useful hovers and error reporting in modern, industry standard editors, new features that make everyday code easier to read and write, and incremental improvements that improve analysis in both existing Luau as well as greenfield Luwu projects.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#what-luwu-is-for">What Luwu is for</a></li><li><a href="#your-first-program">Your first program</a></li><li><a href="#luwu-and-luau">Luwu and Luau</a></li><li><a href="#types-and-editor-support">Types and editor support</a><ul><li><a href="#type-checking">Type Checking</a></li><li><a href="#literal-types-and-validators">Literal Types and Validators</a></li><li><a href="#lints">Lints</a></li><li><a href="#better-hovers">Better Hovers</a></li></ul></li><li><a href="#objects-and-data">Objects and data</a><ul><li><a href="#classes-and-traits">Classes and Traits</a></li><li><a href="#destructuring">Destructuring</a></li><li><a href="#the-none-primitive">The none Primitive</a></li></ul></li><li><a href="#everyday-code">Everyday code</a><ul><li><a href="#expressive-control-flow">Expressive Control Flow</a></li><li><a href="#table-comprehensions">Table Comprehensions</a></li><li><a href="#function-default-arguments">Function Default Arguments</a></li><li><a href="#more-conveniences">More Conveniences</a></li></ul></li><li><a href="#libraries-and-embedding">Libraries and embedding</a><ul><li><a href="#library-extensions">Library Extensions</a></li><li><a href="#external-buffers-and-strings">External Buffers and Strings</a></li></ul></li><li><a href="#experimental-features">Experimental Features</a></li></ul></section><section><p class="chimera-toc-title">Subpages</p><ul><li><a href="compatibility.html">Compatibility</a></li><li><a href="type-checking.html">Type Checking</a></li><li><a href="literal-types-and-validators.html">Literal Types and Validators</a></li><li><a href="lints.html">Lints</a></li><li><a href="better-hovers.html">Better Hovers</a></li><li><a href="classes-and-traits.html">Classes and Traits</a></li><li><a href="destructuring.html">Destructuring</a></li><li><a href="none.html">The none Primitive</a></li><li><a href="expressive-control-flow.html">Expressive Control Flow</a></li><li><a href="table-comprehensions.html">Table Comprehensions</a></li><li><a href="function-default-arguments.html">Function Default Arguments</a></li><li><a href="more-conveniences.html">More Conveniences</a></li><li><a href="library-extensions.html">Library Extensions</a></li><li><a href="external-buffers-and-strings.html">External Buffers and Strings</a></li><li><a href="experimental-features.html">Experimental Features</a></li></ul></section></div></details></nav>
-    <h2 id="what-luwu-is-for">What Luwu is for</h2>
+    <h2 id="what-luwu-is-for">What Luwu is for<a class="chimera-heading-link" href="#what-luwu-is-for" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Luwu is built for code that models behavior and data, such as:</p>
     <ul>
       <li>gameplay scripting</li>
@@ -1347,7 +1378,7 @@
       <li>data transformation</li>
       <li>tools and scripts that grow into real programs</li>
     </ul>
-    <h2 id="your-first-program">Your first program</h2>
+    <h2 id="your-first-program">Your first program<a class="chimera-heading-link" href="#your-first-program" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Luwu files end in <code data-language="plaintext" class="chimera-code">.luwu</code>. If you've written Luau, this short program should look familiar. It keeps a small inventory, picks out the fruit that's in stock and prints it cheapest first:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 75"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">type</span> <span class="hljs-title class_">Item</span> = <span class="chimera-bracket-1">{</span> name: <span class="hljs-type">string</span>, price: <span class="hljs-type">number</span>, stock: <span class="hljs-type">number</span> <span class="chimera-bracket-1">}</span>
 
@@ -1370,30 +1401,30 @@
     <pre data-element="CodeBlock" data-language="bash" data-copyable class="chimera-code-block" style="--chimera-code-columns: 17"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-bash">seal ./fruit.luwu</code></pre>
     <pre data-element="CodeBlock" data-language="plaintext" class="chimera-code-block" style="--chimera-code-columns: 11"><code class="hljs language-plaintext">kiwi: 0.5
 apple: 1.25</code></pre>
-    <h2 id="luwu-and-luau">Luwu and Luau</h2>
+    <h2 id="luwu-and-luau">Luwu and Luau<a class="chimera-heading-link" href="#luwu-and-luau" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Luwu was forked by the <a href="https://discord.gg/3MJ37CFNWh" target="_blank" rel="noopener noreferrer">Nyla, Hina &amp; Ferris</a> Discord community to better suit our needs for general-purpose programming outside of Roblox.</p>
     <p>In addition to popular Luau features such as string interpolation, generalized iteration, compound assignment operators, the new type solver (with type functions!), <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">const</span></code> syntax, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">if</span> <span class="hljs-keyword">local</span></code>, and more, Luwu code also features highly optimized classes and objects with code reuse facilitated via traits, table/object/userdata destructuring, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code> expressions, table comprehensions, the <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">none</span></code> primitive, externally managed buffers, and more.</p>
     <p>Since the fork, Luau and Luwu have diverged. The main differences today are in classes and inheritance, integers, and destructuring.</p>
     <p><a data-element="PageLink" data-page="luwu/compatibility.html" href="compatibility.html">See Compatibility →</a></p>
     <p>The sections below give a short tour of each feature, with a link to its own page.</p>
-    <h2 id="types-and-editor-support">Types and editor support</h2>
+    <h2 id="types-and-editor-support">Types and editor support<a class="chimera-heading-link" href="#types-and-editor-support" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>We maintain luwu-lsp and the Luwu VSCode/Code-OSS extension alongside the language, and since we develop directly with our language server, we test new editor features, type checking improvements and DX right away.</p>
     <p>Since Luau is primarily developed against Roblox's Studio script editor, its diagnostics are optimized for single-line display. We develop against VSCode and the Luwu extension (with hopefully more editors coming soon!), so Luwu's output is optimized for multiline hovers from the language server, in VSCode/Code-OSS and other editors that commonly show hovers and diagnostics on several lines. It's written more for people than for tooling, although we've also added more context to make Luwu's type errors more useful in tooling as well.</p>
-    <h3 id="type-checking">Type Checking</h3>
+    <h3 id="type-checking">Type Checking<a class="chimera-heading-link" href="#type-checking" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luwu enables type checking by default to catch your code's mistakes before you run it. Luwu builds upon Luau's new type solver to add new features, drastically improve error message friendliness and readability, and catch more common mistakes.</p>
     <p>Luwu type checking defaults to a relatively strict mode, but you can go back to the autocomplete-only Luau default with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!nonstrict</span></code> (or all the way to <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!nocheck</span></code> for untyped Lua code). Note that due to popular demand, we surface typos even in <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!nonstrict</span></code>.</p>
     <p><a data-element="PageLink" data-page="luwu/type-checking.html" href="type-checking.html">See Type Checking →</a></p>
-    <h3 id="literal-types-and-validators">Literal Types and Validators</h3>
+    <h3 id="literal-types-and-validators">Literal Types and Validators<a class="chimera-heading-link" href="#literal-types-and-validators" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A literal type requires a value written directly at the call, such as <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-string">"#3b5bdb"</span></code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-string">"1.5rem"</span></code>, and a validator is a type function that checks that literal during analysis. Your own APIs can use them to reject a malformed color, size or route in the editor, with an error message you write yourself.</p>
     <p><a data-element="PageLink" data-page="luwu/literal-types-and-validators.html" href="literal-types-and-validators.html">See Literal Types and Validators →</a></p>
-    <h3 id="lints">Lints</h3>
+    <h3 id="lints">Lints<a class="chimera-heading-link" href="#lints" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>We also expand Luau's built-in lint system with more than 40 new lints for Luau and Luwu code, to help you write more idiomatic and performant code.</p>
     <p><a data-element="PageLink" data-page="luwu/lints.html" href="lints.html">See Lints →</a></p>
-    <h3 id="better-hovers">Better Hovers</h3>
+    <h3 id="better-hovers">Better Hovers<a class="chimera-heading-link" href="#better-hovers" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Our hovers target luwu-lsp and the Luwu VSCode/Code-OSS extension, with significant improvements in recursive type stringification. A hover exposes every relevant type, with verbosity levels and go to location links you can click. Overloads and unions are serialized in a more readable way, and each type with documentation attached shows one line of it above.</p>
     <p><a data-element="PageLink" data-page="luwu/better-hovers.html" href="better-hovers.html">See Better Hovers →</a></p>
-    <h2 id="objects-and-data">Objects and data</h2>
-    <h3 id="classes-and-traits">Classes and Traits</h3>
+    <h2 id="objects-and-data">Objects and data<a class="chimera-heading-link" href="#objects-and-data" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
+    <h3 id="classes-and-traits">Classes and Traits<a class="chimera-heading-link" href="#classes-and-traits" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A class represents a domain specific concept for your program, such as <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Player</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Health</span></code> classes in a game. In Luwu, you can use classes to abstract related functionality into components that make sense and use traits to share functionality that multiple classes need to use.</p>
     <p>Classes are also great for representing data that needs to rely upon certain properties always valid, such as health being clamped between 0 and <code data-language="luwu" data-highlighted="yes" class="chimera-code">max_health</code>, age not being negative, positions not being NaN, etc. This <a data-element="PageLink" data-page="luwu/classes-and-traits.html#protecting-invariants" href="classes-and-traits.html#protecting-invariants"><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Health</span></code> example</a> represents the concept of health points and protects the fact that health must always be valid, and has a nice healthbar display for when you print it out to a terminal:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 73"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Health</span> <span class="hljs-keyword">private</span> <span class="chimera-bracket-1">(</span>
@@ -1433,20 +1464,20 @@ hp -= <span class="hljs-number">90</span>
 <span style="color: #a6e3a1">████████████████████</span> 100/100, <span style="color: var(--chimera-syntax-warning)">true</span>
 <span style="color: #eb93a7">██</span><span style="color: var(--chimera-muted)">░░░░░░░░░░░░░░░░░░</span> 10/100, <span style="color: var(--chimera-syntax-warning)">true</span></pre>
     <p><a data-element="PageLink" data-page="luwu/classes-and-traits.html#protecting-invariants" href="classes-and-traits.html#protecting-invariants">See the full example on the Classes and Traits page →</a></p>
-    <h3 id="destructuring">Destructuring</h3>
+    <h3 id="destructuring">Destructuring<a class="chimera-heading-link" href="#destructuring" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Destructuring pulls several fields out of a table in one line. You write each name once.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 43"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> player = <span class="chimera-bracket-1">{</span> name = <span class="hljs-string">"Ada"</span>, level = <span class="hljs-number">12</span> <span class="chimera-bracket-1">}</span>
 
 <span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> name, level <span class="chimera-bracket-1">}</span> = player
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>name, level<span class="chimera-bracket-1">)</span></code></pre>
     <p><a data-element="PageLink" data-page="luwu/destructuring.html" href="destructuring.html">See Destructuring →</a></p>
-    <h3 id="the-none-primitive">The none Primitive</h3>
+    <h3 id="the-none-primitive">The none Primitive<a class="chimera-heading-link" href="#the-none-primitive" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">none</span></code> means "intentionally empty". Unlike nil, you can store it in a table.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 39"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> list = <span class="chimera-bracket-1">{</span> <span class="hljs-string">"first"</span>, <span class="hljs-literal">none</span>, <span class="hljs-string">"third"</span> <span class="chimera-bracket-1">}</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#list<span class="chimera-bracket-1">)</span></code></pre>
     <p><a data-element="PageLink" data-page="luwu/none.html" href="none.html">See The none Primitive →</a></p>
-    <h2 id="everyday-code">Everyday code</h2>
-    <h3 id="expressive-control-flow">Expressive Control Flow</h3>
+    <h2 id="everyday-code">Everyday code<a class="chimera-heading-link" href="#everyday-code" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
+    <h3 id="expressive-control-flow">Expressive Control Flow<a class="chimera-heading-link" href="#expressive-control-flow" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">if</span> <span class="hljs-keyword">local</span></code> checks a value right where you get it. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">when</span></code> chains add more conditions, in ifs and in loops.</p>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code> expressions and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">or</span> <span class="hljs-keyword">return</span></code> cut down on temporary variables and nesting.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 79"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> prices: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="hljs-type">number</span>? <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span> apple = <span class="hljs-number">1.25</span>, pear = <span class="hljs-number">0.8</span> <span class="chimera-bracket-1">}</span>
@@ -1455,14 +1486,14 @@ hp -= <span class="hljs-number">90</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{fruit}</span><span class="hljs-string"> costs </span><span class="hljs-subst">{price}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
     <p><a data-element="PageLink" data-page="luwu/expressive-control-flow.html" href="expressive-control-flow.html">See Expressive Control Flow →</a></p>
-    <h3 id="table-comprehensions">Table Comprehensions</h3>
+    <h3 id="table-comprehensions">Table Comprehensions<a class="chimera-heading-link" href="#table-comprehensions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>A table comprehension builds a new table from a loop, in one expression.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 71"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> numbers = <span class="chimera-bracket-1">{</span> <span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span> <span class="chimera-bracket-1">}</span>
 
 <span class="hljs-keyword">const</span> even_squares = <span class="chimera-bracket-1">{</span> <span class="hljs-keyword">for</span> _, n <span class="hljs-keyword">in</span> numbers <span class="hljs-keyword">when</span> n % <span class="hljs-number">2</span> == <span class="hljs-number">0</span> <span class="hljs-keyword">give</span> n * n <span class="chimera-bracket-1">}</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#even_squares<span class="chimera-bracket-1">)</span></code></pre>
     <p><a data-element="PageLink" data-page="luwu/table-comprehensions.html" href="table-comprehensions.html">See Table Comprehensions →</a></p>
-    <h3 id="function-default-arguments">Function Default Arguments</h3>
+    <h3 id="function-default-arguments">Function Default Arguments<a class="chimera-heading-link" href="#function-default-arguments" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Parameters can have default values, right in the function's signature.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 54"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">greet</span><span class="chimera-bracket-1">(</span>name: <span class="hljs-type">string</span>, greeting = <span class="hljs-string">"Hello"</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{greeting}</span><span class="hljs-string">, </span><span class="hljs-subst">{name}</span><span class="hljs-string">!`</span><span class="chimera-bracket-1">)</span>
@@ -1470,21 +1501,21 @@ hp -= <span class="hljs-number">90</span>
 
 <span class="hljs-title function_ invoke__">greet</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Ada"</span><span class="chimera-bracket-1">)</span></code></pre>
     <p><a data-element="PageLink" data-page="luwu/function-default-arguments.html" href="function-default-arguments.html">See Function Default Arguments →</a></p>
-    <h3 id="more-conveniences">More Conveniences</h3>
+    <h3 id="more-conveniences">More Conveniences<a class="chimera-heading-link" href="#more-conveniences" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Smaller additions, like named functions in table literals.</p>
     <p><a data-element="PageLink" data-page="luwu/more-conveniences.html" href="more-conveniences.html">See More Conveniences →</a></p>
-    <h2 id="libraries-and-embedding">Libraries and embedding</h2>
-    <h3 id="library-extensions">Library Extensions</h3>
+    <h2 id="libraries-and-embedding">Libraries and embedding<a class="chimera-heading-link" href="#libraries-and-embedding" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
+    <h3 id="library-extensions">Library Extensions<a class="chimera-heading-link" href="#library-extensions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Luwu adds a few library functions. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.drop</code> removes items from a list by value. Unlike <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">remove</span><span class="chimera-bracket-1">(</span>t, <span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">find</span><span class="chimera-bracket-2">(</span>t, x<span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code>, it doesn't remove the last item when x is missing.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 40"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> party = <span class="chimera-bracket-1">{</span> <span class="hljs-string">"Ada"</span>, <span class="hljs-string">"Grace"</span>, <span class="hljs-string">"Alan"</span> <span class="chimera-bracket-1">}</span>
 
 <span class="hljs-built_in">table</span>.<span class="hljs-title function_ invoke__">drop</span><span class="chimera-bracket-1">(</span>party, <span class="hljs-string">"Grace"</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#party<span class="chimera-bracket-1">)</span></code></pre>
     <p><a data-element="PageLink" data-page="luwu/library-extensions.html" href="library-extensions.html">See Library Extensions →</a></p>
-    <h3 id="external-buffers-and-strings">External Buffers and Strings</h3>
+    <h3 id="external-buffers-and-strings">External Buffers and Strings<a class="chimera-heading-link" href="#external-buffers-and-strings" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h3>
     <p>Embedders can expose huge files to scripts without cloning them into the VM.</p>
     <p><a data-element="PageLink" data-page="luwu/external-buffers-and-strings.html" href="external-buffers-and-strings.html">See External Buffers and Strings →</a></p>
-    <h2 id="experimental-features">Experimental Features</h2>
+    <h2 id="experimental-features">Experimental Features<a class="chimera-heading-link" href="#experimental-features" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Push and pop operators, and match expressions. They work today, but their design may still change.</p>
     <p><a data-element="PageLink" data-page="luwu/experimental-features.html" href="experimental-features.html">See Experimental Features →</a></p>
   </main>

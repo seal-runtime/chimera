@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1353,7 +1384,7 @@
     <p>Inside the function, <code data-language="luwu" data-highlighted="yes" class="chimera-code">greeting</code> is always a string. It can never be nil.</p>
     <p>Your editor shows the default when you call the function.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#passing-nil">Passing nil</a></li><li><a href="#defaults-run-on-every-call">Defaults run on every call</a></li><li><a href="#classes">Classes</a></li><li><a href="#things-to-know">Things to know</a></li></ul></section></div></details></nav>
-    <h2 id="passing-nil">Passing nil</h2>
+    <h2 id="passing-nil">Passing nil<a class="chimera-heading-link" href="#passing-nil" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Passing nil is the same as leaving the argument out. That lets you skip one argument and pass the next.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 56"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">spawn</span><span class="chimera-bracket-1">(</span>kind: <span class="hljs-type">string</span>, count = <span class="hljs-number">1</span>, level = <span class="hljs-number">1</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{count}</span><span class="hljs-string"> x </span><span class="hljs-subst">{kind}</span><span class="hljs-string"> at level </span><span class="hljs-subst">{level}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
@@ -1367,7 +1398,7 @@
 <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">configure</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">false</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="defaults-run-on-every-call">Defaults run on every call</h2>
+    <h2 id="defaults-run-on-every-call">Defaults run on every call<a class="chimera-heading-link" href="#defaults-run-on-every-call" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A default is evaluated each time the function needs it. Every call gets its own fresh value.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 52"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">new_inventory</span><span class="chimera-bracket-1">(</span>items: <span class="chimera-bracket-2">{</span> <span class="hljs-type">string</span> <span class="chimera-bracket-2">}</span> = <span class="chimera-bracket-2">{</span><span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">return</span> items
@@ -1388,7 +1419,7 @@
 <span class="hljs-keyword">end</span>
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">create_user</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Ada"</span><span class="chimera-bracket-2">)</span>.id, <span class="hljs-title function_ invoke__">create_user</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Grace"</span><span class="chimera-bracket-2">)</span>.id, <span class="hljs-title function_ invoke__">create_user</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Alan"</span>, <span class="hljs-number">99</span><span class="chimera-bracket-2">)</span>.id<span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="classes">Classes</h2>
+    <h2 id="classes">Classes<a class="chimera-heading-link" href="#classes" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A class's primary constructor takes defaults too:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 62"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Enemy</span><span class="chimera-bracket-1">(</span>name: <span class="hljs-type">string</span>, hp = <span class="hljs-number">100</span>, speed = <span class="hljs-number">1.0</span><span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">describe</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">string</span>
@@ -1398,7 +1429,7 @@
 
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Enemy</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Slime"</span>, <span class="hljs-number">20</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Enemy</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Dragon"</span>, <span class="hljs-number">5000</span>, <span class="hljs-number">0.5</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="things-to-know">Things to know</h2>
+    <h2 id="things-to-know">Things to know<a class="chimera-heading-link" href="#things-to-know" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li>A default can't refer to the other parameters. It sees the variables around the function.</li>
       <li>Parameters without defaults may come after ones with defaults.</li>

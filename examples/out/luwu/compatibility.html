@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1339,16 +1370,16 @@
     <h1 id="compatibility">Compatibility</h1>
     <p>A Luau library written for Luau 0.730 or earlier runs in Luwu without changes. The reverse doesn't hold: once a file uses classes or table comprehensions it's Luwu code, and upstream Luau can't run it. Luwu keeps the two apart by file extension, and it refuses Luwu syntax in a <code data-language="plaintext" class="chimera-code">.luau</code> file so that file stays valid Luau.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#luau-code-in-luwu">Luau code in Luwu</a></li><li><a href="#where-luau-and-luwu-diverge">Where Luau and Luwu diverge</a></li><li><a href="#file-extensions">File extensions</a></li><li><a href="#luwu-syntax-in-luau-files">Luwu syntax in Luau files</a></li><li><a href="#luwuonly">luwuOnly</a></li></ul></section></div></details></nav>
-    <h2 id="luau-code-in-luwu">Luau code in Luwu</h2>
+    <h2 id="luau-code-in-luwu">Luau code in Luwu<a class="chimera-heading-link" href="#luau-code-in-luwu" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Luwu accepts valid Luau code up to and including Luau 0.730, and with it every RFC upstream accepted by 2026-07-17. RFCs accepted upstream after 0.730 aren't covered by that guarantee. <a href="https://github.com/luwu-community/luwu/blob/master/rfcs/UPSTREAM.md" target="_blank" rel="noopener noreferrer">UPSTREAM.md</a> in the Luwu repository lists which upstream RFCs Luwu implements, which it replaced and which it skipped.</p>
-    <h2 id="where-luau-and-luwu-diverge">Where Luau and Luwu diverge</h2>
+    <h2 id="where-luau-and-luwu-diverge">Where Luau and Luwu diverge<a class="chimera-heading-link" href="#where-luau-and-luwu-diverge" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Since the fork, Luau and Luwu have diverged. The main differences today are in classes and inheritance, integers, and destructuring:</p>
     <ul>
       <li><strong>Classes and inheritance.</strong> Upstream's <a href="https://github.com/luau-lang/rfcs/pull/242" target="_blank" rel="noopener noreferrer">classes RFC</a> adds implementation inheritance through <code data-language="luwu" data-highlighted="yes" class="chimera-code">open <span class="hljs-keyword">class</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">extends</code>. Its private members have to start with <code data-language="luwu" data-highlighted="yes" class="chimera-code">_</code> and are read through new <code data-language="luwu" data-highlighted="yes" class="chimera-code">._</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">:<span class="hljs-type">_</span></code> operators that only exist inside methods. Luwu's classes have no inheritance and share code through traits instead. Private members keep ordinary names, and every method call checks that <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">self</span></code> really is an object of its class.</li>
       <li><strong>Integers.</strong> Upstream's <a href="https://github.com/luau-lang/rfcs/blob/master/docs/type-long-integer.md" target="_blank" rel="noopener noreferrer">64-bit integer type</a> is a single signed <code data-language="luwu" data-highlighted="yes" class="chimera-code">integer</code> with no arithmetic operators: adding two of them takes <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">integer</span>.<span class="hljs-title function_ invoke__">add</span><span class="chimera-bracket-1">(</span>a, b<span class="chimera-bracket-1">)</span></code>. It was never enabled on Roblox and isn't covered by Luau's compatibility promise. Luwu is building its own, with separate signed and unsigned types, arithmetic operators and bigints.</li>
       <li><strong>Destructuring.</strong> Upstream accepted key destructuring in 2024 and withdrew it a month later. Its <a href="https://github.com/luau-lang/rfcs/pull/260" target="_blank" rel="noopener noreferrer">current proposal</a> mirrors table constructors, so every name is written twice: <code data-language="luau" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">local</span> <span class="chimera-bracket-1">{</span>name = name, kind = kind<span class="chimera-bracket-1">}</span> = entry</code>. In Luwu you write each name once with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> name, kind <span class="chimera-bracket-1">}</span> = entry</code>, and it works on tables, objects and userdata alike.</li>
     </ul>
-    <h2 id="file-extensions">File extensions</h2>
+    <h2 id="file-extensions">File extensions<a class="chimera-heading-link" href="#file-extensions" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Every module has a language, and Luwu takes it from the file's extension. The command-line tools and the language server agree on it:</p>
     <table>
       <thead>
@@ -1373,7 +1404,7 @@
       </tbody>
     </table>
     <p>A project can mix them freely. A <code data-language="plaintext" class="chimera-code">.luwu</code> module can require a <code data-language="plaintext" class="chimera-code">.luau</code> one, and the other way around.</p>
-    <h2 id="luwu-syntax-in-luau-files">Luwu syntax in Luau files</h2>
+    <h2 id="luwu-syntax-in-luau-files">Luwu syntax in Luau files<a class="chimera-heading-link" href="#luwu-syntax-in-luau-files" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Luwu could accept its own syntax everywhere, but then a <code data-language="plaintext" class="chimera-code">.luau</code> file could quietly stop being Luau. It would still run in Luwu and break the day someone opens it in upstream tooling, or in Roblox. So Luwu refuses: in a <code data-language="plaintext" class="chimera-code">.luau</code> module, Luwu-only syntax is a parse error that says what to do instead.</p>
     <pre data-element="CodeBlock" data-language="luau" data-line-numbers data-squiggles="3.22-3.24	var(--chimera-syntax-error)	SyntaxError: Table comprehensions are a Luwu-only feature.\n\nHelp (Luwu-only feature):\n  • Consider migrating to a .luwu module if this environment supports Luwu\n  • Alternatively, you may transpile Luwu code to Luau code via the 'ast' library; see Luwu documentation on existing transpilers and usage
 4.1-4.10	var(--chimera-syntax-warning)	LuwuOnlyApi: 'table.drop' only exists in Luwu, but this is a Luau file; rename it to '.luwu' if it's Luwu code" class="chimera-code-block" style="--chimera-code-columns: 68"><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></span><code class="hljs language-luau" data-highlighted="yes"><span class="hljs-keyword">local</span> fruit = <span class="chimera-bracket-1">{</span> <span class="hljs-string">"apple"</span>, <span class="hljs-string">"kiwi"</span>, <span class="hljs-string">"pear"</span> <span class="chimera-bracket-1">}</span>
@@ -1387,7 +1418,7 @@ Help (Luwu-only feature):
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#long_names, #fruit<span class="chimera-bracket-1">)</span></code></pre>
     <p>Both messages come straight from <code data-language="bash" class="chimera-code language-bash">luwu-analyze</code> with the file saved as <code data-language="plaintext" class="chimera-code">inventory.luau</code>. Rename it to <code data-language="plaintext" class="chimera-code">inventory.luwu</code> and the same code checks cleanly.</p>
     <p>Library functions aren't syntax, so the parser can't reject them. Instead the <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">LuwuOnlyApi</span></code> lint warns about Luwu-only functions like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-built_in">table</span>.drop</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span>.of</code> in Luau and Lua files. The language server does the same for Luwu-only directives such as <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">--!trust</span></code>.</p>
-    <h2 id="luwuonly">luwuOnly</h2>
+    <h2 id="luwuonly">luwuOnly<a class="chimera-heading-link" href="#luwuonly" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Behind those errors, the parser marks every syntax node that only Luwu accepts with a <code data-language="luwu" data-highlighted="yes" class="chimera-code">luwuOnly</code> flag. It goes on the smallest node whose own syntax is Luwu's, so a default argument marks its function but leaves the function's body alone. Children of a marked node aren't marked unless their own syntax is Luwu-only as well.</p>
     <p>Tools can read the flag through Luwu's AST reflection (<code data-language="luwu" data-highlighted="yes" class="chimera-code">node:<span class="hljs-title function_ invoke__">luwuOnly</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code>). That's how a transpiler from Luwu to Luau finds exactly the nodes it has to rewrite and leaves everything else as it was.</p>
   </main>

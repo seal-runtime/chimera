@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1172,6 +1194,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1191,22 +1227,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1362,13 +1393,13 @@
     <h1 id="theming">Theming</h1>
     <p>A reader whose OS is in dark mode should get a dark page, and one who picks Catppuccin Latte should keep getting Latte on every page after that. chimera handles both with themes. A theme is a class that sets the colors, fonts and spacing every element reads.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#defaults">Defaults</a></li><li><a href="#offering-more-themes">Offering more themes</a></li><li><a href="#built-in-themes">Built-in themes</a></li><li><a href="#your-own-theme">Your own theme</a></li></ul></section></div></details></nav>
-    <h2 id="defaults">Defaults</h2>
+    <h2 id="defaults">Defaults<a class="chimera-heading-link" href="#defaults" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Each page has one default theme for light mode and one for dark mode. Until the reader picks a theme of their own, the page follows their OS setting:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 42"><code class="hljs language-luwu" data-highlighted="yes">site
     :<span class="hljs-title function_ invoke__">default_dark_theme</span><span class="chimera-bracket-1">(</span>catppuccin.<span class="hljs-title class_">Mocha</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">default_light_theme</span><span class="chimera-bracket-1">(</span>catppuccin.<span class="hljs-title class_">Latte</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>Without defaults, pages use <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Light</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Dark</span></code>. A lone <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Document</span></code> has the same methods.</p>
-    <h2 id="offering-more-themes">Offering more themes</h2>
+    <h2 id="offering-more-themes">Offering more themes<a class="chimera-heading-link" href="#offering-more-themes" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code">offer_theme</code> adds a theme readers can pick, and a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">ThemeSwitcher</span></code> lists it next to the defaults. This site offers six:</p>
     <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 38"><code class="hljs language-luwu" data-highlighted="yes">site
     :<span class="hljs-title function_ invoke__">offer_theme</span><span class="chimera-bracket-1">(</span>catppuccin.<span class="hljs-title class_">Macchiato</span><span class="chimera-bracket-1">)</span>
@@ -1385,12 +1416,12 @@
       <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 82"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> picker = <span class="hljs-title class_">Row</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Try a theme:"</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title class_">ThemeSwitcher</span><span class="chimera-bracket-3">(</span><span class="chimera-bracket-3">)</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>:<span class="hljs-title function_ invoke__">align</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"center"</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
     <p>The browser saves the reader's pick, and links between pages carry it too. That way it sticks even on a site opened straight from disk.</p>
-    <h2 id="built-in-themes">Built-in themes</h2>
+    <h2 id="built-in-themes">Built-in themes<a class="chimera-heading-link" href="#built-in-themes" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Light</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Dark</span></code>: plain, neutral themes and the fallback defaults.</li>
       <li><code data-language="luwu" data-highlighted="yes" class="chimera-code">catppuccin.<span class="hljs-title class_">Latte</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Frappe</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Macchiato</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Mocha</span></code>: the four Catppuccin flavors. Code is colored the way Catppuccin's own editor themes color it.</li>
     </ul>
-    <h2 id="your-own-theme">Your own theme</h2>
+    <h2 id="your-own-theme">Your own theme<a class="chimera-heading-link" href="#your-own-theme" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A theme is a class that implements <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Theme</span></code> with a <code data-language="luwu" data-highlighted="yes" class="chimera-code">name</code>, a <code data-language="luwu" data-highlighted="yes" class="chimera-code">mode</code> and a <code data-language="luwu" data-highlighted="yes" class="chimera-code">palette</code>. Any token you leave out of the <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Palette</span></code> keeps its Light value:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 46"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Sepia</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Theme</span>
     <span class="hljs-keyword">const</span> name = <span class="hljs-string">"sepia"</span>

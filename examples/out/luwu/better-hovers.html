@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1147,6 +1169,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1166,22 +1202,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1337,14 +1368,14 @@
     <h1 id="better-hovers">Better Hovers</h1>
     <p>Luwu's hovers target luwu-lsp, the language server we maintain alongside the language, and the Luwu VSCode/Code-OSS extension. Every hover on this page was copied unedited from luwu-lsp: point at a dotted underline to see one, or tap it on a touch screen.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#what-s-improved">What's improved</a></li><li><a href="#classes-at-a-glance">Classes at a glance</a></li><li><a href="#traits">Traits</a></li><li><a href="#keywords-explain-themselves">Keywords explain themselves</a></li><li><a href="#refinements">Refinements</a></li><li><a href="#more-or-less-detail">More or less detail</a></li></ul></section></div></details></nav>
-    <h2 id="what-s-improved">What's improved</h2>
+    <h2 id="what-s-improved">What's improved<a class="chimera-heading-link" href="#what-s-improved" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <ul>
       <li><strong>Multiline types.</strong> Hovers print nested and recursive types over several lines, the way you'd write them in code, instead of on one long line. Large tables are cut short with their brackets still balanced.</li>
       <li><strong>Related types, with links.</strong> Hovering a value also summarizes the classes and types its type refers to, each with a link to where it's declared. Verbosity levels decide how much of that is expanded (see <a href="#more-or-less-detail">More or less detail</a> below).</li>
       <li><strong>Overloads and unions, one per line.</strong> An overloaded function prints one signature per line, under a comment saying how many overloads it has, and a union of tables lays each member out on its own lines. A method called on a union of classes shows a single signature.</li>
       <li><strong>Doc comments above types.</strong> Each type and field with a doc comment shows the first line of that comment right above it in the hover. References in doc comments, like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="chimera-bracket-1">[</span><span class="hljs-title class_">Health</span><span class="chimera-bracket-1">]</span></code> or <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="chimera-bracket-1">[</span><span class="hljs-built_in">math</span>.max<span class="chimera-bracket-1">]</span></code>, become links to their declaration or to the library docs.</li>
     </ul>
-    <h2 id="classes-at-a-glance">Classes at a glance</h2>
+    <h2 id="classes-at-a-glance">Classes at a glance<a class="chimera-heading-link" href="#classes-at-a-glance" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Hover a class's name to see how to build one and what it holds, private members included. Hover an object of the class and you see only what you can use from outside.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-line-numbers data-copyable class="chimera-code-block" style="--chimera-code-columns: 56"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-comment">--- A cat that can be fed.</span>
 <span class="hljs-keyword">class</span> <span class="hljs-title class_"><span class="chimera-hoverable" data-hover="1">Cat</span></span><span class="chimera-bracket-1">(</span><span class="hljs-keyword"><span class="chimera-hoverable" data-hover="2">public</span></span> <span class="hljs-keyword">const</span> <span class="chimera-hoverable" data-hover="3">name</span>: <span class="hljs-type">string</span>, <span class="hljs-keyword"><span class="chimera-hoverable" data-hover="4">private</span></span> <span class="chimera-hoverable" data-hover="5">hunger</span> = <span class="hljs-number">3</span><span class="chimera-bracket-1">)</span>
@@ -1389,7 +1420,7 @@ nyla:<span class="hljs-title function_ invoke__"><span class="chimera-hoverable"
     <span class="hljs-keyword">public</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">feed</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, amount: <span class="hljs-type">number</span>?<span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Cat</span>
 <span class="hljs-keyword">end</span></code></pre><hr><p>A cat that can be fed.</p></template><template data-hover="10" data-spans="11.6-11.9"><pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 39"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">function</span> <span class="hljs-title function_">Cat</span>:<span class="hljs-title function_ invoke__">feed</span><span class="chimera-bracket-1">(</span>amount: <span class="hljs-type">number</span>?<span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Cat</span></code></pre><p><em>Method of</em> <code data-language="luwu" data-plain class="chimera-code">Cat</code></p><hr><p>Feeds the cat, so it's less hungry.</p></template></code></pre>
     <p>Access specifiers like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">public</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">private</span></code> explain the rules they bring, so you don't need to look them up.</p>
-    <h2 id="traits">Traits</h2>
+    <h2 id="traits">Traits<a class="chimera-heading-link" href="#traits" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A class's hover marks the members it gets from a trait, like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-comment">-- from Health</span></code>. A trait method returning <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Self</span></code> shows the class you called it on: <code data-language="luwu" data-highlighted="yes" class="chimera-code">ada</code> is a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Player</span></code>, not just <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Health</span></code>.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-line-numbers data-copyable class="chimera-code-block" style="--chimera-code-columns: 83"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-comment">--- Something that takes damage and can run out of health.</span>
 <span class="hljs-keyword">trait</span> <span class="hljs-title class_"><span class="chimera-hoverable" data-hover="1">Health</span></span>
@@ -1429,7 +1460,7 @@ nyla:<span class="hljs-title function_ invoke__"><span class="chimera-hoverable"
     <span class="hljs-keyword">function</span> <span class="hljs-title function_">damage</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span>, amount: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Player</span>  <span class="hljs-comment">-- from Health</span>
 <span class="hljs-keyword">end</span></code></pre></template><template data-hover="7" data-spans="18.27-18.32"><pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 46"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">function</span> <span class="hljs-title function_">Player</span>:<span class="hljs-title function_ invoke__">damage</span><span class="chimera-bracket-1">(</span>amount: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Player</span></code></pre><p><em>Method of</em> <code data-language="luwu" data-plain class="chimera-code">Player</code></p><hr><p>Takes <code data-language="luwu" data-plain class="chimera-code">amount</code> off Health, never going below zero, like <a href="https://luau.org/library#math-library" target="_blank" rel="noopener noreferrer">math.max</a> would.</p></template><template data-hover="8" data-spans="19.11-19.16"><pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 6"><code class="hljs language-luwu" data-highlighted="yes">number</code></pre><p><em>Field of</em> <code data-language="luwu" data-plain class="chimera-code">Player</code></p></template></code></pre>
     <p>Doc comments link what they mention. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="chimera-bracket-1">[</span><span class="hljs-title class_">Health</span><span class="chimera-bracket-1">]</span></code> jumps to the trait, and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="chimera-bracket-1">[</span><span class="hljs-built_in">math</span>.max<span class="chimera-bracket-1">]</span></code> links to the library docs.</p>
-    <h2 id="keywords-explain-themselves">Keywords explain themselves</h2>
+    <h2 id="keywords-explain-themselves">Keywords explain themselves<a class="chimera-heading-link" href="#keywords-explain-themselves" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>Every keyword has a hover, Luwu's own included: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code> expressions, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">give</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">when</span></code>. The same word gets a different hover when it means something else, like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">if</span></code> as an expression.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-line-numbers data-copyable class="chimera-code-block" style="--chimera-code-columns: 83"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword"><span class="chimera-hoverable" data-hover="1">const</span></span> prices: <span class="chimera-bracket-1">{</span> <span class="chimera-bracket-2">[</span><span class="hljs-type">string</span><span class="chimera-bracket-2">]</span>: <span class="hljs-type">number</span>? <span class="chimera-bracket-1">}</span> = <span class="chimera-bracket-1">{</span> apple = <span class="hljs-number">1.25</span>, pear = <span class="hljs-number">0.8</span> <span class="chimera-bracket-1">}</span>
 
@@ -1474,7 +1505,7 @@ x += <span class="hljs-number">1</span> <span class="hljs-comment">-- syntax err
         <span class="hljs-string">"Intermediate"</span>
     <span class="hljs-keyword">else</span>
         <span class="hljs-string">"Beginner"</span></code></pre><p>Unlike <code data-language="luwu" data-plain class="chimera-code">if</code> statements, <code data-language="luwu" data-plain class="chimera-code">if</code> expressions contain exactly one expression per branch, evaluate to at least one value, require an <code data-language="luwu" data-plain class="chimera-code">else</code> branch, and do not terminate with <code data-language="luwu" data-plain class="chimera-code">end</code>.</p></template></code></pre>
-    <h2 id="refinements">Refinements</h2>
+    <h2 id="refinements">Refinements<a class="chimera-heading-link" href="#refinements" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>A function that narrows a type says so. Hover <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">class</span>.implements</code> to see what it refines, then hover the refined value to see what it became.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-line-numbers data-copyable class="chimera-code-block" style="--chimera-code-columns: 49"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Named</span>
     <span class="hljs-keyword">expect</span> name: <span class="hljs-type">string</span>
@@ -1503,7 +1534,7 @@ x += <span class="hljs-number">1</span> <span class="hljs-comment">-- syntax err
     <span class="hljs-keyword">expect</span> name: <span class="hljs-type">string</span>
 <span class="hljs-keyword">end</span></code></pre></template><template data-hover="4" data-spans="10.22-10.25"><pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 6"><code class="hljs language-luwu" data-highlighted="yes">string</code></pre><p><em>Field of</em> <code data-language="luwu" data-plain class="chimera-code">Named</code></p></template><template data-hover="5" data-spans="15.26-15.32"><pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 15"><code class="hljs language-luwu" data-highlighted="yes">literal&lt;string&gt;</code></pre><hr><p>A literal of <code data-language="luwu" data-plain class="chimera-code">string</code>: the value as written, like <code data-language="luwu" data-plain class="chimera-code">"-f"</code> or <code data-language="luwu" data-plain class="chimera-code">true</code>, rather than any <code data-language="luwu" data-plain class="chimera-code">string</code>. Literals exist for strings and booleans.</p><p>On a parameter, callers have to pass a literal, and the function body sees <code data-language="luwu" data-plain class="chimera-code">string</code>; on a local, the local has the literal's own type. Write <code data-language="luwu" data-plain class="chimera-code">literal&lt;S&gt;</code> with a generic <code data-language="luwu" data-plain class="chimera-code">S</code> to infer <code data-language="luwu" data-plain class="chimera-code">S</code> as the literal (<code data-language="luwu" data-plain class="chimera-code">sym("foo")</code> gives <code data-language="luwu" data-plain class="chimera-code">Symbol&lt;"foo"&gt;</code>).</p><p>Passed to a type function (<code data-language="luwu" data-plain class="chimera-code">Validate&lt;literal&lt;string&gt;&gt;</code>), the type function checks each argument as written and can reject it with <code data-language="luwu" data-plain class="chimera-code">types.error(message)</code>. A type alias can name either form for use in parameters.</p></template></code></pre>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code">literal&lt;<span class="hljs-title class_">T</span>&gt;</code> and the other type functions explain themselves too.</p>
-    <h2 id="more-or-less-detail">More or less detail</h2>
+    <h2 id="more-or-less-detail">More or less detail<a class="chimera-heading-link" href="#more-or-less-detail" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p>In your editor, a hover can show more or less. These commands change it for the rest of the session:</p>
     <ul>
       <li><strong>More</strong> and <strong>Less</strong> (<code data-language="luwu" data-highlighted="yes" class="chimera-code">alt+=</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">alt+-</code>): expand the types a hover mentions, or keep it short.</li>

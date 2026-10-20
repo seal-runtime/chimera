@@ -283,6 +283,28 @@
     h2 {
       font-size: 1.75rem;
     }
+    :is(h2, h3, h4, h5, h6)[id] {
+      scroll-margin-top: 5rem;
+    }
+    .chimera-heading-link {
+      color: var(--chimera-muted);
+      display: inline-flex;
+      margin-left: 0.4em;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: middle;
+    }
+    :is(h2, h3, h4, h5, h6):hover > .chimera-heading-link, .chimera-heading-link:focus-visible {
+      opacity: 1;
+    }
+    .chimera-heading-link:hover, .chimera-heading-link[data-copied] {
+      color: var(--chimera-primary);
+    }
+    @media (hover: none) {
+      .chimera-heading-link {
+        opacity: 0.55;
+      }
+    }
     p {
       margin: 0 0 1em;
     }
@@ -1172,6 +1194,20 @@
   if (os_dark && os_dark.addEventListener) {
     os_dark.addEventListener("change", function () { sync(current()); });
   }
+  // file:// pages aren't a secure context, so they fall back to a hidden textarea.
+  function write_clipboard(text, done) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    done();
+  }
   window.chimera = {
     setTheme: function (name) {
       chosen = name;
@@ -1191,22 +1227,17 @@
     copy: function (button) {
       var code = button.parentElement.querySelector("code");
       if (!code) return;
-      var text = code.textContent;
-      function copied() {
+      write_clipboard(code.textContent, function () {
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = "Copy"; }, 1500);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(copied);
-        return;
-      }
-      var area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      copied();
+      });
+    },
+    // A heading's section link still jumps to the section, and its full address lands on the clipboard.
+    copyLink: function (link) {
+      write_clipboard(link.href, function () {
+        link.setAttribute("data-copied", "");
+        setTimeout(function () { link.removeAttribute("data-copied"); }, 1500);
+      });
     },
     menu: function (button) {
       var menu = button.parentElement;
@@ -1362,7 +1393,7 @@
     <h1 id="layout">Layout</h1>
     <p>Most of a page's layout comes down to a row of buttons, a column of links or a grid of cards. chimera has a class for each, and they all take their spacing from the theme.</p>
     <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#rows">Rows</a></li><li><a href="#grids">Grids</a></li><li><a href="#columns">Columns</a></li><li><a href="#arranging-any-container">Arranging any container</a></li></ul></section></div></details></nav>
-    <h2 id="rows">Rows</h2>
+    <h2 id="rows">Rows<a class="chimera-heading-link" href="#rows" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Row</span></code> lays its children out left to right and wraps them when they run out of room:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1370,7 +1401,7 @@
       </div>
       <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 73"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> actions = <span class="hljs-title class_">Row</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> <span class="hljs-title class_">Button</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Save"</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title class_">Button</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Discard"</span><span class="chimera-bracket-3">)</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>:<span class="hljs-title function_ invoke__">justify</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"end"</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
-    <h2 id="grids">Grids</h2>
+    <h2 id="grids">Grids<a class="chimera-heading-link" href="#grids" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Grid</span></code> fits as many columns as it can, each at least as wide as you ask for. Make the window narrower and the cards below will stack:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1395,7 +1426,7 @@
     <span class="hljs-title class_">Card</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Team"</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Unlimited sites and shared themes."</span><span class="chimera-bracket-1">)</span><span class="chimera-bracket-3">)</span>,
 <span class="chimera-bracket-2">}</span>, <span class="hljs-string">"12rem"</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
-    <h2 id="columns">Columns</h2>
+    <h2 id="columns">Columns<a class="chimera-heading-link" href="#columns" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Column</span></code> stacks its children top to bottom:</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
@@ -1407,7 +1438,7 @@
     <span class="hljs-title class_">Small</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Replies within a day."</span><span class="chimera-bracket-3">)</span>,
 <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>:<span class="hljs-title function_ invoke__">gap</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"0.25rem"</span><span class="chimera-bracket-1">)</span></code></pre>
     </figure>
-    <h2 id="arranging-any-container">Arranging any container</h2>
+    <h2 id="arranging-any-container">Arranging any container<a class="chimera-heading-link" href="#arranging-any-container" aria-label="Link to this section" onclick="chimera.copyLink(this)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></a></h2>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Row</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Column</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Grid</span></code> are only <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Div</span></code>s that start out arranged. Every built-in container has the same methods: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">row</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">column</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">grid</span><span class="chimera-bracket-1">(</span>min_width<span class="chimera-bracket-1">)</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">gap</span><span class="chimera-bracket-1">(</span>size<span class="chimera-bracket-1">)</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">wrap</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">align</span><span class="chimera-bracket-1">(</span>alignment<span class="chimera-bracket-1">)</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title function_ invoke__">justify</span><span class="chimera-bracket-1">(</span>distribution<span class="chimera-bracket-1">)</span></code>.</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
