@@ -1,0 +1,8 @@
+# GitHub highlights and counts .luwu files as Luau because Linguist has no Luwu entry yet.
+*.luwu linguist-language=Luau
+
+# The built example site is checked in for readers without a Luwu-enabled seal.
+examples/out/** linguist-generated
+
+# seal's typedefs are vendored.
+.seal/** linguist-vendored
