@@ -174,9 +174,11 @@ return Page("Expressive Control Flow", {
     }),
     Paragraph({ Code("give"), " ends the block and produces its value. There's no ", Code("end"), "." }),
     Paragraph({
-        "The point is to nest the code that computes a value inside the expression that produces it. ",
-        "Temporary values and the logic around them belong in the ", Code("do"), " expression for the value ",
-        "you actually want. This is considered good practice in Luwu.",
+        "In Luwu we prefer ", Code("do"), "/", Code("give"), " blocks over temporary and intermediate ",
+        "variables. Scoping the computation inside the expression that produces a value makes obvious what the ",
+        "code is actually building up. A ", Code("do"), " expression also fits several statements where only an ",
+        "expression goes, like ", Code("do print(x) give x"), " to debug a value in place. Unlike a function call ",
+        "that abstracts the same computation, it's always inlined and costs nothing.",
     }),
     Paragraph("In Luau, the temporaries sit next to the result, and stay in scope for the rest of the function:"),
     luwu([====[

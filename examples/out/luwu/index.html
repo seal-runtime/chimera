@@ -1507,7 +1507,13 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-keyword">do</span>
     <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`</span><span class="hljs-subst">{fruit}</span><span class="hljs-string"> costs </span><span class="hljs-subst">{price}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">end</span></code></pre>
-    <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code> expression runs a block and gives back a value without leaking its temporary locals:</p>
+    <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code> expression runs statements anywhere an expression goes and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">give</span></code>s back a value. In Luwu we prefer <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span></code>/<code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">give</span></code> blocks over temporary and intermediate variables. They're useful in a lot of places:</p>
+    <ul>
+      <li>Making obvious what the code is actually building up by scoping the computation inside the expression that produces the value.</li>
+      <li>Putting several statements where only an expression fits, like a table field or an argument.</li>
+      <li>Debugging a value in place: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">do</span> <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>x<span class="chimera-bracket-1">)</span> <span class="hljs-keyword">give</span> x</code>.</li>
+      <li>Costing nothing: unlike a function call that abstracts the same computation, they're always inlined.</li>
+    </ul>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 34"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> scores = <span class="chimera-bracket-1">{</span> <span class="hljs-number">72</span>, <span class="hljs-number">95</span>, <span class="hljs-number">88</span> <span class="chimera-bracket-1">}</span>
 <span class="hljs-keyword">const</span> best = <span class="hljs-keyword">do</span>
     <span class="hljs-keyword">local</span> top = <span class="hljs-number">0</span>

@@ -306,7 +306,17 @@ return Page("Luwu", {
         end
     ]====]),
     Paragraph({
-        "A ", Code("do"), " expression runs a block and gives back a value without leaking its temporary locals:",
+        "A ", Code("do"), " expression runs statements anywhere an expression goes and ", Code("give"),
+        "s back a value. In Luwu we prefer ", Code("do"), "/", Code("give"),
+        " blocks over temporary and intermediate variables. They're useful in a lot of places:",
+    }),
+    UnorderedList({
+        ListItem("Making obvious what the code is actually building up by scoping the computation inside the "
+            .. "expression that produces the value."),
+        ListItem("Putting several statements where only an expression fits, like a table field or an argument."),
+        ListItem({ "Debugging a value in place: ", Code("do print(x) give x"), "." }),
+        ListItem("Costing nothing: unlike a function call that abstracts the same computation, they're always "
+            .. "inlined."),
     }),
     luwu([====[
         const scores = { 72, 95, 88 }
