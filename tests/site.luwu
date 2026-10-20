@@ -9,7 +9,7 @@ const .{
     Parser,
     core.{ Writer },
     elements.{ Header, Paragraph, Heading, Link },
-    components.{ Menu, SiteFooter },
+    components.{ Menu, SiteFooter, Card },
     themes.{ catppuccin },
     site.{ Site, Page, PageLink, TableOfContents },
 } = chimera
@@ -109,6 +109,17 @@ const tests: { [string]: () -> () } = {
         contains(html, `<h2 id="install">Install</h2>`)
         contains(html, `<h3 id="with-seal">With seal</h3>`)
         excludes(html, `href="#guide"`)
+    end,
+
+    ["a table of contents skips headings inside cards"] = function()
+        const page = Page("Plans", { h1("Plans"), TableOfContents(), h2("Pricing"), Card("Free", "No cost.") })
+        const html = Site("chimera")
+            :add_page(page)
+            :document(page)
+            :to_html()
+        contains(html, `<li><a href="#pricing">Pricing</a></li>`)
+        excludes(html, `href="#free"`)
+        contains(html, `<h3>Free</h3>`)
     end,
 
     ["a table of contents lists the pages under its page"] = function()

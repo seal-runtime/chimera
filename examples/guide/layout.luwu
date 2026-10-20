@@ -1,0 +1,94 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, Button, Footer, Link, Small },
+    components.{ Code, CodeBlock, Card, Row, Column, Grid },
+    site.{ Page, PageLink, TableOfContents },
+} = require("@chimera")
+const .{ examples_in } = require("./example")
+const .{ h1, h2 } = Heading
+
+const example = examples_in("examples/guide/layout.luwu")
+
+--@ row
+const actions = Row({ Button("Save"), Button("Discard") }):justify("end")
+--@ end
+
+--@ grid
+const plans = Grid({
+    Card("Free", Paragraph("One site, community support.")),
+    Card("Pro", Paragraph("Ten sites and a custom domain.")),
+    Card("Team", Paragraph("Unlimited sites and shared themes.")),
+}, "12rem")
+--@ end
+
+--@ column
+const contact = Column({
+    Link("ada@example.com", "mailto:ada@example.com"),
+    Link("Discord", "https://discord.gg/example"),
+    Small("Replies within a day."),
+}):gap("0.25rem")
+--@ end
+
+--@ arrange
+const bar = Footer({ Small("© 2026 Ada"), Row({ Link("Privacy", "#"), Link("Terms", "#") }) })
+    :row()
+    :justify("space-between")
+    :align("center")
+--@ end
+
+return Page("Layout", {
+    h1("Layout"),
+    Paragraph({
+        "Most of a page's layout comes down to a row of buttons, a column of links or a grid of cards. ",
+        "chimera has a class for each, and they all take their spacing from the theme. ",
+        "Every layout on a site lines up.",
+    }),
+    TableOfContents(),
+
+    h2("Rows"),
+    Paragraph({ Code("Row"), " lays its children out left to right and wraps them when they run out of room:" }),
+    example("row", actions),
+
+    h2("Grids"),
+    Paragraph({
+        Code("Grid"), " fits as many columns as it can, each at least as wide as you ask for. ",
+        "Make the window narrower and the cards below will stack:",
+    }),
+    example("grid", plans),
+
+    h2("Columns"),
+    Paragraph({ Code("Column"), " stacks its children top to bottom:" }),
+    example("column", contact),
+
+    h2("Arranging any container"),
+    Paragraph({
+        Code("Row"), ", ", Code("Column"), " and ", Code("Grid"), " are only ", Code("Div"),
+        "s that start out arranged. Every built-in container has the same methods: ", Code("row()"), ", ",
+        Code("column()"), ", ", Code("grid(min_width)"), ", ", Code("gap(size)"), ", ", Code("wrap()"), ", ",
+        Code("align(alignment)"), " and ", Code("justify(distribution)"), ".",
+    }),
+    example("arrange", bar),
+    Paragraph({
+        "Alignments and sizes are typed like every other style: the analyzer reports ",
+        Code("justify(\"space-betwen\")"), " as a typo and ", Code("gap(\"1rx\")"), " as an unknown unit.",
+    }),
+    Paragraph({
+        "Your own containers get the same methods when they implement ", Code("Layout"), " (see ",
+        PageLink("guide/custom-components.html", "Custom components"), "):",
+    }),
+    CodeBlock([====[class Toolbar implements Component, Layout
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, content: Content?)
+        self
+            :add(content)
+            :row()
+            :gap("0.5rem")
+    end
+end]====]),
+})

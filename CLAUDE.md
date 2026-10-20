@@ -132,7 +132,10 @@ src/document/          Document: one page, its head, themes and generated CSS/JS
 src/site/              Site, Page, PageLink, TableOfContents, Breadcrumbs
 src/parse/parser.luwu  HTML back into chimera objects
 tests/                 run.luwu runs every suite; each suite returns { [name]: () -> () }
-examples/site.luwu     the demo site, built with Site
+examples/site.luwu     the docs site: home page and Site config
+examples/guide/        chimera's guide, one module per page; example.luwu cuts `--@ name` snippets from
+                       the page's own source so each example shows the code that built it
+examples/luwu/         the Luwu language docs
 ```
 
 Each directory has an `init.luwu` hub re-exporting its modules (`export .{ ... }

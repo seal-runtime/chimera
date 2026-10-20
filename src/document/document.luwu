@@ -299,6 +299,9 @@ const function lists_headings(node: Markup): boolean
 end
 
 const function collect_headings(node: Markup, into: { Heading })
+    if class.implements(node, Element) when not node:contributes_headings() then
+        return
+    end
     if class.isinstance(node, Heading) then
         table.insert(into, node)
     end

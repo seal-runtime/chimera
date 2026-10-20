@@ -1,0 +1,134 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, Link },
+    components.{ Code, CodeBlock, SiteFooter },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const .{ examples_in } = require("./example")
+const .{ h1, h2 } = Heading
+
+const example = examples_in("examples/guide/sites.luwu")
+
+--@ footer
+const footer = SiteFooter()
+    :link_column("Docs", { Link("Install", "#"), Link("Themes", "#") })
+    :link_column("Community", { Link("Discord", "#"), Link("GitHub", "#") })
+    :copyright("Ada Lovelace", "Built with chimera.")
+--@ end
+
+return Page("Sites and pages", {
+    h1("Sites and pages"),
+    Paragraph({
+        "A documentation site with 30 pages repeats its header, footer and theme list 30 times, and sooner or ",
+        "later one copy falls out of date. In chimera you set those parts once on a ", Code("Site"), " and give ",
+        "each ", Code("Page"), " only its own content. Nothing shared can drift.",
+    }),
+    TableOfContents(),
+
+    h2("Pages"),
+    Paragraph({
+        "A ", Code("Page"), " takes a title, its content and an optional file name. Without one, the file is ",
+        "named after the title in lowercase with dashes: ", Code("Page(\"Getting started\")"), " writes ",
+        Code("getting-started.html", "plaintext"), ".",
+    }),
+    CodeBlock([====[const home = Page("Home", { h1("Welcome"), Paragraph("Start here.") }, "index.html")
+const faq = Page("FAQ", h1("FAQ"))
+faq:add(h2("Is it free?"), Paragraph("Yes."))]====]),
+    Paragraph({ Code("add"), " appends content later, just like it does on any container." }),
+
+    h2("Nested pages"),
+    Paragraph({
+        "Pages can hold pages of their own, and those go in a folder named after their parent. ",
+        "A parent called ", Code("index.html", "plaintext"), " shares its folder with its children instead:",
+    }),
+    CodeBlock([====[const docs = Page("Docs", h1("Docs"), "docs/index.html")
+    :add_page(
+        Page("Install"), -- docs/install.html
+        Page("Themes")   -- docs/themes.html
+    )
+const guide = Page("Guide")  -- guide.html
+    :add_page(Page("Setup")) -- guide/setup.html]====]),
+    Paragraph({
+        "This page is ", Code("guide/sites-and-pages.html", "plaintext"), ", a child of the Guide. ",
+        "Nested pages get breadcrumbs above their content like the ones at the top of this page, and ",
+        Code("site:breadcrumbs(false)"), " turns them off.",
+    }),
+
+    h2("Links between pages"),
+    Paragraph({
+        Code("PageLink"), " points at a ", Code("Page"), " object rather than a path. When the page renders, ",
+        "the link works out the relative path from its own folder. Moving a page never breaks the links to it. ",
+        "The text defaults to the page's title:",
+    }),
+    CodeBlock([====[PageLink(faq)                  -- "FAQ"
+PageLink(docs, "Read the docs")
+PageLink("docs/install.html")  -- a path from the site's root]====]),
+    Paragraph({
+        "Because every link is relative, the built site also works from disk over ",
+        Code("file://", "plaintext"), ". You don't need a server to check it.",
+    }),
+
+    h2("Tables of contents"),
+    Paragraph({
+        Code("TableOfContents()"), " lists its page's headings and the pages under it. It's built when the ",
+        "page renders, from whatever the page holds at that moment, and never goes stale. ",
+        "The box at the top of this page is one; on wide screens it moves into a column beside the text.",
+    }),
+    CodeBlock([====[TableOfContents()                    -- this page's h2 and h3 headings, and its subpages
+TableOfContents("page", 2)           -- h2 headings only
+TableOfContents("site", 3, "Pages")  -- every page of the site, for a sidebar]====]),
+
+    h2("The site"),
+    Paragraph({
+        "A ", Code("Site"), " holds the top-level pages and everything they share. ", Code("build"),
+        " writes them all, creating folders as it goes, and returns the paths it wrote:",
+    }),
+    CodeBlock([====[const site = Site("My docs")
+    :describe("Guides and reference for my library")
+    :default_dark_theme(catppuccin.Mocha)
+    :default_light_theme(catppuccin.Latte)
+    :add_page(home, docs, faq)
+
+for _, path in site:build("out") do
+    print(`wrote {path}`)
+end]====]):copyable(),
+    Paragraph({
+        "Two pages with the same path are an error rather than a silent overwrite. ", Code("describe"),
+        " sets the summary search engines show, and a page can override it with its own ", Code("describe"), ".",
+    }),
+
+    h2("Header, footer and sidebar"),
+    Paragraph({
+        "Unless you say otherwise, every page gets a header with a menu of the top-level pages and a theme ",
+        "switcher, plus a footer with the site's copyright. Pass your own to replace either one, or ", Code("none"),
+        " to leave it out:",
+    }),
+    CodeBlock([====[site
+    :header(Header { Menu { PageLink(home, "My docs"), PageLink(docs), ThemeSwitcher() } })
+    :footer(none)
+    :sidebar(TableOfContents("site", 2, "Pages"))]====]),
+    Paragraph({
+        Code("SiteFooter"), " builds a footer like this site's, with link columns, a copyright line and ",
+        "legal links:",
+    }),
+    example("footer", footer),
+
+    h2("Per-page changes"),
+    Paragraph({
+        "For anything the site doesn't set itself, ", Code("customize"), " runs a function on each page's ",
+        Code("Document"), " just before it's written:",
+    }),
+    CodeBlock([====[site:customize(function(document, page)
+    document:link_stylesheet("https://fonts.googleapis.com/css2?family=Inter")
+    if page.title == "Home" then
+        document:describe("My library: fast, typed and small")
+    end
+end)]====]),
+    Paragraph({
+        "chimera only writes pages. Copy images and other files into the output folder yourself with ",
+        Code("fs.copy"), ".",
+    }),
+})

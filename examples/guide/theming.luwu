@@ -1,0 +1,97 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code, CodeBlock, ThemeSwitcher, Row },
+    site.{ Page, PageLink, TableOfContents },
+} = require("@chimera")
+const .{ examples_in } = require("./example")
+const .{ h1, h2 } = Heading
+
+const example = examples_in("examples/guide/theming.luwu")
+
+--@ switcher
+const picker = Row({ Paragraph("Try a theme:"), ThemeSwitcher() }):align("center")
+--@ end
+
+return Page("Theming", {
+    h1("Theming"),
+    Paragraph({
+        "A reader whose OS is in dark mode should get a dark page, and one who picks Catppuccin Latte should ",
+        "keep getting Latte on every page after that. chimera handles both with themes. A theme is a class that ",
+        "sets the colors, fonts and spacing every element reads.",
+    }),
+    TableOfContents(),
+
+    h2("Defaults"),
+    Paragraph({
+        "Each page has one default theme for light mode and one for dark mode. ",
+        "Until the reader picks a theme of their own, the page follows their OS setting:",
+    }),
+    CodeBlock([====[site
+    :default_dark_theme(catppuccin.Mocha)
+    :default_light_theme(catppuccin.Latte)]====]),
+    Paragraph({
+        "Without defaults, pages use ", Code("Light"), " and ", Code("Dark"), ". A lone ", Code("Document"),
+        " has the same methods.",
+    }),
+
+    h2("Offering more themes"),
+    Paragraph({
+        Code("offer_theme"), " adds a theme readers can pick, and a ", Code("ThemeSwitcher"),
+        " lists it next to the defaults. This site offers six:",
+    }),
+    CodeBlock([====[site
+    :offer_theme(catppuccin.Macchiato)
+    :offer_theme(catppuccin.Frappe)
+    :offer_theme(Light)
+    :offer_theme(Dark)]====]),
+    example("switcher", picker),
+    Paragraph({
+        "The browser saves the reader's pick, and links between pages carry it too. ",
+        "That way it sticks even on a site opened straight from disk.",
+    }),
+
+    h2("Built-in themes"),
+    UnorderedList({
+        ListItem({ Code("Light"), " and ", Code("Dark"), ": plain, neutral themes and the fallback defaults." }),
+        ListItem({
+            Code("catppuccin.Latte"), ", ", Code("Frappe"), ", ", Code("Macchiato"), " and ", Code("Mocha"),
+            ": the four Catppuccin flavors. Code is colored the way Catppuccin's own editor themes color it.",
+        }),
+    }),
+
+    h2("Your own theme"),
+    Paragraph({
+        "A theme is a class that implements ", Code("Theme"), " with a ", Code("name"), ", a ", Code("mode"),
+        " and a ", Code("palette"), ". Any token you leave out of the ", Code("Palette"),
+        " keeps its Light value:",
+    }),
+    CodeBlock([====[class Sepia() implements Theme
+    const name = "sepia"
+    const mode = "Light"
+
+    function palette(self): Palette
+        return Palette {
+            background = Color.hex("#f4ecd8"),
+            text = Color.hex("#5b4636"),
+            primary = Color.hex("#8b5e3c"),
+            radius = "2px",
+        }
+    end
+end
+
+Theme.register(Sepia)
+site:offer_theme(Sepia)]====]):copyable(),
+    Paragraph({
+        Code("Theme.register"), " lets the parser find the theme by name, and ", Code("label()"),
+        " sets the name the switcher shows. To restyle the built-in elements themselves, override ",
+        Code("base_styles()"), ".",
+    }),
+    Paragraph({
+        "Every built-in style reads its colors from tokens. Write yours the same way and they'll follow ",
+        "your theme as well (see ", PageLink("guide/styling.html", "Styling"), ").",
+    }),
+})

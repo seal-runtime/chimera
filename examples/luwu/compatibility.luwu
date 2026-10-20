@@ -1,0 +1,143 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem, Link, Strong, Table },
+    components.{ Code, CodeBlock, SourceSpan, Squiggle },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const .{ h1, h2 } = Heading
+
+const UPSTREAM_RFCS = "https://github.com/luwu-community/luwu/blob/master/rfcs/UPSTREAM.md"
+
+--- The parse error Luwu reports for a table comprehension in a `.luau` file, as luwu-analyze prints it.
+const COMPREHENSION_ERROR = table.concat({
+    "SyntaxError: Table comprehensions are a Luwu-only feature.\n",
+    "\n",
+    "Help (Luwu-only feature):\n",
+    "  • Consider migrating to a .luwu module if this environment supports Luwu\n",
+    "  • Alternatively, you may transpile Luwu code to Luau code via the 'ast' library; ",
+    "see Luwu documentation on existing transpilers and usage",
+})
+
+const extension_header = Table.header()
+    :column("Extension")
+    :column("Language")
+const extension = Table.row_for(extension_header)
+
+return Page("Compatibility", {
+    h1("Compatibility"),
+    Paragraph({
+        "A Luau library written for Luau 0.700 runs in Luwu without changes. The reverse doesn't hold: once a file ",
+        "uses classes or table comprehensions it's Luwu code, and upstream Luau can't run it. Luwu keeps the two ",
+        "apart by file extension, and it refuses Luwu syntax in a ", Code(".luau", "plaintext"),
+        " file so that file stays valid Luau.",
+    }),
+    TableOfContents(),
+
+    h2("Luau code in Luwu"),
+    Paragraph({
+        "Luwu accepts valid Luau code up to and including Luau 0.730, and with it every RFC upstream accepted by ",
+        "2026-07-17. RFCs accepted upstream after 0.730 aren't covered by that guarantee. ",
+        Link("UPSTREAM.md", UPSTREAM_RFCS):new_tab(),
+        " in the Luwu repository lists which upstream RFCs Luwu implements, which it replaced and which it skipped.",
+    }),
+
+    h2("Where Luau and Luwu diverge"),
+    Paragraph({
+        "Because our community disagrees with upstream Luau's 2026-present decisions and internally made RFCs, ",
+        "Luau and Luwu have started to diverge, especially in regards to classes and inheritance, integers, ",
+        "and destructuring:",
+    }),
+    UnorderedList({
+        ListItem({
+            Strong("Classes and inheritance."), " Upstream's ",
+            Link("classes RFC", "https://github.com/luau-lang/rfcs/pull/242"):new_tab(),
+            " adds implementation inheritance through ", Code("open class"), " and ", Code("extends"),
+            ". Its private members have to start with ", Code("_"), " and are read through new ", Code("._"),
+            " and ", Code(":_"), " operators that only exist inside methods. Luwu's classes have no inheritance ",
+            "and share code through traits instead. Private members keep ordinary names, and every method call ",
+            "checks that ", Code("self"), " really is an object of its class.",
+        }),
+        ListItem({
+            Strong("Integers."), " Upstream's ",
+            Link(
+                "64-bit integer type",
+                "https://github.com/luau-lang/rfcs/blob/master/docs/type-long-integer.md"
+            ):new_tab(),
+            " is a single signed ", Code("integer"), " with no arithmetic operators: adding two of them takes ",
+            Code("integer.add(a, b)"), ". It was never enabled on Roblox and isn't covered by Luau's compatibility ",
+            "promise. Luwu is building its own, with separate signed and unsigned types, arithmetic operators ",
+            "and bigints.",
+        }),
+        ListItem({
+            Strong("Destructuring."), " Upstream accepted key destructuring in 2024 and withdrew it a month later. ",
+            "Its ", Link("current proposal", "https://github.com/luau-lang/rfcs/pull/260"):new_tab(),
+            " mirrors table constructors, so every name is written twice: ",
+            Code("local {name = name, kind = kind} = entry", "luau"), ". In Luwu you write each name once with ",
+            Code("const .{ name, kind } = entry"), ", and it works on tables, objects and userdata alike.",
+        }),
+    }),
+
+    h2("File extensions"),
+    Paragraph({
+        "Every module has a language, and Luwu takes it from the file's extension. The command-line tools and the ",
+        "language server agree on it:",
+    }),
+    Table(extension_header):rows({
+        extension(Code(".luwu", "plaintext"), "Luwu"),
+        extension(Code(".luau", "plaintext"), "Luau"),
+        extension(Code(".lua", "plaintext"), "Lua"),
+    }),
+    Paragraph({
+        "A project can mix them freely. A ", Code(".luwu", "plaintext"), " module can require a ",
+        Code(".luau", "plaintext"), " one, and the other way around.",
+    }),
+
+    h2("Luwu syntax in Luau files"),
+    Paragraph({
+        "Luwu could accept its own syntax everywhere, but then a ", Code(".luau", "plaintext"),
+        " file could quietly stop being Luau. It would still run in Luwu and break the day someone opens it in ",
+        "upstream tooling, or in Roblox. So Luwu refuses: in a ", Code(".luau", "plaintext"),
+        " module, Luwu-only syntax is a parse error that says what to do instead.",
+    }),
+    CodeBlock([====[local fruit = { "apple", "kiwi", "pear" }
+
+local long_names = { for _, name in fruit when #name > 4 give name }
+table.drop(fruit, "kiwi")
+print(#long_names, #fruit)]====], "luau")
+        :line_numbers()
+        :squiggle(
+            Squiggle.error(SourceSpan.on_line(3, 22, 24), COMPREHENSION_ERROR),
+            Squiggle.warning(
+                SourceSpan.on_line(4, 1, 10),
+                "LuwuOnlyApi: 'table.drop' only exists in Luwu, but this is a Luau file; rename it to '.luwu' if "
+                    .. "it's Luwu code"
+            )
+        ),
+    Paragraph({
+        "Both messages come straight from ", Code("luwu-analyze", "bash"), " with the file saved as ",
+        Code("inventory.luau", "plaintext"), ". Rename it to ", Code("inventory.luwu", "plaintext"),
+        " and the same code checks cleanly.",
+    }),
+    Paragraph({
+        "Library functions aren't syntax, so the parser can't reject them. Instead the ", Code("LuwuOnlyApi"),
+        " lint warns about Luwu-only functions like ", Code("table.drop"), " and ", Code("class.of"),
+        " in Luau and Lua files. The language server does the same for Luwu-only directives such as ",
+        Code("--!trust"), ".",
+    }),
+
+    h2("luwuOnly"),
+    Paragraph({
+        "Behind those errors, the parser marks every syntax node that only Luwu accepts with a ", Code("luwuOnly"),
+        " flag. It goes on the smallest node whose own syntax is Luwu's, so a default argument marks its function ",
+        "but leaves the function's body alone. Children of a marked node aren't marked unless their own syntax ",
+        "is Luwu-only as well.",
+    }),
+    Paragraph({
+        "Tools can read the flag through Luwu's AST reflection (", Code("node:luwuOnly()"),
+        "). That's how a transpiler from Luwu to Luau finds exactly the nodes it has to rewrite and leaves ",
+        "everything else as it was.",
+    }),
+})

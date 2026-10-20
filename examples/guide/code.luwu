@@ -1,0 +1,144 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph },
+    components.{ Code, CodeBlock, SourceSpan, Squiggle, Hover, Card },
+    site.{ Page, PageLink, TableOfContents },
+} = require("@chimera")
+const .{ examples_in } = require("./example")
+const .{ h1, h2 } = Heading
+
+const example = examples_in("examples/guide/code.luwu")
+
+--@ block
+const greet = CodeBlock([==[const function greet(name: string, greeting = "Hello")
+    print(`{greeting}, {name}!`)
+end]==])
+    :line_numbers()
+    :copyable()
+--@ end
+
+--@ inline
+const tip = Paragraph({ "Call ", Code("site:build(\"out\")"), " to write every page." })
+--@ end
+
+--@ squiggles
+const typo = CodeBlock("local name = \"Ada\"\nprint(nmae)")
+    :line_numbers()
+    :squiggle(
+        Squiggle.error(SourceSpan.on_line(2, 7, 10), "Unknown global 'nmae'"),
+        Squiggle.info(SourceSpan.on_line(1, 7, 10), "'name' is only used once")
+    )
+--@ end
+
+--@ hovers
+const hovered = CodeBlock("const cat = Cat(\"Nyla\")\ncat:feed(2)")
+    :hover(
+        Hover(SourceSpan.on_line(1, 7, 9), CodeBlock("const cat: Cat")),
+        Hover(SourceSpan.on_line(2, 5, 8), {
+            CodeBlock("function Cat:feed(amount: number): Cat"),
+            Paragraph("Feeds the cat, so it's less hungry."),
+        })
+    )
+--@ end
+
+--@ custom hover
+const nyla = Code("nyla"):hover(Hover(
+    SourceSpan.on_line(1, 1, 4),
+    Card("Nyla", Paragraph("A small, opinionated cat."))
+))
+const fancy = Paragraph({ "Hover ", nyla, " to meet her." })
+--@ end
+
+return Page("Code", {
+    h1("Code"),
+    Paragraph({
+        "Documentation for a library is mostly code. chimera highlights Luwu, Luau and Lua while it builds ",
+        "the page. Readers download no highlighting script, and the colors follow whichever theme they picked. ",
+        "Squiggles and hovers then explain the code the way an editor would.",
+    }),
+    TableOfContents(),
+
+    h2("Code blocks"),
+    example("block", greet),
+    Paragraph({
+        Code("copyable()"), " adds the copy button in the corner, and ", Code("line_numbers()"),
+        " adds the gutter. Selecting the code never picks up the numbers.",
+    }),
+
+    h2("Inline code"),
+    example("inline", tip),
+    Paragraph({
+        "Every ", Code("<code>", "html"), " tag is a ", Code("Code"), ", highlighted as Luwu unless you name ",
+        "another language.",
+    }),
+
+    h2("Languages"),
+    Paragraph({
+        "The language is the second argument: ", Code("CodeBlock(\"cargo build\", \"bash\")"), ". ",
+        "Other languages are highlighted in the browser by highlight.js, and a page only loads it when it ",
+        "has code that needs it. ", Code("\"plaintext\""), " isn't highlighted at all, and ",
+        Code("plain()"), " turns the colors off for a single block.",
+    }),
+
+    h2("Squiggles"),
+    Paragraph({
+        "A ", Code("Squiggle"), " underlines a span of code the way an editor marks an error, ",
+        "and its message shows when the reader points at it:",
+    }),
+    example("squiggles", typo),
+    Paragraph({
+        Code("Squiggle.error"), ", ", Code("Squiggle.warning"), " and ", Code("Squiggle.info"),
+        " use the theme's editor colors. For any other color, use ", Code("Squiggle(spans, color, message)"), ".",
+    }),
+    Paragraph({
+        "Each span is a ", Code("SourceSpan"), ": a start and an end, both a line and a column. ",
+        Code("SourceSpan.on_line(2, 7, 10)"), " covers columns 7 to 10 of line 2, and ",
+        Code("SourceSpan.from_string(\"2.7-2.10\")"), " reads the spans that ",
+        Code("luwu-analyze --formatter=gnu", "bash"), " prints.",
+    }),
+
+    h2("Hovers"),
+    Paragraph({
+        "A ", Code("Hover"), " shows content when the reader points at part of the code. A dotted underline ",
+        "tells them what to try. On a phone, tap it:",
+    }),
+    example("hovers", hovered),
+    Paragraph({
+        "A hover can hold anything, from plain text to code or your own components, and one over a squiggle ",
+        "shows both. The ", PageLink("luwu/better-hovers.html", "Better Hovers"), " page uses them to show real ",
+        "hovers from Luwu's language server.",
+    }),
+    example("custom hover", fancy),
+
+    h2("Your own code elements"),
+    Paragraph({
+        "To show code your own way, with a file name above it for example, implement ", Code("SourceCode"),
+        ". Your class gets highlighting, squiggles and hovers for free. Call ", Code("render_source(out)"),
+        " where the code goes:",
+    }),
+    CodeBlock([====[class FileSnippet implements SourceCode
+    function tag(): string
+        return "figure"
+    end
+
+    function __init(self, file: string?, source: string?, language: Language?)
+        self.source = source or ""
+        self
+            :attr("data-file", file)
+            :attr("data-language", language or "luwu")
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write(`<figcaption>{Text.escape(tostring(self:get_attr("data-file")))}</figcaption>`)
+        out:write(`<pre><code class="language-{self:language()}">`)
+        self:render_source(out)
+        out:write("</code></pre></figure>")
+    end
+end
+
+Component.register(FileSnippet)]====]),
+})

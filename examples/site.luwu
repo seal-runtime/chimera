@@ -3,86 +3,65 @@
 --!lint ConstLocal
 
 const fs = require("@std/fs")
-const str = require("@std/str")
 const chimera = require("@chimera")
 const .{
     Component,
     Container,
-    elements.{ Header, Section, Span, Heading, Paragraph, Link, Table, Details },
+    elements.{ Header, Section, Heading, Paragraph, Link, Div },
     style.{ Rule, token },
     themes.{ Light, Dark, catppuccin },
-    components.{ Card, Menu, Dropdown, ThemeSwitcher, CodeBlock, Code, Row, Column },
-    site.{ Site, Page, PageLink, TableOfContents },
+    components.{ Menu, Dropdown, ThemeSwitcher, CodeBlock, Code, Tabs, Tab, Toggle, Grid, Row, SourceSpan, Squiggle },
+    site.{ Site, Page, PageLink },
 } = chimera
 type .{ Content } = chimera
-const .{ h1, h2 } = Heading
+const .{ examples_in } = require("./guide/example")
+const .{ h1, h2, h3 } = Heading
 
---- The landing page's banner: a small label, a headline ending in a gradient, a tagline and two links.
-class Hero implements Component, Container
+--- The top of the home page: what chimera is, in one heading and one paragraph, with links to start.
+class Intro implements Component, Container
     function tag(): string
         return "section"
     end
 
-    function __init(self, headline: string?, highlight: string?, tagline: Content?, guide: Page?)
+    function __init(self, title: string?, summary: Content?, actions: Content?)
         self:add(
-            Span("Luwu · static sites"):add_style_class("eyebrow"),
-            h1({ headline or "", " ", Span(highlight):add_style_class("gradient") }),
-            Paragraph(tagline):add_style_class("tagline"),
-            Row({
-                PageLink(guide, "Read the guide"):add_style_class("action primary"),
-                Link("View source", "https://github.com/seal-runtime/chimera")
-                    :new_tab()
-                    :add_style_class("action"),
-            })
-                :justify("center")
+            h1(title),
+            Paragraph(summary):add_style_class("summary"),
+            Row(actions)
                 :gap("0.75rem")
                 :add_style_class("actions")
         )
     end
 
     function default_styles(self): { Rule }
-        const hero = self:style_selector()
+        const intro = self:style_selector()
         return {
-            Rule(hero, {
-                max_width = "46rem",
-                margin = "0 auto",
-                padding = "5rem 0 3rem",
-                text_align = "center",
+            Rule(intro, {
+                max_width = "44rem",
+                padding = "3.5rem 0 1rem",
             }),
-            Rule(`{hero} .eyebrow`, {
-                color = token("muted"),
-                font_size = "0.8rem",
-                font_weight = "600",
-                letter_spacing = "0.12em",
-                text_transform = "uppercase",
+            Rule(`{intro} h1`, {
+                margin = "0 0 1rem",
+                font_size = "clamp(2.4rem, 6vw, 3.4rem)",
+                letter_spacing = "-0.02em",
             }),
-            Rule(`{hero} h1`, {
-                margin = "0.6rem 0 1.1rem",
-                font_size = "clamp(2.6rem, 7vw, 4.2rem)",
-            }),
-            Rule(`{hero} .gradient`, {
-                background = `linear-gradient(120deg, {token("primary")}, {token("accent")})`,
-                webkit_background_clip = "text",
-                background_clip = "text",
-                color = "transparent",
-            }),
-            Rule(`{hero} .tagline`, {
+            Rule(`{intro} .summary`, {
                 color = token("muted"),
                 font_size = "1.2rem",
             }),
-            Rule(`{hero} .actions`, { margin_top = "2rem" }),
-            Rule(`{hero} .action`, {
-                padding = "0.7em 1.4em",
+            Rule(`{intro} .actions`, { margin_top = "1.5rem" }),
+            Rule(`{intro} .actions a`, {
+                padding = "0.55em 1.1em",
                 color = token("text"),
                 font_weight = "600",
                 border = `1px solid {token("border")}`,
-                border_radius = "999px",
+                border_radius = token("radius"),
             }),
-            Rule(`{hero} .action:hover`, {
+            Rule(`{intro} .actions a:hover`, {
                 text_decoration = "none",
                 border_color = token("primary"),
             }),
-            Rule(`{hero} .action.primary`, {
+            Rule(`{intro} .actions a.primary`, {
                 background = token("primary"),
                 color = token("primary_text"),
                 border_color = token("primary"),
@@ -91,137 +70,93 @@ class Hero implements Component, Container
     end
 end
 
-Component.register(Hero)
+Component.register(Intro)
 
---- A highlighted Luwu sample written indented in this file.
-const function luwu(source: string): CodeBlock
-    return CodeBlock((string.gsub(str.unindent(source, "Spaces", 8), "%s+$", ""))):copyable()
-end
-
-const guide = Page("Guide")
-const sites = Page("Sites and pages")
-const theming = Page("Theming")
-guide:add_page(sites, theming)
+const SOURCE = "https://github.com/seal-runtime/chimera"
+const example = examples_in("examples/site.luwu")
+const guide = require("./guide")
 const luwu_pages = require("./luwu/index")
 const home = Page("Home", nil, "index.html")
 
+--@ release notes
+const install = Tabs({
+    Tab("Linux", CodeBlock("curl -fsSL https://example.com/install.sh | sh", "bash")),
+    Tab("Windows", CodeBlock("winget install example", "shell")),
+})
+const changes = Paragraph("Saves load twice as fast. Old saves still work.")
+
+const notes = Section {
+    h3("Version 2.0"),
+    Paragraph("Released October 2026."),
+    install,
+    Row({ Toggle("What changed?", changes), Link("Full changelog", "#") }):align("center"),
+    changes:hidden(),
+}
+--@ end
+
+--- A guide page with the one line that says what it covers.
+const function topic(page: Page, summary: string): Div
+    return Div({ PageLink(page), Paragraph(summary) }):add_style_class("topic")
+end
+
+const function guide_page(path: string): Page
+    for _, page in guide:all_pages() do
+        if page:path() == path then
+            return page
+        end
+    end
+    return error(`no guide page at {path}`)
+end
+
 home:add(
-    Hero(
-        "Static sites as",
-        "classes.",
-        "Compose typed elements, theme them with tokens, and parse the HTML back.",
-        guide
-    ),
-    luwu([====[
-        const home = Page("Home", Hero(), "index.html")
-        const guide = Page("Guide", { h1("Guide"), TableOfContents(), h2("Install") })
-
-        -- Every page gets a menu of the site's pages, a theme switcher and a footer.
-        Site("chimera")
-            :default_dark_theme(catppuccin.Mocha)
-            :add_page(home, guide)
-            :build("site")
-    ]====]):add_style_class("showcase"),
-    Section({
-        Card("Typed", Paragraph("A list item outside a list, or a padding of \"1rx\", is a type error.")),
-        Card("Themeable", Paragraph("Every style reads theme tokens. Switch flavors and the whole page follows.")),
-        Card("Roundtrips", Paragraph("Parse the generated HTML and get the same objects back.")),
-    })
-        :grid("15rem")
-        :style({ margin_top = "4rem" }),
-    do
-        const secret = Paragraph("Every element on this page is a Luwu object that gets typechecked before becoming HTML")
-        give Column({ components.Toggle("Tell me a secret", secret), secret:hidden() })
-            :align("center")
-            :style({ margin_top = "3rem" })
-)
-
-const element_header = Table.header()
-    :column("Class")
-    :column("Tag")
-const element_row = Table.row_for(element_header)
-
-guide:add(
-    h1("Guide"),
-    TableOfContents(),
-    h2("Build a page"),
-    Paragraph("Build pages from classes, refine them with chained methods, and write them out with seal:"),
-    luwu([====[
-        const page = Document("Home")
-            :default_dark_theme(catppuccin.Mocha)
-            :add(Main {
-                Heading.h1("Hello"),
-                Paragraph("Static sites as classes."),
-            })
-
-        fs.writefile("index.html", page:to_html(true))
-    ]====]),
-    Paragraph({ "Run it with ", Code("seal run"), ", or from a shell:" }),
-    CodeBlock("seal ./examples/site.luwu && open examples/out/index.html", "bash"):copyable(),
-    h2("Elements"),
-    Paragraph("Every element is a class named after what it is, not its tag:"),
-    Table(element_header)
-        :rows({
-            element_row("Paragraph", Code("p")),
-            element_row("UnorderedList", Code("ul")),
-            element_row("Link", Code("a")),
-            element_row("Heading", Code("h1–h6")),
-        })
-        :table_style({ hover = true }),
-    h2("FAQ"),
-    Details(
-        "Can I write my own components?",
-        Paragraph("Implement Component, plus Container to hold children, then call Component.register.")
-    ),
-    Details(
-        "Can I use my own theme?",
-        Paragraph("Implement Theme with a name, a mode and a palette(), or make a Catppuccin Flavor of your own.")
-    ),
-    Details("Does it need JavaScript?", Paragraph("Only for theme switching and toggles.")),
-    h2("More"),
-    Paragraph("The guide continues on these pages:")
-)
-
-sites:add(
-    h1("Sites and pages"),
-    TableOfContents(),
-    h2("Pages"),
-    Paragraph({
-        "A ", Code("Page"), " is a title and the content of its ", Code("<main>"),
-        ". Pages hold other pages, which go in their parent's folder: this page is ",
-        Code(sites:path()), ".",
+    Intro("chimera", {
+        "Build static websites in Luwu from classes like ", Code("Paragraph"), ", ", Code("Menu"), " and ",
+        Code("CodeBlock"), ". chimera renders them to HTML with light and dark themes built in, and it can parse ",
+        "that HTML back into the same objects.",
+    }, {
+        PageLink(guide, "Get started"):add_style_class("primary"),
+        Link("Source on GitHub", "https://github.com/seal-runtime/chimera"):new_tab(),
     }),
-    luwu([====[
-        const docs = Page("Docs", Paragraph("Start here."), "docs/index.html")
-            :add_page(Page("Install"), Page("Themes"))
-    ]====]),
-    h2("Shared parts"),
-    Paragraph({
-        "A ", Code("Site"), " renders its header, footer and sidebar on every page. Link between pages with ",
-        Code("PageLink"), ", which works out the right path from each folder.",
-    }),
-    h2("Tables of contents"),
-    Paragraph({
-        Code("TableOfContents()"), " lists the headings of its page and the pages under it. ",
-        Code("TableOfContents(\"site\")"), " lists every page.",
-    })
-)
 
-theming:add(
-    h1("Theming"),
-    TableOfContents(),
-    h2("Defaults"),
-    Paragraph("Readers first see the default theme for their OS's light or dark mode. A theme they pick sticks."),
-    luwu([====[
-        site
-            :default_dark_theme(catppuccin.Mocha)
-            :default_light_theme(catppuccin.Latte)
-            :offer_theme(catppuccin.Frappe)
-    ]====]),
-    h2("Tokens"),
+    h2("Write Luwu, get a page"),
     Paragraph({
-        "Styles read theme tokens with ", Code("token(\"primary\")"), ", so they follow theme switches.",
-    })
+        "The code below builds the box above it. The tabs, the toggle and every color come from chimera ",
+        "and the current theme, without any CSS or JavaScript of your own.",
+    }),
+    example("release notes", notes),
+
+    h2("Checked by default"),
+    Paragraph({
+        "Luwu type checks in strict mode by default, and chimera describes CSS values with Luwu's type function ",
+        "validators. The analyzer checks every style you write against them. A wrong unit or a misspelled ",
+        "keyword shows up in your editor before you ever build the page. Hover the squiggles:",
+    }),
+    CodeBlock([====[const .{ elements.{ Paragraph }, components.{ Card } } = require("@chimera")
+
+const note = Card("Heads up", Paragraph("Back up your saves."))
+    :style({ padding = "1rx", display = "flexx" })]====])
+        :line_numbers()
+        :squiggle(
+            Squiggle.error(SourceSpan.on_line(4, 24, 28), "TypeError: CSS length '1rx' has the unknown unit 'rx'"),
+            Squiggle.error(SourceSpan.on_line(4, 41, 47), "Typo: Did you mean '\"flex\"' instead of '\"flexx\"'?")
+        ),
+    Paragraph({ "Both messages come straight from ", Code("luwu-analyze", "bash"), "." }),
+
+    h2("What's in it"),
+    Grid({
+        topic(guide_page("guide/sites-and-pages.html"), "Pages, nested folders, links and tables of contents."),
+        topic(guide_page("guide/components.html"), "Menus, dropdowns, tabs, toggles, cards and a theme switcher."),
+        topic(guide_page("guide/code.html"), "Luwu highlighting at build time, squiggles and hovers."),
+        topic(guide_page("guide/theming.html"), "Light and dark defaults, Catppuccin, and themes of your own."),
+        topic(guide_page("guide/styling.html"), "Typed CSS that reads theme tokens."),
+        topic(guide_page("guide/custom-components.html"), "Your own components, written once as classes."),
+    }, "16rem"),
+
+    Paragraph({
+        "This site is built with chimera. Its source is ",
+        Link(Code("examples/site.luwu", "plaintext"), `{SOURCE}/blob/main/examples/site.luwu`):new_tab(),
+        ".",
+    }):add_style_class("built-with")
 )
 
 const website = Site("chimera")
@@ -231,22 +166,27 @@ const website = Site("chimera")
     :offer_theme(catppuccin.Frappe)
     :offer_theme(Light)
     :offer_theme(Dark)
-    :describe("An HTML DSL built from Luwu classes")
+    :describe("Build static websites in Luwu, from classes")
     :header(Header {
         Menu {
             PageLink(home, "chimera"):add_style_class("chimera-brand"),
-            PageLink(home),
             PageLink(guide),
             PageLink(luwu_pages),
             Dropdown("More", {
                 Link("Source", "https://github.com/seal-runtime/chimera"):new_tab(),
                 Link("Luwu", "https://github.com/luwu-community/luwu"):new_tab(),
+                Link("seal", "https://github.com/seal-runtime/seal"):new_tab(),
             }),
             ThemeSwitcher(),
         },
     })
-    :footer(components.SiteFooter()
-        :link_column("Learn", { PageLink(guide), PageLink(sites), PageLink(theming), PageLink(luwu_pages) })
+    :footer(chimera.components.SiteFooter()
+        :link_column("Learn", {
+            PageLink(guide, "Getting started"),
+            PageLink(guide_page("guide/components.html")),
+            PageLink(guide_page("guide/theming.html")),
+            PageLink(luwu_pages, "Luwu"),
+        })
         :link_column("Project", {
             Link("Source", "https://github.com/seal-runtime/chimera"):new_tab(),
             Link("Luwu", "https://github.com/luwu-community/luwu"):new_tab(),
@@ -255,10 +195,14 @@ const website = Site("chimera")
         :copyright("seal-runtime", "Built with chimera in Luwu.")
         :legal({ Link("License", "https://github.com/seal-runtime/chimera/blob/main/LICENSE"):new_tab() })
     )
-    :style_every(".showcase", {
-        max_width = "54rem",
-        margin = "0 auto",
-        box_shadow = token("shadow"),
+    :style_every(".topic a", { font_weight = "600" })
+    :style_every(".topic p", {
+        margin = "0.25rem 0 0",
+        color = token("muted"),
+    })
+    :style_every(".built-with", {
+        margin_top = "3rem",
+        color = token("muted"),
     })
     :add_page(home, guide, luwu_pages)
 

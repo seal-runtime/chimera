@@ -986,6 +986,24 @@ export trait Element needs Markup, Tagged
     end
 
     --[=[
+        Whether the headings inside this element appear in the page's table of contents. True by default. A
+        [Card][components.Card] returns false: its title labels the box, not a section of the page.
+
+        [components = require("@components/components")]
+
+        ## Usage
+
+        ```luwu
+        function contributes_headings(self): boolean
+            return false
+        end
+        ```
+    ]=]
+    function contributes_headings(self): boolean
+        return true
+    end
+
+    --[=[
         Takes a parsed node as a child, for the [Parser][parser.Parser]. Returns false when this element can't hold it.
         Override it in elements with their own kind of children.
         [parser = require("@parse/parser")]

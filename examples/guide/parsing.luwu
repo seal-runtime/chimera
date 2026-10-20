@@ -1,0 +1,76 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    Parser,
+    elements.{ Heading, Paragraph },
+    components.{ Code, CodeBlock },
+    site.{ Page, PageLink, TableOfContents },
+} = require("@chimera")
+const .{ h1, h2 } = Heading
+
+const MENU_HTML = [==[<nav data-element="Menu" class="chimera-menu"><a href="/">Home</a><a href="/blog">Blog</a></nav>
+<p>Hi <strong>there</strong></p>
+<dialog open>Sure?</dialog>]==]
+
+--- How `print` shows each parsed node, without the terminal colors.
+const parsed_tree = do
+    const lines = {
+        for _, node in Parser():parse(MENU_HTML)
+        give (string.gsub(node:display(), "\27%[[%d;]*m", ""))
+    }
+    give table.concat(lines, "\n")
+
+const parser = Parser()
+parser:parse("<ul><p>Not a list item</p></ul>")
+const warning = parser.warnings[1] or ""
+
+return Page("Parsing HTML", {
+    h1("Parsing HTML"),
+    Paragraph({
+        "Say you have 200 pages of hand-written HTML and want to move them to chimera. ", Code("Parser"),
+        " reads HTML back into chimera objects, turning a ", Code("<p>", "html"), " into a ", Code("Paragraph"),
+        " and a rendered ", Code("Menu"), " back into a ", Code("Menu"), ". You change the objects, then ",
+        "render them again.",
+    }),
+    TableOfContents(),
+
+    h2("Parsing"),
+    Paragraph({ Code("parse"), " returns the top-level nodes it found:" }),
+    CodeBlock(`const nodes = Parser():parse([==[\n{MENU_HTML}\n]==])\n\nfor _, node in nodes do\n    print(node)\nend`),
+    Paragraph({ "Each node prints as a tree. This output comes from running the code above as the page built:" }),
+    CodeBlock(parsed_tree, "plaintext"),
+    Paragraph({
+        "Tags that have a class become that class, and the rest become a ", Code("Tag"), " that keeps its ",
+        "name. Components come back from their ", Code("data-element", "html"), " attribute.",
+    }),
+
+    h2("Whole pages"),
+    Paragraph({ "To edit a whole page, ", Code("parse_document"), " reads it into a ", Code("Document"), ":" }),
+    CodeBlock([====[const page = Parser():parse_document(fs.readfile("out/index.html"))
+page:style_every(Card, { padding = "2rem" })
+fs.writefile("out/index.html", page:to_html(true))]====]),
+    Paragraph({
+        "The parser drops the stylesheet and script chimera generated, because the document writes them ",
+        "again when it renders. Your own ", Code("style_every"), " rules come back as rules. ",
+        "Any page chimera rendered parses back into the objects it came from.",
+    }),
+
+    h2("Problems"),
+    Paragraph({
+        "Bad HTML never stops the parser. It drops whatever doesn't fit and notes each drop in ",
+        Code("warnings"), ":",
+    }),
+    CodeBlock([====[const parser = Parser()
+parser:parse("<ul><p>Not a list item</p></ul>")
+print(parser.warnings[1])]====]),
+    CodeBlock(warning, "plaintext"),
+
+    h2("Your own components"),
+    Paragraph({
+        "Components you write parse back as themselves once you register them with ",
+        Code("Component.register"), ". Their ", Code("adopt"), " method decides which parsed children they keep ",
+        "(see ", PageLink("guide/custom-components.html", "Custom components"), ").",
+    }),
+})

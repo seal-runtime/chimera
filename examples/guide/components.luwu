@@ -1,0 +1,105 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, Link, Div, UnorderedList, ListItem },
+    components.{ Code, CodeBlock, Card, Menu, Dropdown, ThemeSwitcher, Toggle, Tabs, Tab, Grid },
+    site.{ Page, PageLink, TableOfContents },
+} = require("@chimera")
+const .{ examples_in } = require("./example")
+const .{ h1, h2 } = Heading
+
+const example = examples_in("examples/guide/components.luwu")
+
+--@ menu
+const menu = Menu {
+    Link("Home", "#"),
+    Link("Blog", "#"),
+    Dropdown("Projects", { Link("chimera", "#"), Link("seal", "#"), Link("Luwu", "#") }),
+    ThemeSwitcher(),
+}
+--@ end
+
+--@ cards
+const features = Grid({
+    Card("Offline", Paragraph("Pages work from a USB stick. No server needed.")),
+    Card("Small", Paragraph("A page like this one is about 60 KB, or 12 KB compressed.")),
+}, "14rem")
+--@ end
+
+--@ toggle
+const spoiler = Paragraph("The butler did it.")
+const reveal = Div { Toggle("Show the ending", spoiler), spoiler:hidden() }
+--@ end
+
+--@ tabs
+const install = Tabs({
+    Tab("Linux", CodeBlock("curl -fsSL https://example.com/install.sh | sh", "bash")),
+    Tab("Windows", CodeBlock("winget install example", "shell")),
+    Tab("macOS", CodeBlock("brew install example", "bash")),
+})
+--@ end
+
+return Page("Components", {
+    h1("Components"),
+    Paragraph({
+        "Components are ready-made custom elements provided by chimera. These include ", Code("Menu"), ", ",
+        Code("Dropdown"), ", ", Code("ThemeSwitcher"), ", ", Code("Card"), ", ", Code("Toggle"), " and ",
+        Code("Tabs"), ", along with layouts, code blocks and site navigation. Each one brings its own HTML, CSS ",
+        "and script, is styled by the theme and works on small screens. They live in ", Code("chimera.components"),
+        ".",
+    }),
+    TableOfContents(),
+
+    h2("Menu"),
+    Paragraph({
+        Code("Menu"), " is a navigation bar whose links fold behind a menu button on narrow screens. ",
+        "Inside it, a ", Code("Dropdown"), " opens a list of links without any JavaScript:",
+    }),
+    example("menu", menu),
+
+    h2("Theme switcher"),
+    Paragraph({
+        Code("ThemeSwitcher()"), " lists every theme the page offers, each with a swatch of its colors, ",
+        "like the one in the menu above. The reader's pick is saved and follows them from page to page. ",
+        PageLink("guide/theming.html", "Theming"), " explains how to choose the themes it lists.",
+    }),
+
+    h2("Cards"),
+    Paragraph({ Code("Card"), " is a raised box with an optional title:" }),
+    example("cards", features),
+
+    h2("Toggles"),
+    Paragraph({ Code("Toggle"), " is a button that shows and hides another element:" }),
+    example("toggle", reveal),
+    Paragraph({
+        "The target can be an element or an element's id. Call ", Code("hidden()"),
+        " on it to start it out hidden.",
+    }),
+
+    h2("Tabs"),
+    Paragraph({ Code("Tabs"), " shows one panel at a time, with a row of tabs to switch between them:" }),
+    example("tabs", install),
+    Paragraph({
+        "The first tab starts selected unless ", Code("select(\"Windows\")"), " picks another. ",
+        "Several ", Code("Tabs"), " on one page each switch on their own.",
+    }),
+
+    h2("More"),
+    UnorderedList({
+        ListItem({
+            Code("SiteFooter"), ", ", Code("TableOfContents"), " and ", Code("Breadcrumbs"), " are in ",
+            PageLink("guide/sites-and-pages.html", "Sites and pages"), ".",
+        }),
+        ListItem({ Code("CodeBlock"), " and ", Code("Code"), " are in ", PageLink("guide/code.html", "Code"), "." }),
+        ListItem({
+            Code("Row"), ", ", Code("Column"), " and ", Code("Grid"), " are in ",
+            PageLink("guide/layout.html", "Layout"), ".",
+        }),
+    }),
+    Paragraph({
+        "If none of them fit, write your own: a component is a class you can write in a few lines. See ",
+        PageLink("guide/custom-components.html", "Custom components"), ".",
+    }),
+})

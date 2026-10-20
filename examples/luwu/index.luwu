@@ -3,13 +3,14 @@
 --!lint ConstLocal
 
 const .{
-    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    elements.{ Heading, Paragraph, UnorderedList, ListItem, Link },
     components.{ Code, CodeBlock },
     site.{ Page, PageLink, TableOfContents },
 } = require("@chimera")
 const luwu = require("./sample")
-const .{ h1, h2 } = Heading
+const .{ h1, h2, h3 } = Heading
 
+const compatibility = require("./compatibility")
 const type_checking = require("./type_checking")
 const lints = require("./lints")
 const hovers = require("./hovers")
@@ -33,13 +34,14 @@ end
 return Page("Luwu", {
     h1("Luwu"),
     Paragraph({
-        "Luwu is a modern, expressive, object-oriented scripting language. ",
-        "Classes and traits are built into the language, alongside destructuring, table comprehensions ",
-        "and control flow designed to keep everyday code short and readable.",
+        "Luwu is a fast, object oriented, and highly expressive embeddable scripting language forked from Luau 0.730 ",
+        "and influenced by Kotlin, Rust, Ruby, and Python.",
     }),
     Paragraph({
-        "Luwu is designed to be embedded in other programs, and hosts can reload scripts while they run. ",
-        "Code runs on a tuned interpreter, with optional native code generation for the parts that need more speed.",
+        "Luwu is designed around improving the developer experience, with a user-first type system focused on ",
+        "surfacing useful hovers and error reporting in modern, industry standard editors, new features that make ",
+        "everyday code easier to read and write, and incremental improvements that improve analysis in both existing ",
+        "Luau as well as greenfield Luwu projects.",
     }),
     TableOfContents(),
 
@@ -53,42 +55,65 @@ return Page("Luwu", {
     }),
 
     h2("Your first program"),
-    Paragraph({ "Luwu files end in ", Code(".luwu"), ". This one counts the words in a sentence." }),
-    Paragraph("Then it prints the words that show up more than once."),
+    Paragraph({
+        "Luwu files end in ", Code(".luwu", "plaintext"), ". If you've written Luau, this short program should look ",
+        "familiar. It keeps a small inventory, picks out the fruit that's in stock and prints it cheapest first:",
+    }),
     luwu([====[
-        const text = "the cat sat on the mat and the dog sat too"
+        type Item = { name: string, price: number, stock: number }
 
-        const counts: { [string]: number? } = {}
-        for word in string.gmatch(text, "%a+") do
-            counts[word] = (counts[word] or 0) + 1
-        end
+        const inventory: { Item } = {
+            { name = "apple", price = 1.25, stock = 12 },
+            { name = "pear", price = 0.8, stock = 0 },
+            { name = "kiwi", price = 0.5, stock = 30 },
+        }
 
-        const repeated = { for word, count in counts when count > 1 give word }
-        table.sort(repeated)
+        const in_stock = { for _, item in inventory when item.stock > 0 give item }
+        table.sort(in_stock, function(a: Item, b: Item)
+            return a.price < b.price
+        end)
 
-        for _, word in repeated do
-            print(`{word}: {counts[word]}`)
+        for _, .{ name, price } in in_stock do
+            print(`{name}: {price}`)
         end
     ]====]),
-    Paragraph("Save it as count.luwu, and run it with seal, a runtime for Luwu:"),
-    CodeBlock("seal ./count.luwu", "bash"):copyable(),
-    Paragraph("It prints:"),
-    CodeBlock("sat: 2\nthe: 3", "plaintext"),
     Paragraph({
-        "Most of this is plain Luau. The ", Code("{ for ... give word }"),
-        " line is a Luwu table comprehension. It's covered below.",
+        "Most of it is the Luau you already know, with a couple of Luwu touches mixed in. The ",
+        Code("{ for ... when ... give item }"), " line is a table comprehension: it builds the filtered array in a ",
+        "single expression. In the second loop, ", Code("for _, .{ name, price }"), " uses destructuring to pull ",
+        "just the fields you need out of each item. You don't need two more lines of code just to put ",
+        Code("item.name"), " and ", Code("item.price"), " into local variables.",
     }),
+    Paragraph({
+        "Run ", Code("fruit.luwu", "plaintext"), " with ",
+        Link("seal", "https://github.com/seal-runtime/seal/pull/295"):new_tab(), ", a Luau and Luwu runtime:",
+    }),
+    CodeBlock("seal ./fruit.luwu", "bash"):copyable(),
+    CodeBlock("kiwi: 0.5\napple: 1.25", "plaintext"),
 
     h2("Luwu and Luau"),
     Paragraph({
-        "Luwu started as a fork of Luau. Code written for Luau versions before 0.730 is valid Luwu, ",
-        "and what you know about Luau from that time carries over. ",
-        "Since then the two languages have diverged: code written for newer versions of Luau may not run in Luwu, ",
-        "and Luwu has features Luau doesn't. ",
-        "The sections below give a short tour of each, with a link to its own page.",
+        "Luwu was forked by the ", Link("Nyla, Hina & Ferris", "https://discord.gg/3MJ37CFNWh"):new_tab(),
+        " Discord community to better suit our needs for general-purpose programming outside of Roblox.",
     }),
+    Paragraph({
+        "In addition to popular Luau features such as string interpolation, generalized iteration, compound ",
+        "assignment operators, the new type solver (with type functions!), ", Code("const"), " syntax, ",
+        Code("if local"), ", and more, Luwu code also features highly optimized classes and objects with code reuse ",
+        "facilitated via traits, table/object/userdata destructuring, ", Code("do"), " expressions, table ",
+        "comprehensions, the ", Code("none"), " primitive, externally managed buffers, and more.",
+    }),
+    Paragraph({
+        "Because our community disagrees with upstream Luau's 2026-present decisions and internally made RFCs, ",
+        "Luau and Luwu have started to diverge, especially in regards to classes and inheritance, integers, ",
+        "and destructuring.",
+    }),
+    see_more(compatibility),
+    Paragraph("The sections below give a short tour of each feature, with a link to its own page."),
 
-    h2("Type Checking"),
+    h2("Types and editor support"),
+
+    h3("Type Checking"),
     Paragraph({
         "Luwu enables type checking by default to catch your code's mistakes before you run it. ",
         "Luwu builds upon Luau's new type solver to add new features, drastically improve error message friendliness ",
@@ -101,21 +126,27 @@ return Page("Luwu", {
     }),
     see_more(type_checking),
 
-    h2("Lints"),
+    h3("Literal Types and Validators"),
+    Paragraph("Validators check string arguments, like colors or sizes, while you type. You write the rules."),
+    see_more(literal_types),
+
+    h3("Lints"),
     Paragraph({
         "We also expand Luau's built-in lint system with more than 40 new lints for Luau and Luwu code, ",
         "to help you write more idiomatic and performant code.",
     }),
     see_more(lints),
 
-    h2("Better Hovers"),
+    h3("Better Hovers"),
     Paragraph({
         "Hovers in your editor show what a name is and where it comes from. ",
         "A class shows its members, a method its class, and every keyword explains itself with an example.",
     }),
     see_more(hovers),
 
-    h2("Classes and Traits"),
+    h2("Objects and data"),
+
+    h3("Classes and Traits"),
     Paragraph("A class describes a kind of object: the data it holds and what it can do."),
     Paragraph("Classes give plain values rules. A number can't stop itself from going below zero. A class can."),
     luwu([====[
@@ -140,7 +171,27 @@ return Page("Luwu", {
     Paragraph("Traits share behavior between classes. They're Luwu's take on inheritance, minus the confusing parts."),
     see_more(classes),
 
-    h2("Expressive Control Flow"),
+    h3("Destructuring"),
+    Paragraph("Destructuring pulls several fields out of a table in one line. You write each name once."),
+    luwu([====[
+        const player = { name = "Ada", level = 12 }
+
+        const .{ name, level } = player
+        print(name, level)
+    ]====]),
+    see_more(destructuring),
+
+    h3("The none Primitive"),
+    Paragraph({ Code("none"), " means \"intentionally empty\". Unlike nil, you can store it in a table." }),
+    luwu([====[
+        const list = { "first", none, "third" }
+        print(#list)
+    ]====]),
+    see_more(none_page),
+
+    h2("Everyday code"),
+
+    h3("Expressive Control Flow"),
     Paragraph({
         Code("if local"), " checks a value right where you get it. ",
         Code("when"), " chains add more conditions, in ifs and in loops.",
@@ -155,17 +206,7 @@ return Page("Luwu", {
     ]====]),
     see_more(control_flow),
 
-    h2("Destructuring"),
-    Paragraph("Destructuring pulls several fields out of a table in one line. You write each name once."),
-    luwu([====[
-        const player = { name = "Ada", level = 12 }
-
-        const .{ name, level } = player
-        print(name, level)
-    ]====]),
-    see_more(destructuring),
-
-    h2("Table Comprehensions"),
+    h3("Table Comprehensions"),
     Paragraph("A table comprehension builds a new table from a loop, in one expression."),
     luwu([====[
         const numbers = { 1, 2, 3, 4, 5, 6 }
@@ -175,7 +216,7 @@ return Page("Luwu", {
     ]====]),
     see_more(comprehensions),
 
-    h2("Function Default Arguments"),
+    h3("Function Default Arguments"),
     Paragraph("Parameters can have default values, right in the function's signature."),
     luwu([====[
         const function greet(name: string, greeting = "Hello")
@@ -186,19 +227,13 @@ return Page("Luwu", {
     ]====]),
     see_more(default_arguments),
 
-    h2("The none Primitive"),
-    Paragraph({ Code("none"), " means \"intentionally empty\". Unlike nil, you can store it in a table." }),
-    luwu([====[
-        const list = { "first", none, "third" }
-        print(#list)
-    ]====]),
-    see_more(none_page),
+    h3("More Conveniences"),
+    Paragraph("Smaller additions, like named functions in table literals."),
+    see_more(conveniences),
 
-    h2("Literal Types and Validators"),
-    Paragraph("Validators check string arguments, like colors or sizes, while you type. You write the rules."),
-    see_more(literal_types),
+    h2("Libraries and embedding"),
 
-    h2("Library Extensions"),
+    h3("Library Extensions"),
     Paragraph({
         "Luwu adds a few library functions. ", Code("table.drop"), " removes items from a list by value. ",
         "Unlike ", Code("table.remove(t, table.find(t, x))"), ", it doesn't remove the last item when x is missing.",
@@ -211,11 +246,7 @@ return Page("Luwu", {
     ]====]),
     see_more(library_extensions),
 
-    h2("More Conveniences"),
-    Paragraph("Smaller additions, like named functions in table literals."),
-    see_more(conveniences),
-
-    h2("External Buffers and Strings"),
+    h3("External Buffers and Strings"),
     Paragraph("Embedders can expose huge files to scripts without cloning them into the VM."),
     see_more(external_memory),
 
@@ -225,18 +256,19 @@ return Page("Luwu", {
 
 }, "luwu/index.html")
     :add_page(
+        compatibility,
         type_checking,
+        literal_types,
         lints,
         hovers,
         classes,
-        control_flow,
         destructuring,
+        none_page,
+        control_flow,
         comprehensions,
         default_arguments,
-        none_page,
-        literal_types,
-        library_extensions,
         conveniences,
+        library_extensions,
         external_memory,
         experimental
     )

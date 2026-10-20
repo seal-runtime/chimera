@@ -1,0 +1,123 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const chimera = require("@chimera")
+const .{
+    Component,
+    Container,
+    elements.{ Heading, Paragraph, Strong },
+    components.{ Code, CodeBlock },
+    style.{ Rule, token },
+    site.{ Page, PageLink, TableOfContents },
+} = chimera
+type .{ Content } = chimera
+const .{ examples_in } = require("./example")
+const .{ h1, h2 } = Heading
+
+const example = examples_in("examples/guide/custom.luwu")
+
+--@ callout
+class Callout implements Component, Container
+    function tag(): string
+        return "aside"
+    end
+
+    function __init(self, title: string?, content: Content?)
+        self:add(Strong(title), content)
+    end
+
+    function default_styles(self): { Rule }
+        const callout = self:style_selector()
+        return {
+            Rule(callout, {
+                display = "block",
+                padding = "0.75rem 1rem",
+                border_left = `4px solid {token("primary")}`,
+                background = token("surface"),
+                border_radius = token("radius"),
+            }),
+            Rule(`{callout} > p`, { margin = "0.25rem 0 0" }),
+        }
+    end
+end
+
+Component.register(Callout)
+
+const warning = Callout("Heads up", Paragraph("Saves from version 1 don't load in version 2."))
+--@ end
+
+return Page("Custom components", {
+    h1("Custom components"),
+    Paragraph({
+        "Say your docs need a callout box on 40 pages. Pasting its HTML and CSS 40 times works until the day ",
+        "you change it. In chimera you write the callout once as a class, and it gets the same methods, ",
+        "type checking and theming as the built-in components.",
+    }),
+    TableOfContents(),
+
+    h2("A component"),
+    Paragraph({
+        "Implementing ", Code("Component"), " lets your class go anywhere content goes, and ",
+        Code("Container"), " lets it hold children. ", Code("tag"), " names the HTML tag it renders as:",
+    }),
+    example("callout", warning),
+    Paragraph({
+        Code("default_styles"), " returns the CSS the component needs, and every page that uses the component ",
+        "includes those rules once. ", Code("style_selector()"), " gives the selector for the class's elements. ",
+        "Rules built on it only ever match your component.",
+    }),
+
+    h2("Registering it"),
+    Paragraph({
+        Code("Component.register(Callout)"), " records the class under its name. Its elements then render with ",
+        Code("data-element=\"Callout\"", "html"), ", and the parser uses that attribute to rebuild them as ",
+        Code("Callout"), "s (see ", PageLink("guide/parsing-html.html", "Parsing HTML"), ").",
+    }),
+
+    h2("Arranging children"),
+    Paragraph({
+        "Implement ", Code("Layout"), " instead of ", Code("Container"), " and your component also gets ",
+        Code("row()"), ", ", Code("grid()"), ", ", Code("gap()"), " and the rest of the methods ",
+        PageLink("guide/layout.html", "Layout"), " describes.",
+    }),
+
+    h2("Scripts and stylesheets"),
+    Paragraph({
+        "When a component needs a script or a stylesheet in the page's ", Code("<head>", "html"),
+        ", return it from ", Code("head_elements"), ". A page gets each one once, however many of the ",
+        "components it holds:",
+    }),
+    CodeBlock([====[function head_elements(self): { Metadata }?
+    return { Script(nil, "https://cdn.example.com/charts.js"):defer() }
+end]====]),
+    Paragraph({
+        "For a small handler, ", Code("on(\"click\", script)"), " is enough. It writes the code into the ",
+        "element's ", Code("onclick", "html"), " attribute.",
+    }),
+
+    h2("Rendering your own HTML"),
+    Paragraph({
+        "By default a component renders its tag, its attributes and its children. For anything else, ",
+        "override ", Code("render"), " and use ", Code("render_open"), " to write the opening tag:",
+    }),
+    CodeBlock([====[function render(self, out: Writer)
+    self:render_open(out)
+    out:write(`<span class="count">{#self.children}</span>`)
+    for _, child in self.children do
+        child:render(out)
+    end
+    out:write("</aside>")
+end]====]),
+    Paragraph({
+        "The ", Code("Writer"), " knows about the page being rendered, including its path, the site's pages ",
+        "and the themes on offer. ", Code("out:href_to(path)"), " turns a path from the site's root into a link ",
+        "that works from the current page.",
+    }),
+
+    h2("Printing in the terminal"),
+    Paragraph({
+        Code("print(warning)"), " shows the element in the terminal as a tree rather than as HTML. ",
+        "Override ", Code("outline"), " to change the one-line summary each node gets.",
+    }),
+})

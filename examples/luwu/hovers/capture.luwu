@@ -89,15 +89,8 @@ end
 const function receive(): Message?
     const header = child.stdout:read_to("\r\n\r\n", false, 10) or return nil
     const length = tonumber(string.match(header, "Content%-Length: (%d+)")) or return nil
-    -- seal's read_exact gives nil for long bodies even once they arrive, so this reads them in parts.
-    const parts: { string } = {}
-    local missing = length
-    while missing > 0 do
-        const part = child.stdout:read(missing, 10) or return nil
-        table.insert(parts, part)
-        missing -= #part
-    end
-    return json.decode(table.concat(parts)) :: Message
+    const body = child.stdout:read_exact(length, 10) or return nil
+    return json.decode(body) :: Message
 end
 
 --- Sends a request and waits for its answer, answering the server's own requests meanwhile.

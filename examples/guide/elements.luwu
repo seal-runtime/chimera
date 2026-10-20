@@ -1,0 +1,189 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{
+        Heading,
+        Paragraph,
+        Strong,
+        Emphasis,
+        Small,
+        BlockQuote,
+        Link,
+        UnorderedList,
+        OrderedList,
+        Table,
+        Details,
+        Form,
+        Label,
+        Input,
+        Select,
+        Button,
+        Div,
+    },
+    components.{ Code, CodeBlock, Column },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const .{ examples_in } = require("./example")
+const .{ h1, h2, h3 } = Heading
+
+const example = examples_in("examples/guide/elements.luwu")
+
+--@ text
+const text = Div {
+    h3("Release notes"),
+    Paragraph({
+        "Version 2 is ", Strong("twice as fast"), " and ", Emphasis("much"), " smaller. Run ",
+        Code("seal update", "bash"), " or read the ", Link("changelog", "https://example.com"):new_tab(), ".",
+    }),
+    BlockQuote(Paragraph("Upgrading took me five minutes.")),
+    Small("Released October 2026."),
+}
+--@ end
+
+--@ lists
+const lists = Div {
+    UnorderedList({ "Milk", "Eggs", "Flour" }),
+    OrderedList({ "Preheat the oven", "Mix everything", "Bake for 25 minutes" }),
+}
+--@ end
+
+--@ table
+const header = Table.header()
+    :column("Cat")
+    :column("Age")
+    :column("Favorite toy")
+const cat = Table.row_for(header)
+
+const cats = Table(header)
+    :row(cat("Nyla", 3, "Feather wand"))
+    :row(cat("Taz", 14, "Cardboard box"))
+    :row({ Cat = "Oreo", Age = 1, ["Favorite toy"] = "Your shoelaces" })
+    :table_style({ striped = true })
+--@ end
+
+--@ details
+const faq = Details(
+    "Does chimera need JavaScript?",
+    Paragraph("Only for the theme switcher, tabs and toggles. Pages read fine without it.")
+)
+--@ end
+
+--@ form
+const signup = Form(Column({
+    Label("Email", "email"),
+    Input("email", "email")
+        :id("email")
+        :placeholder("you@example.com")
+        :required(),
+    Label("Plan", "plan"),
+    Select("plan", { "Free", "Pro", "Team" }):id("plan"),
+    Button("Sign up", "submit"),
+}):gap("0.5rem"), "/signup", "post")
+--@ end
+
+const element_header = Table.header()
+    :column("Class")
+    :column("Tag")
+const element = Table.row_for(element_header)
+
+return Page("Elements", {
+    h1("Elements"),
+    Paragraph({
+        "Elements are classes that correspond to specific HTML tags: ", Code("Paragraph"), " is ",
+        Code("<p>", "html"), ", ", Code("UnorderedList"), " is ", Code("<ul>", "html"), ", ", Code("Link"), " is ",
+        Code("<a>", "html"), " and ", Code("Image"), " is ", Code("<img>", "html"), ". Each one is named after ",
+        "what the tag is rather than its abbreviation, and they all live in ", Code("chimera.elements"), ".",
+    }),
+    TableOfContents(),
+
+    h2("Content"),
+    Paragraph({
+        "An element's content can be a string, a number, another element or a list of any of those. ",
+        "When an item is optional, put ", Code("none"), " in its place:",
+    }),
+    CodeBlock([====[Paragraph("Plain text")
+Paragraph({ "Mixed ", Strong("content"), " and numbers: ", 42 })
+Paragraph({ "Hello", if signed_in then Strong(" again") else none })]====]),
+    Paragraph({
+        "Text is always escaped: ", Code("Paragraph(\"<b>\")"), " shows the characters instead of bold text.",
+    }),
+
+    h2("Text"),
+    example("text", text),
+    Paragraph({
+        "Headings have six levels, from ", Code("Heading.h1"), " to ", Code("Heading.h6"), ". Most pages ",
+        "destructure the ones they use with ", Code("const .{ h1, h2 } = Heading"), ".",
+    }),
+
+    h2("Lists"),
+    example("lists", lists),
+    Paragraph({
+        "Lists take strings or ", Code("ListItem"), "s, and a list item can hold any content. ",
+        Code("OrderedList:start(5)"),
+        " starts the count at 5.",
+    }),
+
+    h2("Tables"),
+    Paragraph({
+        "A table's columns are part of its type, and the analyzer checks every row against them. ",
+        "A misspelled or missing column is an error. ", Code("row_for"),
+        " makes a function that builds rows from values in column order:",
+    }),
+    example("table", cats),
+    Paragraph({
+        "Besides stripes, ", Code("table_style"), " can highlight the row under the pointer with ",
+        Code("hover = true"), ". Pass ", Code("bold_header = false"), " for plain headings.",
+    }),
+
+    h2("Details"),
+    Paragraph({ Code("Details"), " shows a summary that opens to reveal the rest, without any JavaScript:" }),
+    example("details", faq),
+
+    h2("Forms"),
+    example("form", signup),
+    Paragraph({
+        "A static site has no server of its own to receive forms. Point ", Code("action"),
+        " at a form service, or handle the submit event in a script.",
+    }),
+
+    h2("Attributes, classes and events"),
+    Paragraph({
+        "Every element shares the same methods for attributes, classes and events. Each one returns the element ",
+        "it was called on, and that lets you chain them:",
+    }),
+    CodeBlock([====[Link("Docs", "/docs")
+    :id("docs-link")
+    :attr("title", "Read the docs")
+    :data("section", "top")              -- data-section="top"
+    :add_style_class("button", "large")
+    :on("click", "console.log('clicked')")]====]),
+    Paragraph({
+        Code("hidden()"), " hides an element until a script shows it. When a chain needs a step that isn't a ",
+        "method, ", Code("tap(function(element) ... end)"), " runs your function and carries on.",
+    }),
+    Paragraph({
+        "For a tag chimera has no class for, use ", Code("Tag"), ": ",
+        Code("Tag(\"dialog\", Paragraph(\"Sure?\"))"), ".",
+    }),
+
+    h2("All elements"),
+    Table(element_header)
+        :rows({
+            element("Div, Section, Article, Aside, Main", Code("div section article aside main", "html")),
+            element("Header, Footer, Navigation", Code("header footer nav", "html")),
+            element("Heading", Code("h1–h6", "html")),
+            element("Paragraph, Span, Strong, Emphasis, Small", Code("p span strong em small", "html")),
+            element("BlockQuote, Preformatted", Code("blockquote pre", "html")),
+            element("Link, Image, Figure, FigureCaption", Code("a img figure figcaption", "html")),
+            element("LineBreak, HorizontalRule", Code("br hr", "html")),
+            element("UnorderedList, OrderedList, ListItem", Code("ul ol li", "html")),
+            element("Table", Code("table", "html")),
+            element("Details, Summary", Code("details summary", "html")),
+            element(
+                "Form, Label, Input, TextArea, Select, Option, Button",
+                Code("form label input textarea select option button", "html")
+            ),
+        }),
+})

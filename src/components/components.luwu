@@ -241,6 +241,11 @@ export class Card implements Component, Container
         end
         self:add(content)
     end
+
+    --- A card's title labels the card. It isn't a section of the page.
+    function contributes_headings(self): boolean
+        return false
+    end
 end
 
 --[=[

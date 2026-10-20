@@ -1,0 +1,92 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const chimera = require("@chimera")
+const .{
+    Component,
+    Container,
+    elements.{ Div },
+    components.{ CodeBlock },
+    style.{ Rule, token },
+} = chimera
+type .{ Content } = chimera
+
+--[=[
+    Code and what it renders, in one bordered box: the result on top, the code under it. The guide shows every
+    feature this way.
+]=]
+export class Example implements Component, Container
+    function tag(): string
+        return "figure"
+    end
+
+    function __init(self, source: string?, result: Content?)
+        self
+            :add_style_class("guide-example")
+            :add(
+                Div(result):add_style_class("guide-example-result"),
+                CodeBlock(source or ""):copyable()
+            )
+    end
+
+    --- The headings in a result are part of the example, not of the page.
+    function contributes_headings(self): boolean
+        return false
+    end
+
+    function default_styles(self): { Rule }
+        const example = self:style_selector()
+        return {
+            Rule(example, {
+                margin = "1.5rem 0",
+                border = `1px solid {token("border")}`,
+                border_radius = token("radius"),
+                overflow = "hidden",
+            }),
+            Rule(`{example} > .guide-example-result`, {
+                padding = "1.25rem",
+                background = token("background"),
+            }),
+            Rule(`{example} > .guide-example-result > :first-child`, { margin_top = "0" }),
+            Rule(`{example} > .guide-example-result > :first-child > :first-child`, { margin_top = "0" }),
+            Rule(`{example} > .guide-example-result > :last-child`, { margin_bottom = "0" }),
+            Rule(`{example} > .chimera-code-block`, {
+                margin = "0",
+                border = "none",
+                border_top = `1px solid {token("border")}`,
+                border_radius = "0",
+            }),
+        }
+    end
+end
+
+Component.register(Example)
+
+--[=[
+    The examples marked in a guide page's own source. A snippet starts at a `--@ name` line and ends at `--@ end`.
+    The page shows exactly the lines that built its result.
+]=]
+export function examples_in(file: string): (name: string, result: Content) -> Example
+    const snippets: { [string]: string? } = {}
+    local name: string? = nil
+    local lines: { string } = {}
+    for _, line in fs.readlines(file) do
+        if const marker = string.match(line, "^%-%-@ (.+)$") then
+            if marker == "end" and name then
+                snippets[name] = table.concat(lines, "\n")
+                name = nil
+            else
+                name = marker
+                lines = {}
+            end
+        elseif name then
+            table.insert(lines, line)
+        end
+    end
+    return function(wanted: string, result: Content): Example
+        const source = snippets[wanted] or error(`{file} has no '--@ {wanted}' example`)
+        return Example((string.gsub(source, "%s+$", "")), result)
+    end
+end

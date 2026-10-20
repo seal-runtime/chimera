@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Home · chimera</title>
-  <meta name="description" content="An HTML DSL built from Luwu classes">
+  <meta name="description" content="Build static websites in Luwu, from classes">
   <style data-chimera="styles">
     :root[data-theme="catppuccin-latte"] {
       --chimera-accent: #fe640b;
@@ -1089,58 +1089,75 @@
     .chimera-card > :last-child {
       margin-bottom: 0;
     }
-    [data-element="Hero"] {
-      margin: 0 auto;
-      max-width: 46rem;
-      padding: 5rem 0 3rem;
-      text-align: center;
+    [data-element="Intro"] {
+      max-width: 44rem;
+      padding: 3.5rem 0 1rem;
     }
-    [data-element="Hero"] .eyebrow {
-      color: var(--chimera-muted);
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+    [data-element="Intro"] h1 {
+      font-size: clamp(2.4rem, 6vw, 3.4rem);
+      letter-spacing: -0.02em;
+      margin: 0 0 1rem;
     }
-    [data-element="Hero"] h1 {
-      font-size: clamp(2.6rem, 7vw, 4.2rem);
-      margin: 0.6rem 0 1.1rem;
-    }
-    [data-element="Hero"] .gradient {
-      background: linear-gradient(120deg, var(--chimera-primary), var(--chimera-accent));
-      background-clip: text;
-      color: transparent;
-      -webkit-background-clip: text;
-    }
-    [data-element="Hero"] .tagline {
+    [data-element="Intro"] .summary {
       color: var(--chimera-muted);
       font-size: 1.2rem;
     }
-    [data-element="Hero"] .actions {
-      margin-top: 2rem;
+    [data-element="Intro"] .actions {
+      margin-top: 1.5rem;
     }
-    [data-element="Hero"] .action {
+    [data-element="Intro"] .actions a {
       border: 1px solid var(--chimera-border);
-      border-radius: 999px;
+      border-radius: var(--chimera-radius);
       color: var(--chimera-text);
       font-weight: 600;
-      padding: 0.7em 1.4em;
+      padding: 0.55em 1.1em;
     }
-    [data-element="Hero"] .action:hover {
+    [data-element="Intro"] .actions a:hover {
       border-color: var(--chimera-primary);
       text-decoration: none;
     }
-    [data-element="Hero"] .action.primary {
+    [data-element="Intro"] .actions a.primary {
       background: var(--chimera-primary);
       border-color: var(--chimera-primary);
       color: var(--chimera-primary-text);
     }
+    [data-element="Example"] {
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      margin: 1.5rem 0;
+      overflow: hidden;
+    }
+    [data-element="Example"] > .guide-example-result {
+      background: var(--chimera-background);
+      padding: 1.25rem;
+    }
+    [data-element="Example"] > .guide-example-result > :first-child {
+      margin-top: 0;
+    }
+    [data-element="Example"] > .guide-example-result > :first-child > :first-child {
+      margin-top: 0;
+    }
+    [data-element="Example"] > .guide-example-result > :last-child {
+      margin-bottom: 0;
+    }
+    [data-element="Example"] > .chimera-code-block {
+      border: none;
+      border-radius: 0;
+      border-top: 1px solid var(--chimera-border);
+      margin: 0;
+    }
   </style>
   <style data-chimera="overrides">
-    .showcase {
-      box-shadow: var(--chimera-shadow);
-      margin: 0 auto;
-      max-width: 54rem;
+    .topic a {
+      font-weight: 600;
+    }
+    .topic p {
+      color: var(--chimera-muted);
+      margin: 0.25rem 0 0;
+    }
+    .built-with {
+      color: var(--chimera-muted);
+      margin-top: 3rem;
     }
   </style>
   <script data-chimera="runtime">(function () {
@@ -1364,55 +1381,96 @@
     if (chosen) carry(chosen);
   });
 })();</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer data-chimera="required"></script>
+  <script data-chimera="required">document.addEventListener("DOMContentLoaded", function () { document.querySelectorAll("code[class*='language-']:not([data-highlighted])").forEach(function (code) { hljs.highlightElement(code); }); });</script>
 </head>
 <body>
   <header>
-    <nav data-element="Menu" class="chimera-menu"><button type="button" class="chimera-menu-toggle" aria-label="Menu" aria-expanded="false" onclick="chimera.menu(this)"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><a data-element="PageLink" data-page="index.html" href="index.html" aria-current="page" class="chimera-brand">chimera</a><a data-element="PageLink" data-page="index.html" href="index.html" aria-current="page">Home</a><a data-element="PageLink" data-page="guide.html" href="guide.html">Guide</a><a data-element="PageLink" data-page="luwu/index.html" href="luwu/index.html">Luwu</a><details data-element="Dropdown" class="chimera-dropdown">
+    <nav data-element="Menu" class="chimera-menu"><button type="button" class="chimera-menu-toggle" aria-label="Menu" aria-expanded="false" onclick="chimera.menu(this)"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><a data-element="PageLink" data-page="index.html" href="index.html" aria-current="page" class="chimera-brand">chimera</a><a data-element="PageLink" data-page="guide.html" href="guide.html">Guide</a><a data-element="PageLink" data-page="luwu/index.html" href="luwu/index.html">Luwu</a><details data-element="Dropdown" class="chimera-dropdown">
       <summary>More</summary>
-      <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a></div>
+      <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a><a href="https://github.com/seal-runtime/seal" target="_blank" rel="noopener noreferrer">seal</a></div>
     </details><details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary aria-label="Change theme" title="Change theme"><svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></summary><div class="chimera-theme-options" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-latte" onclick="chimera.setTheme('catppuccin-latte')"><span class="chimera-theme-swatch"><span style="background: #eff1f5"></span><span style="background: #8839ef"></span><span style="background: #fe640b"></span></span>Catppuccin Latte</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-mocha" onclick="chimera.setTheme('catppuccin-mocha')"><span class="chimera-theme-swatch"><span style="background: #1e1e2e"></span><span style="background: #cba6f7"></span><span style="background: #fab387"></span></span>Catppuccin Mocha</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-macchiato" onclick="chimera.setTheme('catppuccin-macchiato')"><span class="chimera-theme-swatch"><span style="background: #24273a"></span><span style="background: #c6a0f6"></span><span style="background: #f5a97f"></span></span>Catppuccin Macchiato</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-frappe" onclick="chimera.setTheme('catppuccin-frappe')"><span class="chimera-theme-swatch"><span style="background: #303446"></span><span style="background: #ca9ee6"></span><span style="background: #ef9f76"></span></span>Catppuccin Frappé</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="light" onclick="chimera.setTheme('light')"><span class="chimera-theme-swatch"><span style="background: #ffffff"></span><span style="background: #3b5bdb"></span><span style="background: #e8590c"></span></span>Light</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="dark" onclick="chimera.setTheme('dark')"><span class="chimera-theme-swatch"><span style="background: #121214"></span><span style="background: #7b9cff"></span><span style="background: #ffa94d"></span></span>Dark</button></div></details></nav>
   </header>
   <main>
-    <section data-element="Hero">
-      <span class="eyebrow">Luwu · static sites</span>
-      <h1>Static sites as <span class="gradient">classes.</span></h1>
-      <p class="tagline">Compose typed elements, theme them with tokens, and parse the HTML back.</p>
-      <div data-element="Row" class="chimera-row actions" style="justify-content: center; gap: 0.75rem"><a data-element="PageLink" data-page="guide.html" href="guide.html" class="action primary">Read the guide</a><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer" class="action">View source</a></div>
+    <section data-element="Intro">
+      <h1>chimera</h1>
+      <p class="summary">Build static websites in Luwu from classes like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Paragraph</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Menu</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">CodeBlock</span></code>. chimera renders them to HTML with light and dark themes built in, and it can parse that HTML back into the same objects.</p>
+      <div data-element="Row" class="chimera-row actions" style="gap: 0.75rem"><a data-element="PageLink" data-page="guide.html" href="guide.html" class="primary">Get started</a><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source on GitHub</a></div>
     </section>
-    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block showcase" style="--chimera-code-columns: 78"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> home = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Home"</span>, <span class="hljs-title class_">Hero</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>, <span class="hljs-string">"index.html"</span><span class="chimera-bracket-1">)</span>
-<span class="hljs-keyword">const</span> guide = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Guide"</span>, <span class="chimera-bracket-2">{</span> <span class="hljs-title function_ invoke__">h1</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Guide"</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-3">(</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title function_ invoke__">h2</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Install"</span><span class="chimera-bracket-3">)</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
+    <h2>Write Luwu, get a page</h2>
+    <p>The code below builds the box above it. The tabs, the toggle and every color come from chimera and the current theme, without any CSS or JavaScript of your own.</p>
+    <figure data-element="Example" class="guide-example">
+      <div class="guide-example-result">
+        <section>
+          <h3>Version 2.0</h3>
+          <p>Released October 2026.</p>
+          <div data-element="Tabs" class="chimera-tabs"><div class="chimera-tab-list" role="tablist"><button type="button" role="tab" aria-selected="true" onclick="chimera.tab(this)">Linux</button><button type="button" role="tab" aria-selected="false" onclick="chimera.tab(this)">Windows</button></div><div data-element="Tab" data-tab="Linux" role="tabpanel" class="chimera-tab">
+            <pre data-element="CodeBlock" data-language="bash" class="chimera-code-block" style="--chimera-code-columns: 46"><code class="hljs language-bash">curl -fsSL https://example.com/install.sh | sh</code></pre>
+          </div><div data-element="Tab" data-tab="Windows" role="tabpanel" hidden class="chimera-tab">
+            <pre data-element="CodeBlock" data-language="shell" class="chimera-code-block" style="--chimera-code-columns: 22"><code class="hljs language-shell">winget install example</code></pre>
+          </div></div>
+          <div data-element="Row" class="chimera-row" style="align-items: center"><button data-element="Toggle" type="button" aria-controls="chimera-3" onclick="chimera.toggle('chimera-3')">What changed?</button><a href="#">Full changelog</a></div>
+          <p id="chimera-3" hidden>Saves load twice as fast. Old saves still work.</p>
+        </section>
+      </div>
+      <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 91"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> install = <span class="hljs-title class_">Tabs</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span>
+    <span class="hljs-title class_">Tab</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Linux"</span>, <span class="hljs-title class_">CodeBlock</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"curl -fsSL https://example.com/install.sh | sh"</span>, <span class="hljs-string">"bash"</span><span class="chimera-bracket-1">)</span><span class="chimera-bracket-3">)</span>,
+    <span class="hljs-title class_">Tab</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Windows"</span>, <span class="hljs-title class_">CodeBlock</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"winget install example"</span>, <span class="hljs-string">"shell"</span><span class="chimera-bracket-1">)</span><span class="chimera-bracket-3">)</span>,
+<span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-keyword">const</span> changes = <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Saves load twice as fast. Old saves still work."</span><span class="chimera-bracket-1">)</span>
 
-<span class="hljs-comment">-- Every page gets a menu of the site's pages, a theme switcher and a footer.</span>
-<span class="hljs-title class_">Site</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"chimera"</span><span class="chimera-bracket-1">)</span>
-    :<span class="hljs-title function_ invoke__">default_dark_theme</span><span class="chimera-bracket-1">(</span>catppuccin.<span class="hljs-title class_">Mocha</span><span class="chimera-bracket-1">)</span>
-    :<span class="hljs-title function_ invoke__">add_page</span><span class="chimera-bracket-1">(</span>home, guide<span class="chimera-bracket-1">)</span>
-    :<span class="hljs-title function_ invoke__">build</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"site"</span><span class="chimera-bracket-1">)</span></code></pre>
-    <section class="chimera-grid" style="--chimera-grid-min: 15rem; margin-top: 4rem">
-      <div data-element="Card" class="chimera-card">
-        <h3>Typed</h3>
-        <p>A list item outside a list, or a padding of "1rx", is a type error.</p>
+<span class="hljs-keyword">const</span> notes = <span class="hljs-title class_">Section</span> <span class="chimera-bracket-1">{</span>
+    <span class="hljs-title function_ invoke__">h3</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Version 2.0"</span><span class="chimera-bracket-2">)</span>,
+    <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Released October 2026."</span><span class="chimera-bracket-2">)</span>,
+    install,
+    <span class="hljs-title class_">Row</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-3">{</span> <span class="hljs-title class_">Toggle</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"What changed?"</span>, changes<span class="chimera-bracket-1">)</span>, <span class="hljs-title class_">Link</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Full changelog"</span>, <span class="hljs-string">"#"</span><span class="chimera-bracket-1">)</span> <span class="chimera-bracket-3">}</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">align</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"center"</span><span class="chimera-bracket-2">)</span>,
+    changes:<span class="hljs-title function_ invoke__">hidden</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>,
+<span class="chimera-bracket-1">}</span></code></pre>
+    </figure>
+    <h2>Checked by default</h2>
+    <p>Luwu type checks in strict mode by default, and chimera describes CSS values with Luwu's type function validators. The analyzer checks every style you write against them. A wrong unit or a misspelled keyword shows up in your editor before you ever build the page. Hover the squiggles:</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-line-numbers data-squiggles="4.24-4.28	var(--chimera-syntax-error)	TypeError: CSS length '1rx' has the unknown unit 'rx'
+4.41-4.47	var(--chimera-syntax-error)	Typo: Did you mean '&quot;flex&quot;' instead of '&quot;flexx&quot;'?" class="chimera-code-block" style="--chimera-code-columns: 76"><span class="chimera-line-numbers" aria-hidden="true"><span></span><span></span><span></span><span></span></span><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> <span class="chimera-bracket-1">.{</span> elements<span class="chimera-bracket-2">.{</span> <span class="hljs-title class_">Paragraph</span> <span class="chimera-bracket-2">}</span>, components<span class="chimera-bracket-2">.{</span> <span class="hljs-title class_">Card</span> <span class="chimera-bracket-2">}</span> <span class="chimera-bracket-1">}</span> = <span class="hljs-title function_ invoke__">require</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"@chimera"</span><span class="chimera-bracket-1">)</span>
+
+<span class="hljs-keyword">const</span> note = <span class="hljs-title class_">Card</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Heads up"</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Back up your saves."</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">style</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> padding = <span class="hljs-string"><span class="chimera-squiggle" style="--chimera-squiggle-color: var(--chimera-syntax-error)" data-message="TypeError: CSS length '1rx' has the unknown unit 'rx'">"1rx"</span></span>, display = <span class="hljs-string"><span class="chimera-squiggle" style="--chimera-squiggle-color: var(--chimera-syntax-error)" data-message="Typo: Did you mean '&quot;flex&quot;' instead of '&quot;flexx&quot;'?">"flexx"</span></span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
+    <p>Both messages come straight from <code data-language="bash" class="chimera-code language-bash">luwu-analyze</code>.</p>
+    <h2>What's in it</h2>
+    <div data-element="Grid" class="chimera-grid" style="--chimera-grid-min: 16rem">
+      <div class="topic">
+        <a data-element="PageLink" data-page="guide/sites-and-pages.html" href="guide/sites-and-pages.html">Sites and pages</a>
+        <p>Pages, nested folders, links and tables of contents.</p>
       </div>
-      <div data-element="Card" class="chimera-card">
-        <h3>Themeable</h3>
-        <p>Every style reads theme tokens. Switch flavors and the whole page follows.</p>
+      <div class="topic">
+        <a data-element="PageLink" data-page="guide/components.html" href="guide/components.html">Components</a>
+        <p>Menus, dropdowns, tabs, toggles, cards and a theme switcher.</p>
       </div>
-      <div data-element="Card" class="chimera-card">
-        <h3>Roundtrips</h3>
-        <p>Parse the generated HTML and get the same objects back.</p>
+      <div class="topic">
+        <a data-element="PageLink" data-page="guide/code.html" href="guide/code.html">Code</a>
+        <p>Luwu highlighting at build time, squiggles and hovers.</p>
       </div>
-    </section>
-    <div data-element="Column" class="chimera-column" style="align-items: center; margin-top: 3rem">
-      <button data-element="Toggle" type="button" aria-controls="chimera-1" onclick="chimera.toggle('chimera-1')">Tell me a secret</button>
-      <p id="chimera-1" hidden>Every element on this page is a Luwu object that gets typechecked before becoming HTML</p>
+      <div class="topic">
+        <a data-element="PageLink" data-page="guide/theming.html" href="guide/theming.html">Theming</a>
+        <p>Light and dark defaults, Catppuccin, and themes of your own.</p>
+      </div>
+      <div class="topic">
+        <a data-element="PageLink" data-page="guide/styling.html" href="guide/styling.html">Styling</a>
+        <p>Typed CSS that reads theme tokens.</p>
+      </div>
+      <div class="topic">
+        <a data-element="PageLink" data-page="guide/custom-components.html" href="guide/custom-components.html">Custom components</a>
+        <p>Your own components, written once as classes.</p>
+      </div>
     </div>
+    <p class="built-with">This site is built with chimera. Its source is <a href="https://github.com/seal-runtime/chimera/blob/main/examples/site.luwu" target="_blank" rel="noopener noreferrer"><code data-language="plaintext" class="chimera-code">examples/site.luwu</code></a>.</p>
   </main>
   <footer data-element="SiteFooter" class="chimera-footer">
     <div data-element="Grid" class="chimera-grid chimera-footer-columns" style="--chimera-grid-min: 10rem; gap: 1.5rem 2rem">
       <div>
         <p class="chimera-footer-title">Learn</p>
         <ul>
-          <li><a data-element="PageLink" data-page="guide.html" href="guide.html">Guide</a></li>
-          <li><a data-element="PageLink" data-page="guide/sites-and-pages.html" href="guide/sites-and-pages.html">Sites and pages</a></li>
+          <li><a data-element="PageLink" data-page="guide.html" href="guide.html">Getting started</a></li>
+          <li><a data-element="PageLink" data-page="guide/components.html" href="guide/components.html">Components</a></li>
           <li><a data-element="PageLink" data-page="guide/theming.html" href="guide/theming.html">Theming</a></li>
           <li><a data-element="PageLink" data-page="luwu/index.html" href="luwu/index.html">Luwu</a></li>
         </ul>

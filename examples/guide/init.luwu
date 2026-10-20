@@ -1,0 +1,141 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, Main, Link, Table },
+    components.{ Code, CodeBlock },
+    site.{ Page, PageLink, TableOfContents },
+} = require("@chimera")
+const .{ examples_in } = require("@self/example")
+const .{ h1, h2 } = Heading
+
+const sites_page = require("@self/sites")
+const elements_page = require("@self/elements")
+const layout_page = require("@self/layout")
+const components_page = require("@self/components")
+const code_page = require("@self/code")
+const styling_page = require("@self/styling")
+const theming_page = require("@self/theming")
+const custom_page = require("@self/custom")
+const parsing_page = require("@self/parsing")
+
+const example = examples_in("examples/guide/init.luwu")
+
+--@ first page
+const hello = Main {
+    h1("Hello"),
+    Paragraph({ "Built with ", Link("chimera", "https://github.com/seal-runtime/chimera"), "." }),
+}
+--@ end
+
+const module_header = Table.header()
+    :column("Module")
+    :column("What's in it")
+    :column("Guide")
+const module = Table.row_for(module_header)
+
+return Page("Guide", {
+    h1("Guide"),
+    Paragraph({
+        "chimera builds static websites from Luwu code. You describe each page as a tree of objects like ",
+        Code("Paragraph"), ", ", Code("Menu"), " and ", Code("CodeBlock"), ", and chimera renders that tree to ",
+        "HTML with a stylesheet, light and dark themes and a theme switcher. Parse the HTML later and you get ",
+        "the same objects back.",
+    }),
+    Paragraph({
+        "This whole site is built that way. Its source is the ",
+        Link("examples", "https://github.com/seal-runtime/chimera/tree/main/examples"):new_tab(),
+        " folder of the repository, and every example on these pages renders from the code shown under it.",
+    }),
+    TableOfContents(),
+
+    h2("Install"),
+    Paragraph({
+        "chimera runs on seal, a runtime for Luwu. You need a seal built with Luwu support: seal 0.9, from the ",
+        Link("luwu-classes", "https://github.com/seal-runtime/seal/tree/luwu-classes"):new_tab(),
+        " branch. Clone chimera into your project:",
+    }),
+    CodeBlock("git clone https://github.com/seal-runtime/chimera libraries/chimera", "bash"):copyable(),
+    Paragraph({
+        "Then point an alias at it in your project's ", Code(".luaurc", "plaintext"), ", and ",
+        Code("require(\"@chimera\")"), " will find it:",
+    }),
+    CodeBlock([====[{
+    "aliases": {
+        "chimera": "./libraries/chimera"
+    }
+}]====], "json"),
+
+    h2("Your first page"),
+    Paragraph({
+        "A ", Code("Document"), " is one HTML page. Add elements to it, render it with ", Code("to_html"),
+        ", and write the result with seal's ", Code("fs"), " library:",
+    }),
+    CodeBlock([====[const fs = require("@std/fs")
+const chimera = require("@chimera")
+const .{ Document, elements.{ Heading, Paragraph, Main, Link } } = chimera
+const .{ h1 } = Heading
+
+const page = Document("Hello")
+    :add(Main {
+        h1("Hello"),
+        Paragraph({ "Built with ", Link("chimera", "https://github.com/seal-runtime/chimera"), "." }),
+    })
+
+fs.writefile("hello.html", page:to_html(true))]====]):copyable(),
+    Paragraph({ "Run it with ", Code("seal ./hello.luwu", "bash"), " and the page's body looks like this:" }),
+    example("first page", hello),
+    Paragraph({
+        "You didn't write any CSS, but the page is styled and follows the reader's light or dark mode. ",
+        Code("to_html(true)"), " indents the HTML for reading. Leave out ", Code("true"), " for compact output.",
+    }),
+
+    h2("Your first site"),
+    Paragraph({
+        "Once you have more than one page, use a ", Code("Site"), ". It renders every page with the same ",
+        "header, footer and themes, and the default header already has a menu of your pages and a theme switcher.",
+    }),
+    CodeBlock([====[const .{ site.{ Site, Page } } = chimera
+
+const home = Page("Home", { h1("Hello"), Paragraph("Welcome!") }, "index.html")
+const notes = Page("Notes", { h1("Notes"), Paragraph("Things I learned.") })
+
+Site("My site")
+    :add_page(home, notes)
+    :build("out")]====]):copyable(),
+    Paragraph({
+        "That writes ", Code("out/index.html", "plaintext"), " and ", Code("out/notes.html", "plaintext"), ". ",
+        PageLink(sites_page), " covers nested pages, links between them and tables of contents.",
+    }),
+
+    h2("What's where"),
+    Paragraph({
+        "chimera groups its classes by what they're for. Destructure the ones you need from ",
+        Code("require(\"@chimera\")"), ":",
+    }),
+    Table(module_header):rows({
+        module(Code("elements"), "One class per HTML tag", PageLink(elements_page)),
+        module(Code("components"), "Menus, tabs, cards, code blocks, layouts", {
+            PageLink(components_page), ", ", PageLink(layout_page), ", ", PageLink(code_page),
+        }),
+        module(Code("style"), "Typed CSS, colors and theme tokens", PageLink(styling_page)),
+        module(Code("themes"), "Light, Dark and the Catppuccin flavors", PageLink(theming_page)),
+        module(Code("site"), "Sites, pages and the links between them", PageLink(sites_page)),
+        module("top level", "Traits for your own elements, Document, Parser", {
+            PageLink(custom_page), ", ", PageLink(parsing_page),
+        }),
+    }),
+}, "guide.html")
+    :describe("How to build static websites with chimera")
+    :add_page(
+        sites_page,
+        elements_page,
+        layout_page,
+        components_page,
+        code_page,
+        styling_page,
+        theming_page,
+        custom_page,
+        parsing_page
+    )

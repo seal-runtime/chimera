@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sites and pages · chimera</title>
-  <meta name="description" content="An HTML DSL built from Luwu classes">
+  <meta name="description" content="Build static websites in Luwu, from classes">
   <style data-chimera="styles">
     :root[data-theme="catppuccin-latte"] {
       --chimera-accent: #fe640b;
@@ -1089,12 +1089,43 @@
     .chimera-card > :last-child {
       margin-bottom: 0;
     }
+    [data-element="Example"] {
+      border: 1px solid var(--chimera-border);
+      border-radius: var(--chimera-radius);
+      margin: 1.5rem 0;
+      overflow: hidden;
+    }
+    [data-element="Example"] > .guide-example-result {
+      background: var(--chimera-background);
+      padding: 1.25rem;
+    }
+    [data-element="Example"] > .guide-example-result > :first-child {
+      margin-top: 0;
+    }
+    [data-element="Example"] > .guide-example-result > :first-child > :first-child {
+      margin-top: 0;
+    }
+    [data-element="Example"] > .guide-example-result > :last-child {
+      margin-bottom: 0;
+    }
+    [data-element="Example"] > .chimera-code-block {
+      border: none;
+      border-radius: 0;
+      border-top: 1px solid var(--chimera-border);
+      margin: 0;
+    }
   </style>
   <style data-chimera="overrides">
-    .showcase {
-      box-shadow: var(--chimera-shadow);
-      margin: 0 auto;
-      max-width: 54rem;
+    .topic a {
+      font-weight: 600;
+    }
+    .topic p {
+      color: var(--chimera-muted);
+      margin: 0.25rem 0 0;
+    }
+    .built-with {
+      color: var(--chimera-muted);
+      margin-top: 3rem;
     }
   </style>
   <script data-chimera="runtime">(function () {
@@ -1321,31 +1352,108 @@
 </head>
 <body>
   <header>
-    <nav data-element="Menu" class="chimera-menu"><button type="button" class="chimera-menu-toggle" aria-label="Menu" aria-expanded="false" onclick="chimera.menu(this)"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><a data-element="PageLink" data-page="index.html" href="../index.html" class="chimera-brand">chimera</a><a data-element="PageLink" data-page="index.html" href="../index.html">Home</a><a data-element="PageLink" data-page="guide.html" href="../guide.html">Guide</a><a data-element="PageLink" data-page="luwu/index.html" href="../luwu/index.html">Luwu</a><details data-element="Dropdown" class="chimera-dropdown">
+    <nav data-element="Menu" class="chimera-menu"><button type="button" class="chimera-menu-toggle" aria-label="Menu" aria-expanded="false" onclick="chimera.menu(this)"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><a data-element="PageLink" data-page="index.html" href="../index.html" class="chimera-brand">chimera</a><a data-element="PageLink" data-page="guide.html" href="../guide.html">Guide</a><a data-element="PageLink" data-page="luwu/index.html" href="../luwu/index.html">Luwu</a><details data-element="Dropdown" class="chimera-dropdown">
       <summary>More</summary>
-      <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a></div>
+      <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a><a href="https://github.com/seal-runtime/seal" target="_blank" rel="noopener noreferrer">seal</a></div>
     </details><details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary aria-label="Change theme" title="Change theme"><svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></summary><div class="chimera-theme-options" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-latte" onclick="chimera.setTheme('catppuccin-latte')"><span class="chimera-theme-swatch"><span style="background: #eff1f5"></span><span style="background: #8839ef"></span><span style="background: #fe640b"></span></span>Catppuccin Latte</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-mocha" onclick="chimera.setTheme('catppuccin-mocha')"><span class="chimera-theme-swatch"><span style="background: #1e1e2e"></span><span style="background: #cba6f7"></span><span style="background: #fab387"></span></span>Catppuccin Mocha</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-macchiato" onclick="chimera.setTheme('catppuccin-macchiato')"><span class="chimera-theme-swatch"><span style="background: #24273a"></span><span style="background: #c6a0f6"></span><span style="background: #f5a97f"></span></span>Catppuccin Macchiato</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-frappe" onclick="chimera.setTheme('catppuccin-frappe')"><span class="chimera-theme-swatch"><span style="background: #303446"></span><span style="background: #ca9ee6"></span><span style="background: #ef9f76"></span></span>Catppuccin Frappé</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="light" onclick="chimera.setTheme('light')"><span class="chimera-theme-swatch"><span style="background: #ffffff"></span><span style="background: #3b5bdb"></span><span style="background: #e8590c"></span></span>Light</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="dark" onclick="chimera.setTheme('dark')"><span class="chimera-theme-swatch"><span style="background: #121214"></span><span style="background: #7b9cff"></span><span style="background: #ffa94d"></span></span>Dark</button></div></details></nav>
   </header>
   <nav data-element="Breadcrumbs" aria-label="Breadcrumb" class="chimera-breadcrumbs"><ol><li><a href="../guide.html">Guide</a></li><li><span aria-current="page">Sites and pages</span></li></ol></nav>
   <main>
     <h1 id="sites-and-pages">Sites and pages</h1>
-    <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#pages">Pages</a></li><li><a href="#shared-parts">Shared parts</a></li><li><a href="#tables-of-contents">Tables of contents</a></li></ul></section></div></details></nav>
+    <p>A documentation site with 30 pages repeats its header, footer and theme list 30 times, and sooner or later one copy falls out of date. In chimera you set those parts once on a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Site</span></code> and give each <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Page</span></code> only its own content. Nothing shared can drift.</p>
+    <nav data-element="TableOfContents" data-scope="page" data-depth="3" class="chimera-toc"><details open><summary>Contents</summary><div class="chimera-toc-columns"><section><p class="chimera-toc-title">On this page</p><ul><li><a href="#pages">Pages</a></li><li><a href="#nested-pages">Nested pages</a></li><li><a href="#links-between-pages">Links between pages</a></li><li><a href="#tables-of-contents">Tables of contents</a></li><li><a href="#the-site">The site</a></li><li><a href="#header-footer-and-sidebar">Header, footer and sidebar</a></li><li><a href="#per-page-changes">Per-page changes</a></li></ul></section></div></details></nav>
     <h2 id="pages">Pages</h2>
-    <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Page</span></code> is a title and the content of its <code data-language="luwu" data-highlighted="yes" class="chimera-code">&lt;main&gt;</code>. Pages hold other pages, which go in their parent's folder: this page is <code data-language="luwu" data-highlighted="yes" class="chimera-code">guide/sites-<span class="hljs-keyword">and</span>-pages.html</code>.</p>
-    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 70"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> docs = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Docs"</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Start here."</span><span class="chimera-bracket-2">)</span>, <span class="hljs-string">"docs/index.html"</span><span class="chimera-bracket-1">)</span>
-    :<span class="hljs-title function_ invoke__">add_page</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Page</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Install"</span><span class="chimera-bracket-2">)</span>, <span class="hljs-title class_">Page</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Themes"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
-    <h2 id="shared-parts">Shared parts</h2>
-    <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Site</span></code> renders its header, footer and sidebar on every page. Link between pages with <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">PageLink</span></code>, which works out the right path from each folder.</p>
+    <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Page</span></code> takes a title, its content and an optional file name. Without one, the file is named after the title in lowercase with dashes: <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Getting started"</span><span class="chimera-bracket-1">)</span></code> writes <code data-language="plaintext" class="chimera-code">getting-started.html</code>.</p>
+    <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 84"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> home = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Home"</span>, <span class="chimera-bracket-2">{</span> <span class="hljs-title function_ invoke__">h1</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Welcome"</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Start here."</span><span class="chimera-bracket-3">)</span> <span class="chimera-bracket-2">}</span>, <span class="hljs-string">"index.html"</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-keyword">const</span> faq = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"FAQ"</span>, <span class="hljs-title function_ invoke__">h1</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"FAQ"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
+faq:<span class="hljs-title function_ invoke__">add</span><span class="chimera-bracket-1">(</span><span class="hljs-title function_ invoke__">h2</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Is it free?"</span><span class="chimera-bracket-2">)</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Yes."</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
+    <p><code data-language="luwu" data-highlighted="yes" class="chimera-code">add</code> appends content later, just like it does on any container.</p>
+    <h2 id="nested-pages">Nested pages</h2>
+    <p>Pages can hold pages of their own, and those go in a folder named after their parent. A parent called <code data-language="plaintext" class="chimera-code">index.html</code> shares its folder with its children instead:</p>
+    <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 56"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> docs = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Docs"</span>, <span class="hljs-title function_ invoke__">h1</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Docs"</span><span class="chimera-bracket-2">)</span>, <span class="hljs-string">"docs/index.html"</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">add_page</span><span class="chimera-bracket-1">(</span>
+        <span class="hljs-title class_">Page</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Install"</span><span class="chimera-bracket-2">)</span>, <span class="hljs-comment">-- docs/install.html</span>
+        <span class="hljs-title class_">Page</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Themes"</span><span class="chimera-bracket-2">)</span>   <span class="hljs-comment">-- docs/themes.html</span>
+    <span class="chimera-bracket-1">)</span>
+<span class="hljs-keyword">const</span> guide = <span class="hljs-title class_">Page</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Guide"</span><span class="chimera-bracket-1">)</span>  <span class="hljs-comment">-- guide.html</span>
+    :<span class="hljs-title function_ invoke__">add_page</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Page</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Setup"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span> <span class="hljs-comment">-- guide/setup.html</span></code></pre>
+    <p>This page is <code data-language="plaintext" class="chimera-code">guide/sites-and-pages.html</code>, a child of the Guide. Nested pages get breadcrumbs above their content like the ones at the top of this page, and <code data-language="luwu" data-highlighted="yes" class="chimera-code">site:<span class="hljs-title function_ invoke__">breadcrumbs</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">false</span><span class="chimera-bracket-1">)</span></code> turns them off.</p>
+    <h2 id="links-between-pages">Links between pages</h2>
+    <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">PageLink</span></code> points at a <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Page</span></code> object rather than a path. When the page renders, the link works out the relative path from its own folder. Moving a page never breaks the links to it. The text defaults to the page's title:</p>
+    <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 61"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-title class_">PageLink</span><span class="chimera-bracket-1">(</span>faq<span class="chimera-bracket-1">)</span>                  <span class="hljs-comment">-- "FAQ"</span>
+<span class="hljs-title class_">PageLink</span><span class="chimera-bracket-1">(</span>docs, <span class="hljs-string">"Read the docs"</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-title class_">PageLink</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"docs/install.html"</span><span class="chimera-bracket-1">)</span>  <span class="hljs-comment">-- a path from the site's root</span></code></pre>
+    <p>Because every link is relative, the built site also works from disk over <code data-language="plaintext" class="chimera-code">file://</code>. You don't need a server to check it.</p>
     <h2 id="tables-of-contents">Tables of contents</h2>
-    <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code> lists the headings of its page and the pages under it. <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"site"</span><span class="chimera-bracket-1">)</span></code> lists every page.</p>
+    <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span></code> lists its page's headings and the pages under it. It's built when the page renders, from whatever the page holds at that moment, and never goes stale. The box at the top of this page is one; on wide screens it moves into a column beside the text.</p>
+    <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 88"><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>                    <span class="hljs-comment">-- this page's h2 and h3 headings, and its subpages</span>
+<span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"page"</span>, <span class="hljs-number">2</span><span class="chimera-bracket-1">)</span>           <span class="hljs-comment">-- h2 headings only</span>
+<span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"site"</span>, <span class="hljs-number">3</span>, <span class="hljs-string">"Pages"</span><span class="chimera-bracket-1">)</span>  <span class="hljs-comment">-- every page of the site, for a sidebar</span></code></pre>
+    <h2 id="the-site">The site</h2>
+    <p>A <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Site</span></code> holds the top-level pages and everything they share. <code data-language="luwu" data-highlighted="yes" class="chimera-code">build</code> writes them all, creating folders as it goes, and returns the paths it wrote:</p>
+    <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 52"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> site = <span class="hljs-title class_">Site</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"My docs"</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Guides and reference for my library"</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">default_dark_theme</span><span class="chimera-bracket-1">(</span>catppuccin.<span class="hljs-title class_">Mocha</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">default_light_theme</span><span class="chimera-bracket-1">(</span>catppuccin.<span class="hljs-title class_">Latte</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">add_page</span><span class="chimera-bracket-1">(</span>home, docs, faq<span class="chimera-bracket-1">)</span>
+
+<span class="hljs-keyword">for</span> _, path <span class="hljs-keyword">in</span> site:<span class="hljs-title function_ invoke__">build</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"out"</span><span class="chimera-bracket-1">)</span> <span class="hljs-keyword">do</span>
+    <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-string">`wrote </span><span class="hljs-subst">{path}</span><span class="hljs-string">`</span><span class="chimera-bracket-1">)</span>
+<span class="hljs-keyword">end</span></code></pre>
+    <p>Two pages with the same path are an error rather than a silent overwrite. <code data-language="luwu" data-highlighted="yes" class="chimera-code">describe</code> sets the summary search engines show, and a page can override it with its own <code data-language="luwu" data-highlighted="yes" class="chimera-code">describe</code>.</p>
+    <h2 id="header-footer-and-sidebar">Header, footer and sidebar</h2>
+    <p>Unless you say otherwise, every page gets a header with a menu of the top-level pages and a theme switcher, plus a footer with the site's copyright. Pass your own to replace either one, or <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-literal">none</span></code> to leave it out:</p>
+    <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 91"><code class="hljs language-luwu" data-highlighted="yes">site
+    :<span class="hljs-title function_ invoke__">header</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Header</span> <span class="chimera-bracket-2">{</span> <span class="hljs-title class_">Menu</span> <span class="chimera-bracket-3">{</span> <span class="hljs-title class_">PageLink</span><span class="chimera-bracket-1">(</span>home, <span class="hljs-string">"My docs"</span><span class="chimera-bracket-1">)</span>, <span class="hljs-title class_">PageLink</span><span class="chimera-bracket-1">(</span>docs<span class="chimera-bracket-1">)</span>, <span class="hljs-title class_">ThemeSwitcher</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span> <span class="chimera-bracket-3">}</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">footer</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">none</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">sidebar</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">TableOfContents</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"site"</span>, <span class="hljs-number">2</span>, <span class="hljs-string">"Pages"</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
+    <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">SiteFooter</span></code> builds a footer like this site's, with link columns, a copyright line and legal links:</p>
+    <figure data-element="Example" class="guide-example">
+      <div class="guide-example-result">
+        <footer data-element="SiteFooter" class="chimera-footer">
+          <div data-element="Grid" class="chimera-grid chimera-footer-columns" style="--chimera-grid-min: 10rem; gap: 1.5rem 2rem">
+            <div>
+              <p class="chimera-footer-title">Docs</p>
+              <ul>
+                <li><a href="#">Install</a></li>
+                <li><a href="#">Themes</a></li>
+              </ul>
+            </div>
+            <div>
+              <p class="chimera-footer-title">Community</p>
+              <ul>
+                <li><a href="#">Discord</a></li>
+                <li><a href="#">GitHub</a></li>
+              </ul>
+            </div>
+          </div>
+          <div data-element="Row" class="chimera-row chimera-footer-bar" style="justify-content: space-between; align-items: center">
+            <p class="chimera-footer-copyright">© 2026 Ada Lovelace. Built with chimera.</p>
+          </div>
+        </footer>
+      </div>
+      <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 76"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">const</span> footer = <span class="hljs-title class_">SiteFooter</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">link_column</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Docs"</span>, <span class="chimera-bracket-2">{</span> <span class="hljs-title class_">Link</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Install"</span>, <span class="hljs-string">"#"</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title class_">Link</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Themes"</span>, <span class="hljs-string">"#"</span><span class="chimera-bracket-3">)</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">link_column</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Community"</span>, <span class="chimera-bracket-2">{</span> <span class="hljs-title class_">Link</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"Discord"</span>, <span class="hljs-string">"#"</span><span class="chimera-bracket-3">)</span>, <span class="hljs-title class_">Link</span><span class="chimera-bracket-3">(</span><span class="hljs-string">"GitHub"</span>, <span class="hljs-string">"#"</span><span class="chimera-bracket-3">)</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
+    :<span class="hljs-title function_ invoke__">copyright</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Ada Lovelace"</span>, <span class="hljs-string">"Built with chimera."</span><span class="chimera-bracket-1">)</span></code></pre>
+    </figure>
+    <h2 id="per-page-changes">Per-page changes</h2>
+    <p>For anything the site doesn't set itself, <code data-language="luwu" data-highlighted="yes" class="chimera-code">customize</code> runs a function on each page's <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Document</span></code> just before it's written:</p>
+    <pre data-element="CodeBlock" data-language="luwu" class="chimera-code-block" style="--chimera-code-columns: 78"><code class="hljs language-luwu" data-highlighted="yes">site:<span class="hljs-title function_ invoke__">customize</span><span class="chimera-bracket-1">(</span><span class="hljs-keyword">function</span><span class="chimera-bracket-2">(</span>document, page<span class="chimera-bracket-2">)</span>
+    document:<span class="hljs-title function_ invoke__">link_stylesheet</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"https://fonts.googleapis.com/css2?family=Inter"</span><span class="chimera-bracket-2">)</span>
+    <span class="hljs-keyword">if</span> page.title == <span class="hljs-string">"Home"</span> <span class="hljs-keyword">then</span>
+        document:<span class="hljs-title function_ invoke__">describe</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"My library: fast, typed and small"</span><span class="chimera-bracket-2">)</span>
+    <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span><span class="chimera-bracket-1">)</span></code></pre>
+    <p>chimera only writes pages. Copy images and other files into the output folder yourself with <code data-language="luwu" data-highlighted="yes" class="chimera-code">fs.copy</code>.</p>
   </main>
   <footer data-element="SiteFooter" class="chimera-footer">
     <div data-element="Grid" class="chimera-grid chimera-footer-columns" style="--chimera-grid-min: 10rem; gap: 1.5rem 2rem">
       <div>
         <p class="chimera-footer-title">Learn</p>
         <ul>
-          <li><a data-element="PageLink" data-page="guide.html" href="../guide.html">Guide</a></li>
-          <li><a data-element="PageLink" data-page="guide/sites-and-pages.html" href="sites-and-pages.html" aria-current="page">Sites and pages</a></li>
+          <li><a data-element="PageLink" data-page="guide.html" href="../guide.html">Getting started</a></li>
+          <li><a data-element="PageLink" data-page="guide/components.html" href="components.html">Components</a></li>
           <li><a data-element="PageLink" data-page="guide/theming.html" href="theming.html">Theming</a></li>
           <li><a data-element="PageLink" data-page="luwu/index.html" href="../luwu/index.html">Luwu</a></li>
         </ul>
