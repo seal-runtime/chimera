@@ -290,9 +290,10 @@ return Page("Classes and Traits", {
     }),
     Paragraph({
         Code("Money"), " keeps whole units and cents in separate fields because a floating point ",
-        Code("number"), " can't hold most fractions exactly: ", Code("0.1 + 0.2"), " is ",
-        Code("0.30000000000000004"), ". Its private constructor and fields mean every amount comes from ",
-        Code("Money.usd"), ", ", Code("Money.eur"), " or ", Code("Money.gbp"), " and stays valid.",
+        Code("number"), " can't hold most fractions exactly (", Code("0.1 + 0.2"), " is ",
+        Code("0.30000000000000004"), "). Its constructor and fields are private, and every amount comes from ",
+        Code("Money.usd"), ", ", Code("Money.eur"), " or ", Code("Money.gbp"), ". Those reject negative amounts ",
+        "and fractions of a cent before an object ever exists.",
     }),
     luwu([====[
         type Currency = "USD" | "EUR" | "GBP"
@@ -529,7 +530,6 @@ return Page("Classes and Traits", {
     Paragraph({
         "A trait is also a type. ", Code("{ Shape }"), " is a list of anything that implements ", Code("Shape"), ".",
     }),
-    Paragraph({ Code("class.implements"), " checks a value at runtime." }),
     Paragraph({
         Code("Trait"), " is any object whose class implements ", Code("Trait"), ", ", Code("class<Trait>"),
         " is the type of the class value of any class that implements ", Code("Trait"), ", and ",
@@ -549,31 +549,100 @@ return Page("Classes and Traits", {
 
         const nyla = Cat("Nyla", 14) -- nyla is Animal
     ]====]),
-    Paragraph("Together they make registries: look up a class by name, then build it."),
+    Paragraph({
+        Code("class.isinstance"), " asks whether a value is an object of one exact class, while ",
+        Code("class.implements"), " asks whether the value's class implements a trait. Inside either check Luwu ",
+        "narrows the value's type. Once ", Code("describe"), " knows it has an ", Code("Animal"), ", reading ",
+        Code("thing.species"), " type checks:",
+    }),
     luwu([====[
-        trait Spawnable
+        trait Animal
+            expect species: string
+        end
+
+        class Cat(name: string) implements Animal
+            species = "Felis catus"
+        end
+
+        class Dog(name: string) implements Animal
+            species = "Canis familiaris"
+        end
+
+        class Rock() end
+
+        const function describe(thing: unknown): string
+            if class.implements(thing, Animal) then
+                return `an animal of species {thing.species}`
+            elseif class.isinstance(thing, Rock) then
+                return "a rock"
+            end
+            return "something else"
+        end
+
+        print(describe(Cat("Nyla")))
+        print(describe(Dog("Rex")))
+        print(describe(Rock()))
+    ]====]),
+    Paragraph({
+        "Written with only ", Code("class.isinstance"), ", ", Code("describe"), " would need a check for ",
+        Code("Cat"), ", another for ", Code("Dog"), " and one more for every animal class anyone adds later, ",
+        "even in code it has never seen. A single ", Code("class.implements"), " check covers them all. ",
+        Code("class.isinstance"), " only takes classes, and when it's given a trait luwu-analyze reports ",
+        Code("Expected this to be a class, got trait 'Animal'", "plaintext"), ".",
+    }),
+
+    h3("Traits as factories"),
+    Paragraph({
+        "Sometimes code has to build an object without knowing its class. chimera, the library this site is built ",
+        "with, parses HTML back into objects: it reads each component's name from attributes like ",
+        Code("data-element=\"Card\"", "html"), ", and apps register components chimera has never heard of. A ",
+        "trait can build those objects. Give the trait a ", Code("__create"), " function and calling the trait ",
+        "like a class runs it to pick a concrete class and return a new object of that class.",
+    }),
+    Paragraph({
+        "This ", Code("Component"), " trait keeps a registry of ", Code("class<Component>"), " values by class ",
+        "name. Each component class is registered once with ", Code("Component.register"), ", and ",
+        Code("Component(\"Button\")"), " then builds a ", Code("Button"), ":",
+    }),
+    luwu([====[
+        const components: { [string]: class<Component>? } = {}
+
+        trait Component
             expect function __init(self)
-            expect const kind: string
+            expect function render(self): string
+            function __create(name: string): Component
+                const cls = components[name] or error(`no component called {name}`, 2)
+                return cls()
+            end
+            final function register(cls: class<Component>)
+                components[class.name(cls)] = cls
+            end
         end
 
-        class Zombie() implements Spawnable
-            const kind = "zombie"
+        class Button() implements Component
+            function render(self): string
+                return "<button>Save</button>"
+            end
         end
 
-        class Skeleton() implements Spawnable
-            const kind = "skeleton"
+        class Spinner() implements Component
+            function render(self): string
+                return `<div class="spinner"></div>`
+            end
         end
 
-        const spawners: { [string]: class<Spawnable>? } = {}
-        for _, cls in { Zombie, Skeleton } do
-            spawners[cls().kind] = cls
-        end
+        Component.register(Button)
+        Component.register(Spinner)
 
-        if const spawn = spawners["skeleton"] then
-            const mob = spawn()
-            print(mob.kind, class.implements(mob, Spawnable))
+        -- names a parser found in the page's data-element attributes
+        for _, name in { "Spinner", "Button" } do
+            print(Component(name):render())
         end
     ]====]),
+    Paragraph({
+        "Only traits that define ", Code("__create"), " can be called. Calling the ", Code("Animal"),
+        " trait from earlier raises ", Code("trait 'Animal' can't be called: it has no '__create'", "plaintext"), ".",
+    }),
 
     h2("Things to know"),
     UnorderedList({
