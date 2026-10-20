@@ -77,7 +77,7 @@ return Page("Literal Types and Validators", {
         -- paint("3b5bdb") is a type error: '3b5bdb' is missing its '#'
         -- paint("#12345") is a type error: '#12345' isn't a hex color
     ]====]),
-    Paragraph("The error shows up in your editor, right at the call."),
+    Paragraph("The error shows up in your editor at the call."),
 
     h2("Naming a validated type"),
     Paragraph("Give the validated type a name to use it in many places:"),

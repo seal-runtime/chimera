@@ -10,9 +10,12 @@ const .{
 const luwu = require("./sample")
 const .{ h1, h2 } = Heading
 
-return Page("Function Default Arguments", {
-    h1("Function Default Arguments"),
-    Paragraph("A parameter can have a default value. Callers can then leave it out."),
+return Page("Default Arguments", {
+    h1("Default Arguments"),
+    Paragraph({
+        "Function parameters and class constructor parameters can have default values, and callers can leave ",
+        "those arguments out.",
+    }),
     Paragraph("In Luau, you'd fill in missing arguments by hand:"),
     luwu([====[
         local function greet(name: string, greeting: string?)
@@ -104,4 +107,4 @@ return Page("Function Default Arguments", {
         ListItem("Parameters without defaults may come after ones with defaults."),
         ListItem({ "To callers, ", Code("function f(x = 1)"), " takes an optional number." }),
     }),
-}, "function-default-arguments.html")
+}, "default-arguments.html")

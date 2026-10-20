@@ -25,7 +25,6 @@ const none_page = require("./none")
 const literal_types = require("./literal_types")
 const library_extensions = require("./library_extensions")
 const external_memory = require("./external_memory")
-const conveniences = require("./conveniences")
 const experimental = require("./experimental")
 
 const health = sample("health")
@@ -145,21 +144,22 @@ return Page("Luwu", {
         "inheritance, integers, and destructuring.",
     }),
     see_more(compatibility),
-    Paragraph("The sections below give a short tour of each feature, with a link to its own page."),
+    Paragraph("The sections below give a short tour of each feature."),
 
     h2("Types and editor support"),
     Paragraph({
-        "We maintain luwu-lsp and the Luwu VSCode/Code-OSS extension alongside the language, and since we develop ",
-        "directly with our language server, we test new editor features, type checking improvements and DX right ",
-        "away.",
+        "We maintain our ", Link("LSP", "https://github.com/luwu-community/luwu-lsp/tree/luwu"):new_tab(),
+        " and the Luwu VSCode/Code-OSS extension alongside the language. New editor features and type checking ",
+        "improvements are developed directly against them, and we see how every change reads in a real editor ",
+        "before it ships.",
     }),
     Paragraph({
-        "Since Luau is primarily developed against Roblox's Studio script editor, its diagnostics are optimized ",
-        "for single-line display. We develop against VSCode and the Luwu extension (with hopefully more editors ",
-        "coming soon!), so Luwu's output is optimized for multiline hovers from the language server, in ",
-        "VSCode/Code-OSS and other editors that commonly show hovers and diagnostics on several lines. ",
-        "It's written more for people than for tooling, although we've also added more context to make Luwu's ",
-        "type errors more useful in tooling as well.",
+        "That's also why Luwu prints types and errors differently from Luau. Luau is primarily developed against ",
+        "Roblox's Studio script editor, which shows each diagnostic on a single line, and Luau's type ",
+        "stringification is built to fit it. Our language server targets VSCode/Code-OSS (with hopefully more ",
+        "editors coming soon!), which show hovers and diagnostics across several lines. Luwu prints types over ",
+        "multiple lines, formatted like code, and writes its error messages for people reading them in a hover. ",
+        "We've also added context to Luwu's type errors that makes them easier for tools to work with.",
     }),
 
     h3("Type Checking"),
@@ -275,8 +275,8 @@ return Page("Luwu", {
     ]====]),
     see_more(comprehensions),
 
-    h3("Function Default Arguments"),
-    Paragraph("Parameters can have default values, right in the function's signature."),
+    h3("Default Arguments"),
+    Paragraph("Function parameters and class constructor parameters can have default values:"),
     luwu([====[
         const function greet(name: string, greeting = "Hello")
             print(`{greeting}, {name}!`)
@@ -286,9 +286,60 @@ return Page("Luwu", {
     ]====]),
     see_more(default_arguments),
 
-    h3("More Conveniences"),
-    Paragraph("Smaller additions, like named functions in table literals."),
-    see_more(conveniences),
+    h3("Named functions in table literals"),
+    Paragraph("In Luau, a function stored in a table is a key assigned an anonymous function:"),
+    luwu([====[
+        local handlers = {
+            on_start = function()
+                print("started")
+            end,
+        }
+        handlers.on_start()
+    ]====]),
+    Paragraph({
+        "In Luwu, you can declare it like any other function, with ", Code("function name()"),
+        " inside the table:",
+    }),
+    luwu([====[
+        const handlers = {
+            function on_start()
+                print("started")
+            end,
+            function on_stop()
+                print("stopped")
+            end,
+        }
+
+        handlers.on_start()
+        handlers.on_stop()
+    ]====]),
+    Paragraph({
+        "It reads the same as a ", Code("const function"), " or a class method, and a function without a name is ",
+        "still a list item, like in Luau.",
+    }),
+
+    h3("Importing classes with their types"),
+    Paragraph("In Luau, a value and a type are imported separately. A class-like table needs both lines:"),
+    CodeBlock([====[local shapes = require("./shapes")
+local Circle = shapes.Circle
+type Circle = shapes.Circle]====], "luau"),
+    Paragraph("A Luwu class is a value and a type at once. Given a module that exports one:"),
+    CodeBlock([====[export class Circle(radius: number)
+    function area(self): number
+        return math.pi * self.radius ^ 2
+    end
+end]====]),
+    Paragraph("Importing the class brings its type along, whichever way you import it:"),
+    CodeBlock([====[const shapes = require("./shapes")
+const Circle = shapes.Circle]====]),
+    CodeBlock([====[const .{ Circle } = require("./shapes")
+
+const function describe(circle: Circle): string
+    return `a circle with area {circle:area()}`
+end]====]),
+    Paragraph({
+        "Traits work the same way. ", Code("type Circle = shapes.Circle"), " still works, but isn't needed.",
+    }),
 
     h2("Libraries and embedding"),
 
@@ -303,6 +354,10 @@ return Page("Luwu", {
         table.drop(party, "Grace")
         print(#party)
     ]====]),
+    Paragraph({
+        "More are planned, like ", Code("table.keys"), ", ", Code("table.extend"), " and ", Code("string.startswith"),
+        ".",
+    }),
     see_more(library_extensions),
 
     h3("External Buffers and Strings"),
@@ -326,7 +381,6 @@ return Page("Luwu", {
         control_flow,
         comprehensions,
         default_arguments,
-        conveniences,
         library_extensions,
         external_memory,
         experimental

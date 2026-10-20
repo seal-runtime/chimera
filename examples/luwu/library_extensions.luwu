@@ -105,4 +105,27 @@ Consider using `table.drop` instead. If order is not important, use a key/value 
         ListItem({ Code("class.fields(object)"), " gives an object's public fields as a table." }),
     }),
     Paragraph("They're covered with examples on the Classes and Traits page."),
+
+    h2("Planned additions"),
+    Paragraph("We want to add these functions next:"),
+    CodeBlock([====[
+--- Counts every element in the array and hash parts, to get the size of a map-like or struct-like table.
+table.count<K, V>(t: { read [K]: V }): number
+--- Copies every element of e onto the end of t, changing t.
+table.extend<T>(t: { T }, e: { T })
+--- A new table with the elements of t, then the elements of e.
+table.combine<T, U>(t: { read T }, e: { read U }): { T | U }
+--- An array of the table's keys.
+table.keys<K, V>(t: { read [K]: V }): { K }
+--- An array of the table's values.
+table.values<K, V>(t: { read [K]: V }): { V }
+
+--- Whether s starts with prefix. Not pattern aware or unicode aware.
+string.startswith(s: string, prefix: string): boolean
+--- Whether s ends with suffix. Not pattern aware or unicode aware.
+string.endswith(s: string, suffix: string): boolean
+--- Trims whitespace from the start, the end or both ("all", the default).
+string.trim(s: string, mode: ("start" | "end" | "all")?): string
+--- Whether s contains substring, without patterns, like string.find(s, substring, 1, true).
+string.contains(s: string, substring: string): boolean]====]),
 }, "library-extensions.html")

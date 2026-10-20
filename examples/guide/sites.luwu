@@ -37,7 +37,7 @@ return Page("Sites and pages", {
     CodeBlock([====[const home = Page("Home", { h1("Welcome"), Paragraph("Start here.") }, "index.html")
 const faq = Page("FAQ", h1("FAQ"))
 faq:add(h2("Is it free?"), Paragraph("Yes."))]====]),
-    Paragraph({ Code("add"), " appends content later, just like it does on any container." }),
+    Paragraph({ Code("add"), " appends more content later." }),
 
     h2("Nested pages"),
     Paragraph({

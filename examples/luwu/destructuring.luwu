@@ -99,7 +99,7 @@ return Page("Destructuring", {
     ]====]),
 
     h2("Loops"),
-    Paragraph("Destructure each item right in a for loop's header."),
+    Paragraph("Destructure each item in a for loop's header."),
     luwu([====[
         const books = {
             { title = "Dune", year = 1965 },

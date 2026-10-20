@@ -27,7 +27,7 @@ return Page("External Buffers and Strings", {
     h2("External buffers"),
     Paragraph("An external buffer is a regular buffer whose bytes live in host memory."),
     Paragraph({
-        "The whole ", Code("buffer"), " library works on it, at full speed, including the native code fast paths. ",
+        "The whole ", Code("buffer"), " library works on it, including the native code fast paths. ",
         "Wrapping host data in a userdata instead would lose all of that.",
     }),
     Paragraph({
