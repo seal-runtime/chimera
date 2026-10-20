@@ -297,6 +297,29 @@ const tests: { [string]: () -> () } = {
             fs.removetree(out_dir)
         end
     end,
+
+    ["every page links the site's favicon, which build copies to the root"] = function()
+        const .{ site, home, install } = sample()
+        site:favicon("examples/assets/nyla.svg")
+        const icon = `<link rel="icon" href="%s" type="image/svg+xml">`
+        contains(
+            site
+                :document(home)
+                :to_html(),
+            string.format(icon, "nyla.svg")
+        )
+        contains(
+            site
+                :document(install)
+                :to_html(),
+            string.format(icon, "../nyla.svg")
+        )
+        const out_dir = fs.path.join(fs.path.cwd(), ".test-favicon")
+        const written = site:build(out_dir)
+        equal(#written, 6)
+        equal(fs.readfile(fs.path.join(out_dir, "nyla.svg")), fs.readfile("examples/assets/nyla.svg"))
+        fs.removetree(out_dir)
+    end,
 }
 
 return tests

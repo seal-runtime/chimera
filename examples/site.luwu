@@ -181,6 +181,7 @@ const website = Site("chimera")
     :offer_theme(Light)
     :offer_theme(Dark)
     :describe("Build static websites in Luwu, from classes")
+    :favicon("examples/assets/nyla.svg")
     :header(Header {
         Menu {
             PageLink(home, "chimera"):add_style_class("chimera-brand"),

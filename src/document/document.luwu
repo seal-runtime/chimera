@@ -469,7 +469,7 @@ export class Document implements Element
         ## Usage
 
         ```luwu
-        page:add_head(Meta.property("og:image", "/preview.png"), ResourceLink("icon", "/favicon.svg"))
+        page:add_head(Meta.property("og:image", "/preview.png"), ResourceLink.icon("/favicon.svg"))
         ```
     ]=]
     function add_head(self, ...: Metadata): Document
@@ -555,6 +555,26 @@ export class Document implements Element
     ]=]
     function link_stylesheet(self, href: string): Document
         return self:add_head(ResourceLink.stylesheet(href))
+    end
+
+    --[=[
+        Sets the icon browsers show in the page's tab and bookmarks. A [Site][site.Site] sets it on every page with
+        [Site:favicon][site.Site.favicon].
+
+        [site = require("@site/site")]
+
+        ## Usage
+
+        ```luwu
+        page:favicon("favicon.svg")
+        ```
+
+        ```html
+        <link rel="icon" href="favicon.svg" type="image/svg+xml">
+        ```
+    ]=]
+    function favicon(self, href: string): Document
+        return self:add_head(ResourceLink.icon(href))
     end
 
     --[=[

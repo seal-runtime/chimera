@@ -17,6 +17,10 @@ type .{ StyleInput } = style_module
 type .{ Theme } = theme_module
 type .{ Document } = document_module
 
+const function base_name(path: string): string
+    return fs.path.child(path) or error(`'{path}' doesn't name a file`, 3)
+end
+
 --- A page's default file: its title in lowercase with dashes.
 const function file_name(title: string): string
     const dashed = string.gsub(string.lower(title), "[^%w]+", "-")
@@ -498,6 +502,8 @@ export class Site(const name: string)
     sidebar_content: Content? = nil
     rules: { Rule } = {}
     description: string? = nil
+    --- Set with [Site:favicon].
+    icon_file: string? = nil
     language = "en"
     show_breadcrumbs = true
     --- Set with [Site:heading_links].
@@ -559,6 +565,21 @@ export class Site(const name: string)
     ]=]
     function describe(self, description: string): Site
         self.description = description
+        return self
+    end
+
+    --[=[
+        The icon browsers show in every page's tab and bookmarks. Takes SVG, PNG or ICO. Pages link to it with a
+        relative path that also works over `file://` once [Site:build] copies `file` to the site's root.
+
+        ## Usage
+
+        ```luwu
+        site:favicon("assets/icon.svg")
+        ```
+    ]=]
+    function favicon(self, file: string): Site
+        self.icon_file = file
         return self
     end
 
@@ -822,6 +843,11 @@ export class Site(const name: string)
         if const description = page.description or self.description then
             document:describe(description)
         end
+        if const icon = self.icon_file then
+            const links = markup.Writer()
+            links.location = page:path()
+            document:favicon(links:href_to(base_name(icon)))
+        end
         for _, rule in self.rules do
             table.insert(document.rules, rule)
         end
@@ -876,6 +902,11 @@ export class Site(const name: string)
                 :document(page)
                 :to_html(pretty)
             fs.writefile(file, html)
+            table.insert(written, file)
+        end
+        if const icon = self.icon_file then
+            const file = fs.path.join(out_dir, base_name(icon))
+            fs.writefile(file, fs.readfile(icon))
             table.insert(written, file)
         end
         return written

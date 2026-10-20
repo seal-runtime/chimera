@@ -126,12 +126,18 @@ export class Meta implements Metadata
     end
 end
 
+const ICON_TYPES: { [string]: string? } = {
+    svg = "image/svg+xml",
+    png = "image/png",
+    ico = "image/x-icon",
+}
+
 --[=[
     A `"link"` element that links the page to an external resource, like a stylesheet or an icon.
 
     ```luwu
     ResourceLink.stylesheet("/fonts.css")
-    ResourceLink("icon", "/favicon.svg")
+    ResourceLink.icon("/favicon.svg")
     ```
 ]=]
 export class ResourceLink implements Metadata
@@ -160,6 +166,25 @@ export class ResourceLink implements Metadata
     ]=]
     function stylesheet(href: string): ResourceLink
         return ResourceLink("stylesheet", href)
+    end
+
+    --[=[
+        A link to the icon browsers show in the page's tab and bookmarks. SVG, PNG and ICO files get their `type`
+        from the extension.
+
+        ## Usage
+
+        ```luwu
+        ResourceLink.icon("favicon.svg"):to_html()
+        ```
+
+        ```html
+        <link rel="icon" href="favicon.svg" type="image/svg+xml">
+        ```
+    ]=]
+    function icon(href: string): ResourceLink
+        const extension = string.match(string.lower(href), "%.(%w+)$")
+        return ResourceLink("icon", href):attr("type", if extension then ICON_TYPES[extension] else nil)
     end
 end
 
