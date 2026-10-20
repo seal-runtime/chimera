@@ -85,7 +85,7 @@ return Page("Destructuring", {
         print(typeof(readfile), typeof(writefile), typeof(path.join), typeof(fs))
     ]====]),
     Paragraph({
-        "Types come along too. ", Code("type .{ ... } = module"), " pulls exported types out of a module:",
+        Code("type .{ ... } = module"), " does the same for a module's exported types:",
     }),
     luwu([====[
         const process = require("@std/process")

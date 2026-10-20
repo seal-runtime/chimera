@@ -1374,7 +1374,7 @@ account:<span class="hljs-title function_ invoke__">deposit</span><span class="c
 account:<span class="hljs-title function_ invoke__">deposit</span><span class="chimera-bracket-1">(</span><span class="hljs-number">50</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>account.balance<span class="chimera-bracket-1">)</span></code></pre>
     <h3 id="type-checking">Type checking</h3>
-    <p>Metatables are hard for the type checker to follow. Types and autocomplete often break. A class has no such problem. The checker knows every field and method of every object. A misspelled field is a type error instead of a silent nil.</p>
+    <p>Metatables are hard for the type checker to follow, and types and autocomplete often break on them. With a class, the checker knows every field and method of every object, and a misspelled field is a type error instead of a silent nil.</p>
     <p>Classes and traits are nominally typed: what matters is the name, not the shape. Two classes with the same fields are still different types, and one can't be passed where the other is expected. A trait's name is a type too, and an object of any class that implements the trait fits it.</p>
     <p>Metatables still work, and Luwu doesn't ask you to give them up. Tables with metatables stay structurally typed, as in Luau, and Luwu's type checker handles them better than Luau's does, with improvements like type references and method calls on union types.</p>
     <h3 id="performance">Performance</h3>
@@ -1473,7 +1473,7 @@ oreo:<span class="hljs-title function_ invoke__">birthday</span><span class="chi
     <p>Mark a member <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">private</span></code> to keep it inside the class.</p>
     <p>Code outside the class can't read or change it. Trying is a type error, and an error at runtime.</p>
     <p>Mark a field <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">const</span></code> when it should never change after the object is built.</p>
-    <p>Once one member has public or private, every member needs one. Classes stay easy to read that way.</p>
+    <p>Once one member has public or private, every member needs one.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 49"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">BankAccount</span><span class="chimera-bracket-1">(</span>
     <span class="hljs-keyword">public</span> <span class="hljs-keyword">const</span> owner: <span class="hljs-type">string</span>,
     <span class="hljs-keyword">private</span> balance: <span class="hljs-type">number</span> = <span class="hljs-number">0</span>
@@ -1607,7 +1607,7 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-keyword">const</span> chest = <span class="hljs-title class_">Chest</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> <span class="hljs-string">"gold"</span>, <span class="hljs-string">"map"</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-keyword">const</span> slime = <span class="hljs-title class_">Slime</span><span class="chimera-bracket-1">(</span><span class="hljs-number">5</span>, <span class="chimera-bracket-2">{</span> <span class="hljs-string">"goo"</span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>#chest:<span class="hljs-title function_ invoke__">drop</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>, #chest:<span class="hljs-title function_ invoke__">drop</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>, slime:<span class="hljs-title function_ invoke__">drop</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-2">[</span><span class="hljs-number">1</span><span class="chimera-bracket-2">]</span><span class="chimera-bracket-1">)</span></code></pre>
-    <p>Both classes get the trait's methods. Neither writes them again.</p>
+    <p>Both classes get the trait's methods without writing them again.</p>
     <h3 id="expected-members">Expected members</h3>
     <p><code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">expect</span></code> lists what an implementing class must provide: fields, functions or both.</p>
     <p>Leaving one out is a type error, and an error when the class is created.</p>
@@ -1666,7 +1666,7 @@ hp -= <span class="hljs-number">90</span>
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span><span class="hljs-title class_">Robot</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span>:<span class="hljs-title function_ invoke__">introduce</span><span class="chimera-bracket-2">(</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span></code></pre>
     <h3 id="final-members">Final members</h3>
     <p>Mark a trait's member <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-keyword">final</span></code> when classes must not replace it.</p>
-    <p>A final function without self is a static function on the trait. It's a good home for helpers.</p>
+    <p>A final function without self is a static function on the trait, for helpers that belong with it.</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 63"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">trait</span> <span class="hljs-title class_">Shape</span>
     <span class="hljs-keyword">expect</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">area</span><span class="chimera-bracket-1">(</span><span class="hljs-literal">self</span><span class="chimera-bracket-1">)</span>: <span class="hljs-type">number</span>
 

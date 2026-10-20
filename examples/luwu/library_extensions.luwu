@@ -12,7 +12,7 @@ const .{ h1, h2, h3 } = Heading
 
 return Page("Library Extensions", {
     h1("Library Extensions"),
-    Paragraph("Luwu's standard library is Luau's, with a few additions. Most of them fix a real problem."),
+    Paragraph("Luwu's standard library is Luau's, with a few additions that fix real problems."),
     TableOfContents(),
 
     h2("table.drop"),

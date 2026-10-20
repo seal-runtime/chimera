@@ -70,7 +70,7 @@ return Page("Table Comprehensions", {
         }
         print(name_lengths.Grace)
     ]====]),
-    Paragraph({ Code("[key] += value"), " adds to what's already there. It's perfect for counting." }),
+    Paragraph({ Code("[key] += value"), " adds to the value already stored under that key." }),
     luwu([====[
         const words = { "red", "blue", "red", "green", "red" }
 

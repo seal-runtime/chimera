@@ -33,7 +33,7 @@ return Page("Experimental Features", {
         const last = <-queue
         print(last, #queue)
     ]====]),
-    Paragraph("Nil values are skipped. A push never leaves a hole."),
+    Paragraph("Nil values are skipped and never leave a hole in the array."),
     Paragraph({
         "A class joins in by defining ", Code("__push"), " and ", Code("__pop"),
         ". Then the same operators work on it, with its own rules.",

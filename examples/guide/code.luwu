@@ -116,7 +116,7 @@ return Page("Code", {
     h2("Your own code elements"),
     Paragraph({
         "To show code your own way, with a file name above it for example, implement ", Code("SourceCode"),
-        ". Your class gets highlighting, squiggles and hovers for free. Call ", Code("render_source(out)"),
+        ". Your class gets highlighting, squiggles and hovers too. Call ", Code("render_source(out)"),
         " where the code goes:",
     }),
     CodeBlock([====[class FileSnippet implements SourceCode

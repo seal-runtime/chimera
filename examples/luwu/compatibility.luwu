@@ -29,9 +29,10 @@ const extension = Table.row_for(extension_header)
 return Page("Compatibility", {
     h1("Compatibility"),
     Paragraph({
-        "A Luau library written for Luau 0.700 runs in Luwu without changes. The reverse doesn't hold: once a file ",
-        "uses classes or table comprehensions it's Luwu code, and upstream Luau can't run it. Luwu keeps the two ",
-        "apart by file extension, and it refuses Luwu syntax in a ", Code(".luau", "plaintext"),
+        "A Luau library written for Luau 0.730 or earlier runs in Luwu without changes. ",
+        "The reverse doesn't hold: once a file uses classes or table comprehensions it's Luwu code, and upstream ",
+        "Luau can't run it. Luwu keeps the two apart by file extension, and it refuses Luwu syntax in a ",
+        Code(".luau", "plaintext"),
         " file so that file stays valid Luau.",
     }),
     TableOfContents(),

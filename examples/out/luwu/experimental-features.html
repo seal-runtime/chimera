@@ -1350,7 +1350,7 @@ queue &lt;+ <span class="hljs-string">"second"</span>, <span class="hljs-string"
 
 <span class="hljs-keyword">const</span> last = &lt;-queue
 <span class="hljs-title function_ invoke__">print</span><span class="chimera-bracket-1">(</span>last, #queue<span class="chimera-bracket-1">)</span></code></pre>
-    <p>Nil values are skipped. A push never leaves a hole.</p>
+    <p>Nil values are skipped and never leave a hole in the array.</p>
     <p>A class joins in by defining <code data-language="luwu" data-highlighted="yes" class="chimera-code">__push</code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code">__pop</code>. Then the same operators work on it, with its own rules.</p>
     <p>This inventory holds at most two items. Code that fills it doesn't need to know that:</p>
     <pre data-element="CodeBlock" data-language="luwu" data-copyable class="chimera-code-block" style="--chimera-code-columns: 47"><button type="button" class="chimera-copy" aria-label="Copy code" onclick="chimera.copy(this)">Copy</button><code class="hljs language-luwu" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Inventory</span><span class="chimera-bracket-1">(</span>capacity: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>

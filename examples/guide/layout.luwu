@@ -43,8 +43,7 @@ return Page("Layout", {
     h1("Layout"),
     Paragraph({
         "Most of a page's layout comes down to a row of buttons, a column of links or a grid of cards. ",
-        "chimera has a class for each, and they all take their spacing from the theme. ",
-        "Every layout on a site lines up.",
+        "chimera has a class for each, and they all take their spacing from the theme.",
     }),
     TableOfContents(),
 

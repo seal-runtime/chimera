@@ -130,15 +130,35 @@ end
 return Page("Better Hovers", {
     h1("Better Hovers"),
     Paragraph({
-        "Point at a name in your editor and Luwu tells you what it is. ",
-        "A class shows its constructor and every member. A method says which class it belongs to. ",
-        "A keyword explains itself, with an example.",
-    }),
-    Paragraph({
-        "Try it below: every dotted underline is a hover, copied unedited from Luwu's language server. ",
-        "On a touch screen, tap instead.",
+        "Luwu's hovers target luwu-lsp, the language server we maintain alongside the language, and the Luwu ",
+        "VSCode/Code-OSS extension. Every hover on this page was copied unedited from luwu-lsp: point at a dotted ",
+        "underline to see one, or tap it on a touch screen.",
     }),
     TableOfContents(),
+
+    h2("What's improved"),
+    UnorderedList({
+        ListItem({
+            Strong("Multiline types."), " Hovers print nested and recursive types over several lines, the way ",
+            "you'd write them in code, instead of on one long line. Large tables are cut short with their brackets ",
+            "still balanced.",
+        }),
+        ListItem({
+            Strong("Related types, with links."), " Hovering a value also summarizes the classes and types its ",
+            "type refers to, each with a link to where it's declared. Verbosity levels decide how much ",
+            "of that is expanded (see ", Link("More or less detail", "#more-or-less-detail"), " below).",
+        }),
+        ListItem({
+            Strong("Overloads and unions, one per line."), " An overloaded function prints one signature per line, ",
+            "under a comment saying how many overloads it has, and a union of tables lays each member out on its ",
+            "own lines. A method called on a union of classes shows a single signature.",
+        }),
+        ListItem({
+            Strong("Doc comments above types."), " Each type and field with a doc comment shows the first line of ",
+            "that comment right above it in the hover. References in doc comments, like ", Code("[Health]"), " or ",
+            Code("[math.max]"), ", become links to their declaration or to the library docs.",
+        }),
+    }),
 
     h2("Classes at a glance"),
     Paragraph({

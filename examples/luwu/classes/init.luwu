@@ -69,9 +69,9 @@ print(account.balance)]====], "luau"),
 
     h3("Type checking"),
     Paragraph({
-        "Metatables are hard for the type checker to follow. Types and autocomplete often break. ",
-        "A class has no such problem. The checker knows every field and method of every object. ",
-        "A misspelled field is a type error instead of a silent nil.",
+        "Metatables are hard for the type checker to follow, and types and autocomplete often break on them. ",
+        "With a class, the checker knows every field and method of every object, and a misspelled field is a ",
+        "type error instead of a silent nil.",
     }),
     Paragraph({
         "Classes and traits are nominally typed: what matters is the name, not the shape. ",
@@ -231,7 +231,7 @@ print(account.balance)]====], "luau"),
     Paragraph({ "Mark a member ", Code("private"), " to keep it inside the class." }),
     Paragraph("Code outside the class can't read or change it. Trying is a type error, and an error at runtime."),
     Paragraph({ "Mark a field ", Code("const"), " when it should never change after the object is built." }),
-    Paragraph("Once one member has public or private, every member needs one. Classes stay easy to read that way."),
+    Paragraph("Once one member has public or private, every member needs one."),
     luwu([====[
         class BankAccount(
             public const owner: string,
@@ -351,7 +351,7 @@ print(account.balance)]====], "luau"),
         const slime = Slime(5, { "goo" })
         print(#chest:drop(), #chest:drop(), slime:drop()[1])
     ]====]),
-    Paragraph("Both classes get the trait's methods. Neither writes them again."),
+    Paragraph("Both classes get the trait's methods without writing them again."),
 
     h3("Expected members"),
     Paragraph({ Code("expect"), " lists what an implementing class must provide: fields, functions or both." }),
@@ -422,7 +422,7 @@ print(account.balance)]====], "luau"),
 
     h3("Final members"),
     Paragraph({ "Mark a trait's member ", Code("final"), " when classes must not replace it." }),
-    Paragraph("A final function without self is a static function on the trait. It's a good home for helpers."),
+    Paragraph("A final function without self is a static function on the trait, for helpers that belong with it."),
     luwu([====[
         trait Shape
             expect function area(self): number

@@ -1102,6 +1102,13 @@
       color: var(--chimera-muted);
       font-size: 1.2rem;
     }
+    [data-element="Intro"] .features {
+      margin: 0.75rem 0 0;
+      padding-left: 1.25rem;
+    }
+    [data-element="Intro"] .features li {
+      margin: 0.3rem 0;
+    }
     [data-element="Intro"] .actions {
       margin-top: 1.5rem;
     }
@@ -1394,11 +1401,18 @@
   <main>
     <section data-element="Intro">
       <h1>chimera</h1>
-      <p class="summary">Build static websites in Luwu from classes like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Paragraph</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Menu</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">CodeBlock</span></code>. chimera renders them to HTML with light and dark themes built in, and it can parse that HTML back into the same objects.</p>
+      <p class="summary">chimera is a library for building static websites in Luwu. It turns pages made of classes like <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Paragraph</span></code>, <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">Menu</span></code> and <code data-language="luwu" data-highlighted="yes" class="chimera-code"><span class="hljs-title class_">CodeBlock</span></code> into ready-to-publish HTML.</p>
+      <ul class="features">
+        <li>Light and dark themes, Catppuccin flavors and a theme switcher</li>
+        <li>Menus, tabs, toggles, cards and layouts, all styled by the theme</li>
+        <li>Luwu, Luau and Lua highlighted at build time, with squiggles and hovers</li>
+        <li>Typed styles that the Luwu analyzer checks as you write them</li>
+        <li>HTML that roundtrips into the same objects, to keep editing in Luwu</li>
+      </ul>
       <div data-element="Row" class="chimera-row actions" style="gap: 0.75rem"><a data-element="PageLink" data-page="guide.html" href="guide.html" class="primary">Get started</a><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source on GitHub</a></div>
     </section>
-    <h2>Write Luwu, get a page</h2>
-    <p>The code below builds the box above it. The tabs, the toggle and every color come from chimera and the current theme, without any CSS or JavaScript of your own.</p>
+    <h2>A quick look</h2>
+    <p>Here's a small release notes section, with the code that builds it underneath. The tabs, the "What changed?" toggle and all of the colors come with chimera and follow whichever theme you pick, and you didn't have to write any CSS or JavaScript for them.</p>
     <figure data-element="Example" class="guide-example">
       <div class="guide-example-result">
         <section>
@@ -1435,7 +1449,7 @@
 <span class="hljs-keyword">const</span> note = <span class="hljs-title class_">Card</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"Heads up"</span>, <span class="hljs-title class_">Paragraph</span><span class="chimera-bracket-2">(</span><span class="hljs-string">"Back up your saves."</span><span class="chimera-bracket-2">)</span><span class="chimera-bracket-1">)</span>
     :<span class="hljs-title function_ invoke__">style</span><span class="chimera-bracket-1">(</span><span class="chimera-bracket-2">{</span> padding = <span class="hljs-string"><span class="chimera-squiggle" style="--chimera-squiggle-color: var(--chimera-syntax-error)" data-message="TypeError: CSS length '1rx' has the unknown unit 'rx'">"1rx"</span></span>, display = <span class="hljs-string"><span class="chimera-squiggle" style="--chimera-squiggle-color: var(--chimera-syntax-error)" data-message="Typo: Did you mean '&quot;flex&quot;' instead of '&quot;flexx&quot;'?">"flexx"</span></span> <span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span></code></pre>
     <p>Both messages come straight from <code data-language="bash" class="chimera-code language-bash">luwu-analyze</code>.</p>
-    <h2>What's in it</h2>
+    <h2>Where to go next</h2>
     <div data-element="Grid" class="chimera-grid" style="--chimera-grid-min: 16rem">
       <div class="topic">
         <a data-element="PageLink" data-page="guide/sites-and-pages.html" href="guide/sites-and-pages.html">Sites and pages</a>

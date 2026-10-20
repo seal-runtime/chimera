@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const .{
-    elements.{ Heading, Paragraph, UnorderedList, ListItem, Details, Figure, FigureCaption, Image },
+    elements.{ Heading, Paragraph, UnorderedList, ListItem, Details, Figure, FigureCaption, Image, Emphasis },
     components.{ Code, CodeBlock, SourceSpan, Squiggle, Tabs, Tab },
     site.{ Page, TableOfContents },
     style.{ token },
@@ -150,10 +150,18 @@ TypeError: The given table is missing a property for 'Player':
         "Luwu's describe the mistake in terms of your code: the variable's name, the path to the bad property, ",
         "and how to fix it when there's a common fix.",
     }),
+    Paragraph({
+        "We purposely limit jargon in type errors. Terms like subtyping, variance or invariance stay out of a ",
+        "message unless it can't be understood without them. And when one is needed, we like to attach a ",
+        "\"Help\" explanation to describe what the term is and why we've flagged your code because of it.",
+    }),
     Figure({
         Image("nyla-nyeh.png", "Nyla, the Luwu cat, lying on her back with her paws up, saying \"nyeh...\"")
             :style({ border_radius = token("radius") }),
-        FigureCaption("Nyla, after reading Luau's error messages. Art by Cat! (@meowzer_meow on Discord)"),
+        FigureCaption({
+            "Nyla finding a recursive ", Emphasis("CYCLE"), " in her fancatstic library. ",
+            "Art by Cat! (@meowzer_meow on Discord)",
+        }),
     }):style({ max_width = "22rem", margin = "1.5rem auto", text_align = "center" }),
     Paragraph({
         "Luwu names things the way your code does. Where Luau says \"this\" or expands a whole ",
@@ -325,7 +333,8 @@ join("Bleu")]====],
     }),
     example("Misspelled properties in tagged unions", {
         Paragraph({
-            "Luau gives no reason at all. Luwu uses the ", Code("kind"), " tag to pick the member you meant, ",
+            "Luau says the value doesn't match the union. Luwu uses the ", Code("kind"),
+            " tag to pick the member you meant, ",
             "then finds the misspelled property:",
         }),
         checked(
@@ -346,7 +355,7 @@ handle(leaving)]====],
     }),
     example("Misspelled tags", {
         Paragraph({
-            "A misspelled tag no longer matches any variant. Luau gives up. ",
+            "A misspelled tag no longer matches any variant, and Luau reports a mismatch against the whole union. ",
             "Luwu spots the typo in the tag itself:",
         }),
         checked(
@@ -455,7 +464,7 @@ type Point = math_utils.Point]====],
     }),
     example("Tables with several mistakes", {
         Paragraph({
-            "Luau names the two types and gives no reason at all. ",
+            "Luau names the two types without saying why they don't match. ",
             "Luwu lists every property that doesn't fit, with its path:",
         }),
         checked(
@@ -496,7 +505,7 @@ Help (paths above):
         ),
     }),
     example("Nested maps and arrays", {
-        Paragraph("Luau narrates the path through each indexer. Luwu writes the path the way you'd index it:"),
+        Paragraph("Luau describes the path through each indexer step by step. Luwu writes it the way you'd index it:"),
         checked(
             [====[--!strict
 type Stack = { id: string, count: number }
@@ -526,7 +535,7 @@ main.luau(5,66): Note: 'count' is 'string' here, but should be 'number']====]
     example("Missing properties", {
         Paragraph({
             "A color nested two levels deep in a theme is missing its blue channel. ",
-            "Luau describes the table by its expanded type, and leaves you to find which one it means. ",
+            "Luau describes the table by its expanded type. ",
             "Luwu names it by the path from the variable, ", Code("dark.colors.text"), ":",
         }),
         checked(
@@ -610,7 +619,7 @@ but was given
     }),
     example("Unrelated tables", {
         Paragraph({
-            "Luau names the two aliases, and leaves you to look up what each one holds. ",
+            "Luau names the two aliases. ",
             "Luwu spells out both shapes next to their names. They share no properties, ",
             "so instead of listing every difference, Luwu says the types are unrelated: ",
             "you most likely passed the wrong value.",
@@ -734,7 +743,7 @@ main.luau(4,33): TypeError: Help (read/write mismatch):
     example("Wrong property types in tagged unions", {
         Paragraph({
             "A tagged union, like an enum with data, uses one property (here ", Code("kind"), ") to say which variant ",
-            "a table is. Luau prints the whole union and the given table, and stops there. ",
+            "a table is. Luau prints the whole union and the given table. ",
             "Luwu reads the tag, compares the table with the matching variant and points at the wrong property:",
         }),
         checked(
@@ -886,7 +895,7 @@ Help (return order):
         ),
     }),
     example("Callbacks that accept too little", {
-        Paragraph("Luau's \"supertype of nil\" leaves you to work out the variance. Luwu explains who passes the nil:"),
+        Paragraph("Luau reports that a type isn't a supertype of nil. Luwu explains who passes the nil:"),
         checked(
             [====[--!strict
 type Stack = { id: string, count: number }
@@ -992,7 +1001,7 @@ Help (parameter order):
     }),
     example("Functions inside tables", {
         Paragraph({
-            "Luau narrates its path through the plugin's hooks, and adds a second reason about type packs. ",
+            "Luau describes its path through the plugin's hooks, and adds a second reason about type packs. ",
             "Luwu names the function and the parameter that doesn't fit:",
         }),
         checked(

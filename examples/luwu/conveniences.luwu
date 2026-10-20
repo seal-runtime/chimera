@@ -12,7 +12,7 @@ const .{ h1, h2 } = Heading
 
 return Page("More Conveniences", {
     h1("More Conveniences"),
-    Paragraph("Some of Luwu's additions are small. They still make everyday code nicer."),
+    Paragraph("Luwu also adds a few smaller conveniences for everyday code."),
     TableOfContents(),
 
     h2("Named functions in table literals"),

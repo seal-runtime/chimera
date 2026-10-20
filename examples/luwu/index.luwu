@@ -83,7 +83,7 @@ return Page("Luwu", {
     TableOfContents(),
 
     h2("What Luwu is for"),
-    Paragraph("Luwu is built for code that models behavior and data. It shines in:"),
+    Paragraph("Luwu is built for code that models behavior and data, such as:"),
     UnorderedList({
         ListItem("gameplay scripting"),
         ListItem("data modeling"),
@@ -149,6 +149,12 @@ return Page("Luwu", {
     Paragraph("The sections below give a short tour of each feature, with a link to its own page."),
 
     h2("Types and editor support"),
+    Paragraph({
+        "Luwu maintains luwu-lsp, its language server, in-house alongside the language. Every change is developed ",
+        "against luwu-lsp and the Luwu extension right away to ensure a good developer experience, and all of our ",
+        "diagnostics are meant to produce readable hover information and error messages: multiline where it ",
+        "helps, with correct line breaks and formatting.",
+    }),
 
     h3("Type Checking"),
     Paragraph({
@@ -164,7 +170,12 @@ return Page("Luwu", {
     see_more(type_checking),
 
     h3("Literal Types and Validators"),
-    Paragraph("Validators check string arguments, like colors or sizes, while you type. You write the rules."),
+    Paragraph({
+        "A literal type requires a value written directly at the call, such as ", Code("\"#3b5bdb\""), " or ",
+        Code("\"1.5rem\""), ", and a validator is a type function that checks that literal during analysis. ",
+        "Your own APIs can use them to reject a malformed color, size or route in the editor, with an error ",
+        "message you write yourself.",
+    }),
     see_more(literal_types),
 
     h3("Lints"),
@@ -176,8 +187,10 @@ return Page("Luwu", {
 
     h3("Better Hovers"),
     Paragraph({
-        "Hovers in your editor show what a name is and where it comes from. ",
-        "A class shows its members, a method its class, and every keyword explains itself with an example.",
+        "Our hovers target luwu-lsp and the Luwu VSCode/Code-OSS extension, with significant improvements in ",
+        "recursive type stringification. A hover exposes every relevant type, with verbosity levels and go to ",
+        "location links you can click. Overloads and unions are serialized in a more readable way, and each type ",
+        "with documentation attached shows one line of it above.",
     }),
     see_more(hovers),
 

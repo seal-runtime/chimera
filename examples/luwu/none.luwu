@@ -13,7 +13,7 @@ const .{ h1, h2 } = Heading
 return Page("The none Primitive", {
     h1("The none Primitive"),
     Paragraph({ Code("none"), " is a value that means \"intentionally empty\"." }),
-    Paragraph({ "It's like ", Code("nil"), ", with one big difference: you can store it in a table." }),
+    Paragraph({ "It behaves like ", Code("nil"), ", except that you can store it in a table." }),
     TableOfContents(),
 
     h2("Why nil isn't enough"),

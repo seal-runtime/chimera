@@ -7,7 +7,7 @@ const chimera = require("@chimera")
 const .{
     Component,
     Container,
-    elements.{ Header, Section, Heading, Paragraph, Link, Div },
+    elements.{ Header, Section, Heading, Paragraph, Link, Div, UnorderedList, ListItem },
     style.{ Rule, token },
     themes.{ Light, Dark, catppuccin },
     components.{ Menu, Dropdown, ThemeSwitcher, CodeBlock, Code, Tabs, Tab, Toggle, Grid, Row, SourceSpan, Squiggle },
@@ -23,10 +23,11 @@ class Intro implements Component, Container
         return "section"
     end
 
-    function __init(self, title: string?, summary: Content?, actions: Content?)
+    function __init(self, title: string?, summary: Content?, features: { read ListItem | string }?, actions: Content?)
         self:add(
             h1(title),
             Paragraph(summary):add_style_class("summary"),
+            UnorderedList(features):add_style_class("features"),
             Row(actions)
                 :gap("0.75rem")
                 :add_style_class("actions")
@@ -49,6 +50,11 @@ class Intro implements Component, Container
                 color = token("muted"),
                 font_size = "1.2rem",
             }),
+            Rule(`{intro} .features`, {
+                margin = "0.75rem 0 0",
+                padding_left = "1.25rem",
+            }),
+            Rule(`{intro} .features li`, { margin = "0.3rem 0" }),
             Rule(`{intro} .actions`, { margin_top = "1.5rem" }),
             Rule(`{intro} .actions a`, {
                 padding = "0.55em 1.1em",
@@ -110,18 +116,24 @@ end
 
 home:add(
     Intro("chimera", {
-        "Build static websites in Luwu from classes like ", Code("Paragraph"), ", ", Code("Menu"), " and ",
-        Code("CodeBlock"), ". chimera renders them to HTML with light and dark themes built in, and it can parse ",
-        "that HTML back into the same objects.",
+        "chimera is a library for building static websites in Luwu. It turns pages made of classes like ",
+        Code("Paragraph"), ", ", Code("Menu"), " and ", Code("CodeBlock"), " into ready-to-publish HTML.",
+    }, {
+        ListItem("Light and dark themes, Catppuccin flavors and a theme switcher"),
+        ListItem("Menus, tabs, toggles, cards and layouts, all styled by the theme"),
+        ListItem("Luwu, Luau and Lua highlighted at build time, with squiggles and hovers"),
+        ListItem("Typed styles that the Luwu analyzer checks as you write them"),
+        ListItem("HTML that roundtrips into the same objects, to keep editing in Luwu"),
     }, {
         PageLink(guide, "Get started"):add_style_class("primary"),
         Link("Source on GitHub", "https://github.com/seal-runtime/chimera"):new_tab(),
     }),
 
-    h2("Write Luwu, get a page"),
+    h2("A quick look"),
     Paragraph({
-        "The code below builds the box above it. The tabs, the toggle and every color come from chimera ",
-        "and the current theme, without any CSS or JavaScript of your own.",
+        "Here's a small release notes section, with the code that builds it underneath. The tabs, the ",
+        "\"What changed?\" toggle and all of the colors come with chimera and follow whichever theme you pick, ",
+        "and you didn't have to write any CSS or JavaScript for them.",
     }),
     example("release notes", notes),
 
@@ -142,7 +154,7 @@ const note = Card("Heads up", Paragraph("Back up your saves."))
         ),
     Paragraph({ "Both messages come straight from ", Code("luwu-analyze", "bash"), "." }),
 
-    h2("What's in it"),
+    h2("Where to go next"),
     Grid({
         topic(guide_page("guide/sites-and-pages.html"), "Pages, nested folders, links and tables of contents."),
         topic(guide_page("guide/components.html"), "Menus, dropdowns, tabs, toggles, cards and a theme switcher."),

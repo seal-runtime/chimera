@@ -24,7 +24,7 @@ return Page("Sites and pages", {
     Paragraph({
         "A documentation site with 30 pages repeats its header, footer and theme list 30 times, and sooner or ",
         "later one copy falls out of date. In chimera you set those parts once on a ", Code("Site"), " and give ",
-        "each ", Code("Page"), " only its own content. Nothing shared can drift.",
+        "each ", Code("Page"), " only its own content.",
     }),
     TableOfContents(),
 
@@ -74,7 +74,7 @@ PageLink("docs/install.html")  -- a path from the site's root]====]),
     h2("Tables of contents"),
     Paragraph({
         Code("TableOfContents()"), " lists its page's headings and the pages under it. It's built when the ",
-        "page renders, from whatever the page holds at that moment, and never goes stale. ",
+        "page renders, from whatever the page holds at that moment. ",
         "The box at the top of this page is one; on wide screens it moves into a column beside the text.",
     }),
     CodeBlock([====[TableOfContents()                    -- this page's h2 and h3 headings, and its subpages

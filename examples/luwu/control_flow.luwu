@@ -117,7 +117,7 @@ return Page("Expressive Control Flow", {
     ]====]),
 
     h2("when in loops"),
-    Paragraph({ "Luwu's loops take ", Code("when"), " chains too. Luau has nothing like it." }),
+    Paragraph({ "Luwu's loops take ", Code("when"), " chains too." }),
 
     h3("while local"),
     Paragraph({ Code("while local"), " binds a fresh value on every pass. The loop ends as soon as the chain fails." }),
@@ -241,7 +241,8 @@ return Page("Expressive Control Flow", {
 
     h2("or return, or continue, or break"),
     Paragraph({
-        "Guard clauses check for a missing value and leave early. With ", Code("or return"), ", that's one line.",
+        "Guard clauses check for a missing value and leave early, and ", Code("or return"),
+        " writes one in a single line.",
     }),
     luwu([====[
         const prices: { [string]: number? } = { apple = 1.25, pear = 0.8 }

@@ -49,8 +49,7 @@ return Page("Function Default Arguments", {
         spawn("slime", nil, 5)
     ]====]),
     Paragraph({
-        "That's also better than ", Code("x or default"), ". ",
-        "The or trick replaces ", Code("false"), " too, by mistake.",
+        "Unlike ", Code("x or default"), ", a default argument doesn't replace ", Code("false"), " by mistake.",
     }),
     luwu([====[
         const function configure(verbose = true)

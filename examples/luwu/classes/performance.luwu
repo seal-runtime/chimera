@@ -16,7 +16,6 @@ return Page("Performance Innovations", {
 
     h2("Inline fields"),
     Paragraph({
-        "Objects are built for speed. ",
         "An object stores its fields inline, in an order its class fixes up front, ",
         "instead of in a hash table that grows as keys are added. ",
         "That makes objects smaller too: an object with two number fields takes 88 bytes, ",
