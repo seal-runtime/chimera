@@ -11,7 +11,7 @@ const .{
     style.{ Rule, token },
     themes.{ Light, Dark, catppuccin },
     components.{ Menu, Dropdown, ThemeSwitcher, CodeBlock, Code, Tabs, Tab, Toggle, Grid, Row, SourceSpan, Squiggle },
-    site.{ Site, Page, PageLink },
+    site.{ Site, Page, PageLink, Search },
 } = chimera
 type .{ Content } = chimera
 const .{ examples_in } = require("./guide/example")
@@ -192,6 +192,7 @@ const website = Site("chimera")
                 Link("Luwu", "https://github.com/luwu-community/luwu"):new_tab(),
                 Link("seal", "https://github.com/seal-runtime/seal"):new_tab(),
             }),
+            Search():placeholder("Search the docs"),
             ThemeSwitcher(),
         },
     })

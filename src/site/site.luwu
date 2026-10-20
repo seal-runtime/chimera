@@ -11,6 +11,8 @@ const style_module = require("@style/style")
 const .{ Rule } = style_module
 const theme_module = require("@style/theme")
 const document_module = require("@document/document")
+const search_module = require("@site/search")
+const .{ Search, SearchIndex, contains_search } = search_module
 const .{ Document } = document_module
 type .{ Content, Markup, Writer, HeadingEntry, PageEntry } = markup
 type .{ StyleInput } = style_module
@@ -504,6 +506,8 @@ export class Site(const name: string)
     description: string? = nil
     --- Set with [Site:favicon].
     icon_file: string? = nil
+    --- Set with [Site:search]. [Site:default_header] shows it.
+    search_box: Search? = nil
     language = "en"
     show_breadcrumbs = true
     --- Set with [Site:heading_links].
@@ -584,6 +588,25 @@ export class Site(const name: string)
     end
 
     --[=[
+        Puts a [Search] box in [Site:default_header], or a plain one without `search`. Sites with their own header
+        add a [Search] to it instead. Either way, [Site:build] writes the index the box searches.
+
+        ## Usage
+
+        ```luwu
+        site:search()
+        site:search(Search()
+            :placeholder("Search the API")
+            :kinds({ "function", "type" })
+        )
+        ```
+    ]=]
+    function search(self, search: Search?): Site
+        self.search_box = search or Search()
+        return self
+    end
+
+    --[=[
         The language every page is written in, as the `lang` of its `<html>`. English by default.
 
         ## Usage
@@ -645,6 +668,9 @@ export class Site(const name: string)
             menu:add(PageLink(home, self.name):add_style_class("chimera-brand"))
         end
         menu:add({ for _, page in self.top_pages give PageLink(page) })
+        if const search = self.search_box then
+            menu:add(search)
+        end
         const no_defaults = self.light_theme == nil and self.dark_theme == nil
         const defaults = if no_defaults then 2 elseif self.light_theme and self.dark_theme then 2 else 1
         if defaults + #self.offered_themes > 1 then
@@ -875,7 +901,8 @@ export class Site(const name: string)
 
     --[=[
         Writes every page into `out_dir`, creating folders as needed, and returns the paths written. Pretty-printed
-        unless `pretty` is false. Two pages with the same path are an error.
+        unless `pretty` is false. Two pages with the same path are an error. When any page has a [Search], it also
+        writes the [SearchIndex] the search reads.
 
         ## Usage
 
@@ -888,6 +915,8 @@ export class Site(const name: string)
     function build(self, out_dir: string, pretty: boolean = true): { string }
         const written: { string } = {}
         const taken: { [string]: Page } = {}
+        const index = SearchIndex()
+        local searched = false
         for _, page in self:all_pages() do
             const path = page:path()
             if const other = taken[path] then
@@ -898,10 +927,15 @@ export class Site(const name: string)
             if const folder = fs.path.parent(file) then
                 fs.dir.ensure(folder, true)
             end
-            const html = self
-                :document(page)
-                :to_html(pretty)
-            fs.writefile(file, html)
+            const document = self:document(page)
+            fs.writefile(file, document:to_html(pretty))
+            table.insert(written, file)
+            searched = searched or contains_search(document.body)
+            index:add_page(page.title, path, page.main, page.description)
+        end
+        if searched then
+            const file = fs.path.join(out_dir, search_module.INDEX_FILE)
+            fs.writefile(file, index:to_js())
             table.insert(written, file)
         end
         if const icon = self.icon_file then

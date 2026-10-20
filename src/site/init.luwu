@@ -9,7 +9,25 @@ export .{
     Breadcrumbs,
 } = require("@self/site")
 
+export .{
+    Search,
+    SearchIndex,
+    Matcher,
+    Exact,
+    Prefix,
+    Words,
+    Initials,
+    Substring,
+    Typos,
+    FullText,
+} = require("@self/search")
+
 const site = require("@self/site")
 export type .{
     TocScope,
 } = site
+
+const search = require("@self/search")
+export type .{
+    FieldWeights,
+} = search

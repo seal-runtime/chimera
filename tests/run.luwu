@@ -53,6 +53,10 @@ const suites: { Suite } = {
         name = "site",
         tests = require("./site"),
     },
+    {
+        name = "search",
+        tests = require("./search"),
+    },
 }
 
 const filter = env.args[1]

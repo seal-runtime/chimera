@@ -131,9 +131,11 @@ src/components/        higher-level pieces: Menu, Dropdown, Toggle, ThemeSwitche
 src/style/             Style, Rule (style.luwu), typed CSS (properties.luwu), Color, Token, Theme/Palette
 src/themes/            ready-made themes: Light, Dark (init.luwu), the Catppuccin flavors (catppuccin.luwu)
 src/document/          Document: one page, its head, themes and generated CSS/JS
-src/site/              Site, Page, PageLink, TableOfContents, Breadcrumbs
+src/site/              Site, Page, PageLink, TableOfContents, Breadcrumbs (site.luwu); Search, SearchIndex,
+                       Matcher and its classes, the browser search engine (search.luwu)
 src/parse/parser.luwu  HTML back into chimera objects
-tests/                 run.luwu runs every suite; each suite returns { [name]: () -> () }
+tests/                 run.luwu runs every suite; each suite returns { [name]: () -> () }; browser.luwu drives
+                       headless Firefox over WebDriver BiDi so tests can run a page's JavaScript
 examples/site.luwu     the docs site: home page and Site config
 examples/guide/        chimera's guide, one module per page; example.luwu cuts `--@ name` snippets from
                        the page's own source so each example shows the code that built it
@@ -270,7 +272,8 @@ luwu-lsp's real hovers: `capture.luwu` asks the server and writes
 ### Luwu bugs
 
 Report Luwu bugs with a minimal repro. Open: `Element` repeats `expect function
-tag()` from `Tagged` (`CLASS_TRAIT_BUGS` 1).
+tag()` from `Tagged` (`CLASS_TRAIT_BUGS` 1), and `class.name` of a trait-typed value needs a
+`string` annotation (`CLASS_TRAIT_BUGS` 8).
 
 ### Conventions learned here
 

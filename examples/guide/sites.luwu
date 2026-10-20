@@ -3,12 +3,12 @@
 --!lint ConstLocal
 
 const .{
-    elements.{ Heading, Paragraph, Link },
+    elements.{ Heading, Paragraph, Link, UnorderedList, ListItem },
     components.{ Code, CodeBlock, SiteFooter },
     site.{ Page, TableOfContents },
 } = require("@chimera")
 const .{ examples_in } = require("./example")
-const .{ h1, h2 } = Heading
+const .{ h1, h2, h3 } = Heading
 
 const example = examples_in("examples/guide/sites.luwu")
 
@@ -127,6 +127,133 @@ return Page("Sites and pages", {
         "legal links:",
     }),
     example("footer", footer),
+
+    h2("Search"),
+    Paragraph({
+        "Readers of an API reference usually know a name, or half of one. They remember ", Code("readFileSync"),
+        " but type ", Code("read file", "plaintext"), ", or they misspell it ", Code("raedfilesync", "plaintext"),
+        " on the way. ", Code("site:search()"), " puts a box in the header that finds pages, sections and ",
+        "anything your own elements add while the reader types. It needs no server and works over ",
+        Code("file://", "plaintext"), " too:",
+    }),
+    CodeBlock([====[
+        site:search()
+    ]====]),
+    Paragraph({
+        Code("build"), " writes the index the box searches, ", Code("search-index.js", "plaintext"),
+        ", next to the pages. A site with its own header adds a ", Code("Search()"), " to it instead, and the ",
+        "index gets written all the same. Results show up under the box grouped by page, with the matching words ",
+        "marked. Arrow keys move through them and Enter opens one, and ", Code("/", "plaintext"), " or ",
+        Code("Ctrl+K", "plaintext"), " jumps to the box from anywhere on the page.",
+    }),
+
+    h3("How it matches"),
+    Paragraph({
+        "Every word of a query has to match somewhere in an entry: its title, its keywords, the title of its page ",
+        "or its text. Each word is tried several ways, and the best one counts:",
+    }),
+    UnorderedList({
+        ListItem({ Code("Exact"), ": the whole name, or the part after its last dot, so ", Code("readfile"),
+            " finds ", Code("fs.readfile"), "." }),
+        ListItem({ Code("Prefix"), ": the start of a name, like ", Code("fs.read"), "." }),
+        ListItem({ Code("Words"), ": names split the way programmers write them. ", Code("readFileSync"), ", ",
+            Code("read_file_sync"), " and ", Code("ReadFileSync"), " all have the words read, file and sync, so ",
+            Code("read sync", "plaintext"), " and ", Code("http server", "plaintext"), " find them." }),
+        ListItem({ Code("Initials"), ": the first letter of each word, so ", Code("rfs", "plaintext"),
+            " finds ", Code("readFileSync"), " and ", Code("gcd", "plaintext"), " finds ", Code("get_current_dir"),
+            "." }),
+        ListItem({ Code("Substring"), ": anywhere inside a name, so ", Code("lines", "plaintext"), " finds ",
+            Code("splitlines"), "." }),
+        ListItem({ Code("Typos"), ": a name within one or two typos, so ", Code("splitlnies", "plaintext"),
+            " finds ", Code("splitlines"), ". Words under four letters allow none, which keeps ",
+            Code("os", "plaintext"), " from finding ", Code("fs"), "." }),
+        ListItem({ Code("FullText"), ": words in an entry's text, so ", Code("utf8", "plaintext"),
+            " finds the section that explains encodings even when its title doesn't say so." }),
+    }),
+    Paragraph({
+        "A query with capital letters ranks names written in the same case higher. Pass ", Code("Search"),
+        " your own list of matchers to drop some or change how much each one counts. A matcher left out never ",
+        "matches, and ", Code("weigh"), " sets how much each part of an entry counts:",
+    }),
+    CodeBlock([====[
+        site:search(Search()
+            :matchers({ Exact(200), Prefix(), Words(), Typos(25, 1) })
+            :weigh({ page = 0 })
+        )
+    ]====]),
+
+    h3("What it shows"),
+    Paragraph({
+        "An API reference's search might show functions only, five at a time, without the text around each match. ",
+        "These settings cover that:",
+    }),
+    CodeBlock([====[
+        Search()
+            :placeholder("Search the API")
+            :kinds({ "function", "type" })
+            :limit(5)
+            :min_score(20)
+            :snippets(false)
+            :group_by_page(false)
+            :shortcut("s")
+    ]====]),
+    Paragraph({
+        "Pages are the kind ", Code("\"page\""), " and their sections are ", Code("\"section\""),
+        ". Other kinds come from your own elements.",
+    }),
+
+    h3("Your own entries"),
+    Paragraph({
+        "An element that stands for something readers search for, like a function in a reference, says so in ",
+        Code("search_entries"), ". The index adds its entries and skips its children. Give the element its id ",
+        "before the page renders so the result has somewhere to land:",
+    }),
+    CodeBlock([====[
+        class ApiFunction implements Component
+            function tag(): string
+                return "div"
+            end
+            name = ""
+            summary = ""
+            function __init(self, name: string?, summary: string?)
+                self.name = name or ""
+                self.summary = summary or ""
+                self:id((string.gsub(self.name, "%W+", "-")))
+            end
+            function search_entries(self): { SearchEntry }?
+                return {
+                    {
+                        kind = "function",
+                        title = self.name,
+                        anchor = self:get_id(),
+                        text = self.summary,
+                        keywords = { "read" },
+                    },
+                }
+            end
+        end
+    ]====]),
+
+    h3("Your own matchers"),
+    Paragraph({
+        "Matching runs in the reader's browser, so a matcher of your own is a class with a little JavaScript. ",
+        Code("source"), " returns a function that scores a query word against a name from 0 to 1. Register the ",
+        "class so parsed pages find it again:",
+    }),
+    CodeBlock([====[
+        class Suffix(weight: number = 30) implements Matcher
+            function source(self): string?
+                return [=[
+                    function (term, field) {
+                        return field.lower.endsWith(term.lower) ? 1 : 0;
+                    }
+                ]=]
+            end
+        end
+        Matcher.register(Suffix)
+
+        site:search(Search():matchers({ Exact(), Prefix(), Suffix() }))
+    ]====]),
 
     h2("Per-page changes"),
     Paragraph({

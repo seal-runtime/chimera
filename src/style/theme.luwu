@@ -216,6 +216,7 @@ export trait Theme
     function base_styles(self): { Rule }
         const border = `1px solid {token("border")}`
         const folded_items = ":not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle)"
+            .. ":not(.chimera-search)"
         return {
             Rule("*, *::before, *::after", { box_sizing = "border-box" }),
             Rule("html", { scroll_behavior = "smooth" }),
@@ -396,6 +397,94 @@ export trait Theme
                 text_decoration = "none",
             }),
             Rule(".chimera-menu .chimera-theme-switcher", { margin_left = "auto" }),
+            Rule(".chimera-menu .chimera-search", { margin_left = "auto" }),
+            Rule(".chimera-menu .chimera-search ~ .chimera-theme-switcher", { margin_left = "0" }),
+            Rule(".chimera-search", {
+                position = "relative",
+                margin = "0",
+            }),
+            Rule(".chimera-search-input", {
+                width = "15rem",
+                padding = "0.4rem 0.85rem",
+                font = "inherit",
+                font_size = "0.9rem",
+                color = token("text"),
+                background = token("surface"),
+                border = border,
+                border_radius = "999px",
+                transition = "border-color 0.15s",
+            }),
+            Rule(".chimera-search-input::placeholder", { color = token("muted") }),
+            Rule(".chimera-search-input:focus", {
+                outline = "none",
+                border_color = token("primary"),
+            }),
+            Rule(".chimera-search-results", {
+                position = "absolute",
+                top = "calc(100% + 0.4rem)",
+                right = "0",
+                z_index = "45",
+                width = "min(34rem, calc(100vw - 2rem))",
+                max_height = "70vh",
+                overflow_y = "auto",
+                padding = "0.35rem",
+                font_size = "0.9rem",
+                line_height = "1.45",
+                background = token("background"),
+                border = border,
+                border_radius = "10px",
+                box_shadow = token("shadow"),
+                scrollbar_color = `{token("border")} transparent`,
+                scrollbar_width = "thin",
+            }),
+            Rule(".chimera-search-group", {
+                padding = "0.5rem 0.6rem 0.2rem",
+                font_size = "0.75rem",
+                font_weight = "600",
+                letter_spacing = "0.04em",
+                text_transform = "uppercase",
+                color = token("muted"),
+            }),
+            Rule(".chimera-search-result", {
+                display = "grid",
+                grid_template_columns = "1fr auto",
+                column_gap = "0.75rem",
+                padding = "0.45rem 0.6rem",
+                border_radius = "6px",
+                color = token("text"),
+            }),
+            Rule(".chimera-search-result:hover, .chimera-search-result[aria-selected=\"true\"]", {
+                background = token("surface"),
+                text_decoration = "none",
+            }),
+            Rule(".chimera-search-title", {
+                font_weight = "600",
+                overflow_wrap = "anywhere",
+            }),
+            Rule(".chimera-search-kind", {
+                font_family = token("mono_font"),
+                font_size = "0.75rem",
+                color = token("muted"),
+            }),
+            Rule(".chimera-search-where, .chimera-search-snippet", {
+                grid_column = "1 / -1",
+                font_size = "0.82rem",
+                color = token("muted"),
+            }),
+            Rule(".chimera-search-snippet", {
+                overflow = "hidden",
+                text_overflow = "ellipsis",
+                white_space = "nowrap",
+            }),
+            Rule(".chimera-search mark", {
+                color = "inherit",
+                background = `color-mix(in srgb, {token("primary")} 28%, transparent)`,
+                border_radius = "2px",
+            }),
+            Rule(".chimera-search-empty", {
+                padding = "0.6rem",
+                color = token("muted"),
+            }),
             Rule(".chimera-menu-toggle", {
                 display = "none",
                 align_items = "center",
@@ -422,6 +511,18 @@ export trait Theme
                 Rule(".chimera-menu:has(.chimera-theme-switcher) .chimera-menu-toggle", { margin_left = "0" }),
                 Rule(".chimera-menu .chimera-brand", { order = 0 }),
                 Rule(".chimera-menu .chimera-theme-switcher", { order = 1 }),
+                Rule(".chimera-menu .chimera-search", {
+                    order = 1,
+                    flex = "1 1 8rem",
+                }),
+                Rule(".chimera-menu .chimera-search-input", { width = "100%" }),
+                Rule(".chimera-menu .chimera-search", { position = "static" }),
+                Rule(".chimera-menu .chimera-search-results", {
+                    top = "calc(100% + 0.25rem)",
+                    left = "0.75rem",
+                    right = "0.75rem",
+                    width = "auto",
+                }),
                 Rule(`.chimera-menu > {folded_items}`, {
                     display = "none",
                     order = 3,

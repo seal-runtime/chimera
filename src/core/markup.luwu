@@ -89,6 +89,23 @@ export type HeadingEntry = {
     id: string,
 }
 
+--[=[
+    One result a site's search can find, like a function in an API reference. Elements describe themselves with
+    [Element:search_entries]. The search index adds the page each entry sits on.
+]=]
+export type SearchEntry = {
+    --- What the entry is, like `"function"` or `"section"`. Shown beside the result and used to filter results.
+    kind: string,
+    --- The name readers search for. Matching weighs it most.
+    title: string,
+    --- The `id` of the element the result links to. Without one the result links to the page itself.
+    anchor: string?,
+    --- Body text readers might search for, like a description. Results quote it around the match.
+    text: string?,
+    --- Other names the entry goes by, like `"readfile"` for `fs.readfile`.
+    keywords: { string }?,
+}
+
 --- A page of the site, with its path from the site's root and its child pages.
 export type PageEntry = {
     title: string,
@@ -1003,6 +1020,31 @@ export trait Element needs Markup, Tagged
     ]=]
     function contributes_headings(self): boolean
         return true
+    end
+
+    --[=[
+        The search results this element stands for. Nil (the default) lets a site's search index read the
+        element's headings and text the usual way. A table replaces that: the index adds these entries and skips the
+        element's children. The index reads pages after they render, so set the id an entry links to before then,
+        like in the constructor.
+
+        ## Usage
+
+        ```luwu
+        function search_entries(self): { SearchEntry }?
+            return {
+                {
+                    kind = "function",
+                    title = self.name,
+                    anchor = self:get_id(),
+                    text = self.description,
+                },
+            }
+        end
+        ```
+    ]=]
+    function search_entries(self): { SearchEntry }?
+        return nil
     end
 
     --[=[

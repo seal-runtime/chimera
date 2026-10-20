@@ -1,0 +1,344 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const json = require("@std/json")
+const .{ equal, contains, excludes, truthy } = require("./assert")
+const .{ Browser } = require("./browser")
+const chimera = require("@chimera")
+const .{
+    Parser,
+    Component,
+    core.{ Text },
+    elements.{ Paragraph, Heading },
+    components.{ Card },
+    site.{ Site, Page, TableOfContents, Search, SearchIndex, Matcher, Exact, Typos, Words },
+} = chimera
+type .{ Writer, SearchEntry } = chimera.core
+const .{ h1, h2, h3 } = Heading
+
+--- An API reference entry, the way a library's docs would describe a function.
+class ApiFunction implements Component
+    function tag(): string
+        return "div"
+    end
+
+    name = ""
+    description = ""
+
+    function __init(self, name: string?, description: string?)
+        self.name = name or ""
+        self.description = description or ""
+        self:id((string.gsub(self.name, "[^%w]+", "-")))
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write(`<code>{Text.escape(self.name)}</code> {Text.escape(self.description)}</div>`)
+    end
+
+    function search_entries(self): { SearchEntry }?
+        return {
+            {
+                kind = "function",
+                title = self.name,
+                anchor = self:get_id(),
+                text = self.description,
+            },
+        }
+    end
+end
+Component.register(ApiFunction)
+
+const function sample(search: Search?): Site
+    const fs_page = Page("fs", {
+        h1("fs"),
+        Paragraph("Reads and writes files."),
+        h2("fs.readfile"),
+        Paragraph("Reads a whole file into a string."),
+        h2("fs.writefile"),
+        Paragraph("Writes a string to a file, replacing what it held."),
+        h2("fs.readlines"),
+        Paragraph("Iterates over a file's lines without loading all of it."),
+    }, "fs.html")
+    const str_page = Page("str", {
+        h1("str"),
+        h2("str.splitlines"),
+        Paragraph("Splits text into lines."),
+        h2("str.split"),
+        Paragraph("Splits text around separators."),
+        h2("str.startswith"),
+        Paragraph("Whether text starts with a prefix."),
+        h2("Encodings"),
+        Paragraph({ "Most functions expect utf8 text. Use ", chimera.components.Code("str.convert"), " first." }),
+    }, "str.html")
+    const node_page = Page("Node compat", {
+        h1("Node compat"),
+        TableOfContents(),
+        ApiFunction("readFileSync", "Reads a file and blocks until it's done."),
+        ApiFunction("HTTPServer", "Serves requests over HTTP."),
+        ApiFunction("get_current_dir", "The directory the process runs in."),
+        Card("Note", { h3("Not a section"), Paragraph("Cards hold asides.") }),
+    }, "node.html")
+    return Site("docs")
+        :search(search or Search())
+        :add_page(fs_page, str_page, node_page)
+end
+
+--- Builds the sample site into a scratch folder under `tests/` and returns the folder.
+const function build_sample(search: Search?, extra: Search?): string
+    const out_dir = fs.path.join(fs.path.cwd(), "tests", ".tmp_search_site")
+    const site = sample(search)
+    if extra then
+        site:customize(function(document, page)
+            document:add(extra)
+        end)
+    end
+    site:build(out_dir)
+    return out_dir
+end
+
+const function entries_of(index: SearchIndex): { { [string]: unknown } }
+    const js = index:to_js()
+    const data = string.match(js, "^window%.chimeraSearchIndex = (.*);\n$") or "[]"
+    return json.decode(data) :: { { [string]: unknown } }
+end
+
+--- Runs `queries` through the page's search and gives each one's result titles.
+const function rank_all(browser: Browser, queries: { string }, form: number?): { { string } }
+    const script = string.format([=[
+        chimera.search.ready().then(function () {
+            var form = document.querySelectorAll("form.chimera-search")[%d];
+            return JSON.stringify(%s.map(function (query) {
+                return chimera.search.rank(query, form).map(function (result) { return result.title; });
+            }));
+        })
+    ]=], (form or 1) - 1, json.raw(queries))
+    return json.decode(browser:evaluate(script)) :: { { string } }
+end
+
+const function with_browser(run: (Browser) -> ())
+    if not Browser.available() then
+        print("    skipped: Firefox isn't installed")
+        return
+    end
+    const browser = Browser.launch()
+    const ok, problem = pcall(function()
+        run(browser)
+        return nil
+    end)
+    browser:close()
+    if not ok then
+        error(problem, 0)
+    end
+end
+
+const tests: { [string]: () -> () } = {
+    ["the index holds pages, sections and elements' own entries"] = function()
+        const site = sample()
+        const index = SearchIndex()
+        for _, page in site:all_pages() do
+            site
+                :document(page)
+                :to_html()
+            index:add_page(page.title, page:path(), page.main, page.description)
+        end
+        const entries = entries_of(index)
+        const by_title: { [string]: { [string]: unknown }? } = {
+            for _, entry in entries
+            when const title = entry.t
+            when type(title) == "string"
+            give [title] = entry
+        }
+        const readfile = by_title["fs.readfile"] or error("no fs.readfile entry")
+        equal(readfile.k, "section")
+        equal(readfile.p, "fs.html#fs-readfile")
+        equal(readfile.g, "fs")
+        equal(readfile.x, "Reads a whole file into a string.")
+        const page = by_title["fs"] or error("no fs page entry")
+        equal(page.k, "page")
+        equal(page.x, "Reads and writes files.")
+        const sync = by_title["readFileSync"] or error("no readFileSync entry")
+        equal(sync.k, "function")
+        equal(sync.p, "node.html#readFileSync")
+        contains(tostring((by_title["Encodings"] or {}).x), "utf8 text. Use str.convert first.")
+        equal(by_title["Not a section"], nil, "a card's heading isn't a section")
+        equal(by_title["Contents"], nil, "the table of contents isn't indexed")
+    end,
+
+    ["build writes the index only when a page has a search box"] = function()
+        const out_dir = build_sample()
+        contains(fs.readfile(fs.path.join(out_dir, "search-index.js")), "window.chimeraSearchIndex = [")
+        fs.removetree(out_dir)
+        const plain = Site("plain"):add_page(Page("Home", h1("Home"), "index.html"))
+        const written = plain:build(out_dir)
+        equal(#written, 1)
+        fs.removetree(out_dir)
+    end,
+
+    ["a search box points at the index from every folder and keeps its settings"] = function()
+        const nested = Page("Deep", h1("Deep"))
+        const site = Site("docs")
+            :search(Search()
+                :placeholder("Find an API")
+                :limit(5)
+                :kinds({ "function" })
+                :matchers({ Exact(200), Typos(10, 1) })
+                :weigh({ page = 0 })
+            )
+            :add_page(Page("Guide", h1("Guide")):add_page(nested))
+        const html = site
+            :document(nested)
+            :to_html()
+        contains(html, `data-index="../search-index.js" data-root="../"`)
+        contains(html, `data-matchers="Exact:200 Typos:10:1" data-fields="page:0" data-limit="5"`)
+        contains(html, `data-kinds="function"`)
+        contains(html, `placeholder="Find an API"`)
+        const parsed = Parser():parse_document(html)
+        parsed.location = "guide/deep.html"
+        parsed.site_pages = site:document(nested).site_pages
+        equal(parsed:to_html(), html)
+    end,
+
+    ["matchers encode their weight and options and decode back"] = function()
+        equal(Typos(25, 1):encode(), "Typos:25:1")
+        equal(Words():encode(), "Words:60")
+        const decoded = Matcher.decode("Typos:30:2") or error("didn't decode")
+        equal(decoded:encode(), "Typos:30:2")
+        equal(Matcher.decode("Unknown:5"), nil)
+    end,
+
+    ["custom matchers ship their JavaScript with the page"] = function()
+        const site = Site("docs")
+            :search(Search():matchers({ Exact(), EndsWith() }))
+            :add_page(Page("Home", h1("Home"), "index.html"))
+        const html = site
+            :document(site:pages()[1])
+            :to_html()
+        contains(html, `data-matchers="Exact:100 EndsWith:30"`)
+        contains(html, `window.chimeraMatchers || \{\})["EndsWith"] = \{ text: false, match: `)
+    end,
+
+    ["search ranks names the way programmers write them"] = function()
+        const out_dir = build_sample()
+        with_browser(function(browser)
+            browser:open(fs.path.join(out_dir, "fs.html"))
+            const queries = {
+                "readfile",
+                "fs.read",
+                "readFileSync",
+                "read_file_sync",
+                "rfs",
+                "raedfilesync",
+                "splitlnies",
+                "http server",
+                "gcd",
+                "fs write",
+                "utf8",
+                "startswith",
+            }
+            const expected = {
+                "fs.readfile",
+                "fs.readfile",
+                "readFileSync",
+                "readFileSync",
+                "readFileSync",
+                "readFileSync",
+                "str.splitlines",
+                "HTTPServer",
+                "get_current_dir",
+                "fs.writefile",
+                "Encodings",
+                "str.startswith",
+            }
+            const results = rank_all(browser, queries)
+            const wrong: { string } = {
+                for index, query in queries
+                when const titles = results[index]
+                when titles[1] ~= expected[index]
+                give `"{query}": expected {expected[index]} first, got {table.concat(titles, ", ")}`
+            }
+            equal(table.concat(wrong, "\n    "), "")
+        end)
+        fs.removetree(out_dir)
+    end,
+
+    ["short terms don't match by typo and every term has to match"] = function()
+        const out_dir = build_sample()
+        with_browser(function(browser)
+            browser:open(fs.path.join(out_dir, "fs.html"))
+            const results = rank_all(browser, { "os", "lines", "fs nothinglikethis" })
+            excludes(table.concat(results[1], " "), "fs.", "\"os\" shouldn't find fs functions")
+            const lines = table.concat(results[2], " ")
+            contains(lines, "str.splitlines")
+            contains(lines, "fs.readlines")
+            equal(#results[3], 0)
+        end)
+        fs.removetree(out_dir)
+    end,
+
+    ["names that match come before entries that only mention the term"] = function()
+        const out_dir = build_sample()
+        with_browser(function(browser)
+            browser:open(fs.path.join(out_dir, "fs.html"))
+            const titles = rank_all(browser, { "file" })[1]
+            local mentions_only = false
+            for _, title in titles do
+                const named = string.find(string.lower(title), "file", 1, true) ~= nil
+                if named and mentions_only then
+                    error(`{title} names the term but ranks below an entry that only mentions it: `
+                        .. table.concat(titles, ", "))
+                end
+                mentions_only = mentions_only or not named
+            end
+            truthy(mentions_only, "expected entries that only mention \"file\" too")
+        end)
+        fs.removetree(out_dir)
+    end,
+
+    ["a search box's settings choose what it shows"] = function()
+        const out_dir = build_sample(nil, Search()
+            :kinds({ "function" })
+            :limit(1)
+        )
+        with_browser(function(browser)
+            browser:open(fs.path.join(out_dir, "node.html"))
+            const results = rank_all(browser, { "read" }, 2)
+            equal(table.concat(results[1], " "), "readFileSync")
+            const shown = browser:evaluate([====[
+                chimera.search.ready().then(function () {
+                    var form = document.querySelector("form.chimera-search");
+                    var input = form.querySelector("input");
+                    input.value = "splitlnies";
+                    input.dispatchEvent(new Event("input"));
+                    return new Promise(function (done) { setTimeout(done, 50); }).then(function () {
+                        var box = form.querySelector(".chimera-search-results");
+                        return JSON.stringify({
+                            hidden: box.hidden,
+                            group: box.querySelector(".chimera-search-group").textContent,
+                            first: box.querySelector(".chimera-search-result").getAttribute("href"),
+                            selected: box.querySelector("[aria-selected=true] .chimera-search-title").textContent,
+                        });
+                    });
+                })
+            ]====])
+            const view = json.decode(shown) :: { [string]: unknown }
+            equal(view.hidden, false)
+            equal(view.group, "str")
+            truthy(string.find(tostring(view.first), "/str%.html#str%-splitlines$"), tostring(view.first))
+            equal(view.selected, "str.splitlines")
+        end)
+        fs.removetree(out_dir)
+    end,
+}
+
+--- A custom matcher for the tests: names ending with the term.
+class EndsWith(weight: number = 30) implements Matcher
+    function source(self): string?
+        return "function (term, field) { return field.lower.endsWith(term.lower) ? 1 : 0; }"
+    end
+end
+Matcher.register(EndsWith)
+
+return tests

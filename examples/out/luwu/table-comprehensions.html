@@ -466,6 +466,100 @@
     .chimera-menu .chimera-theme-switcher {
       margin-left: auto;
     }
+    .chimera-menu .chimera-search {
+      margin-left: auto;
+    }
+    .chimera-menu .chimera-search ~ .chimera-theme-switcher {
+      margin-left: 0;
+    }
+    .chimera-search {
+      margin: 0;
+      position: relative;
+    }
+    .chimera-search-input {
+      background: var(--chimera-surface);
+      border: 1px solid var(--chimera-border);
+      border-radius: 999px;
+      color: var(--chimera-text);
+      font: inherit;
+      font-size: 0.9rem;
+      padding: 0.4rem 0.85rem;
+      transition: border-color 0.15s;
+      width: 15rem;
+    }
+    .chimera-search-input::placeholder {
+      color: var(--chimera-muted);
+    }
+    .chimera-search-input:focus {
+      border-color: var(--chimera-primary);
+      outline: none;
+    }
+    .chimera-search-results {
+      background: var(--chimera-background);
+      border: 1px solid var(--chimera-border);
+      border-radius: 10px;
+      box-shadow: var(--chimera-shadow);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      max-height: 70vh;
+      overflow-y: auto;
+      padding: 0.35rem;
+      position: absolute;
+      right: 0;
+      scrollbar-color: var(--chimera-border) transparent;
+      scrollbar-width: thin;
+      top: calc(100% + 0.4rem);
+      width: min(34rem, calc(100vw - 2rem));
+      z-index: 45;
+    }
+    .chimera-search-group {
+      color: var(--chimera-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 0.5rem 0.6rem 0.2rem;
+      text-transform: uppercase;
+    }
+    .chimera-search-result {
+      border-radius: 6px;
+      color: var(--chimera-text);
+      column-gap: 0.75rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      padding: 0.45rem 0.6rem;
+    }
+    .chimera-search-result:hover, .chimera-search-result[aria-selected="true"] {
+      background: var(--chimera-surface);
+      text-decoration: none;
+    }
+    .chimera-search-title {
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+    .chimera-search-kind {
+      color: var(--chimera-muted);
+      font-family: var(--chimera-mono-font);
+      font-size: 0.75rem;
+    }
+    .chimera-search-where, .chimera-search-snippet {
+      color: var(--chimera-muted);
+      font-size: 0.82rem;
+      grid-column: 1 / -1;
+    }
+    .chimera-search-snippet {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .chimera-search mark {
+      background: color-mix(in srgb, var(--chimera-primary) 28%, transparent);
+      border-radius: 2px;
+      color: inherit;
+    }
+    .chimera-search-empty {
+      color: var(--chimera-muted);
+      padding: 0.6rem;
+    }
     .chimera-menu-toggle {
       align-items: center;
       background: none;
@@ -498,12 +592,28 @@
       .chimera-menu .chimera-theme-switcher {
         order: 1;
       }
-      .chimera-menu > :not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle) {
+      .chimera-menu .chimera-search {
+        flex: 1 1 8rem;
+        order: 1;
+      }
+      .chimera-menu .chimera-search-input {
+        width: 100%;
+      }
+      .chimera-menu .chimera-search {
+        position: static;
+      }
+      .chimera-menu .chimera-search-results {
+        left: 0.75rem;
+        right: 0.75rem;
+        top: calc(100% + 0.25rem);
+        width: auto;
+      }
+      .chimera-menu > :not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle):not(.chimera-search) {
         display: none;
         flex-basis: 100%;
         order: 3;
       }
-      .chimera-menu[data-open] > :not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle) {
+      .chimera-menu[data-open] > :not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle):not(.chimera-search) {
         display: block;
       }
     }
@@ -1359,13 +1469,491 @@
     if (chosen) carry(chosen);
   });
 })();</script>
+  <script data-chimera="required">(function () {
+  // Splits names the way programmers write them: readFileSync, read_file, HTTPServer and fs.readfile all become words.
+  var WORD = /\p{Lu}+(?!\p{Ll})|\p{Lu}?\p{Ll}+|\p{Lo}+|\p{N}+/gu;
+  function words(text) {
+    var found = text.match(WORD) || [];
+    return found.map(function (word) { return word.toLowerCase(); });
+  }
+  function prepare(text) {
+    var lower = text.toLowerCase();
+    var split = words(text);
+    var segments = lower.split(/[.:#/]/);
+    return {
+      raw: text,
+      lower: lower,
+      words: split,
+      joined: split.join(""),
+      tail: segments[segments.length - 1],
+      initials: split.map(function (word) { return word.charAt(0); }).join(""),
+      has_upper: /\p{Lu}/u.test(text),
+    };
+  }
+  function prepare_text(text) {
+    var lower = text.toLowerCase();
+    return { raw: text, lower: lower, words: words(text) };
+  }
+  // Optimal string alignment distance, giving up once it passes `limit`.
+  function distance(a, b, limit) {
+    if (Math.abs(a.length - b.length) > limit) return limit + 1;
+    var before = [];
+    var previous = [];
+    var current = [];
+    for (var j = 0; j <= b.length; j++) previous[j] = j;
+    for (var i = 1; i <= a.length; i++) {
+      current = [i];
+      var smallest = i;
+      for (var k = 1; k <= b.length; k++) {
+        var cost = a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1;
+        var best = Math.min(previous[k] + 1, current[k - 1] + 1, previous[k - 1] + cost);
+        if (i > 1 && k > 1 && a.charAt(i - 1) === b.charAt(k - 2) && a.charAt(i - 2) === b.charAt(k - 1)) {
+          best = Math.min(best, before[k - 2] + 1);
+        }
+        current[k] = best;
+        if (best < smallest) smallest = best;
+      }
+      if (smallest > limit) return limit + 1;
+      before = previous;
+      previous = current;
+    }
+    return previous[b.length];
+  }
+  function starts(text, prefix) {
+    return prefix.length > 0 && text.lastIndexOf(prefix, 0) === 0;
+  }
+
+  // Each matcher scores how well one query term matches one field, from 0 (no match) to 1.
+  // Name matchers see titles, keywords and page titles. Text matchers see body text.
+  // A weak matcher's hits rank below every other name match, because a name merely containing the term
+  // usually isn't what the reader meant.
+  var matchers = {
+    Exact: { match: function (term, field) {
+      if (field.lower === term.lower) return 1;
+      if (field.tail === term.lower) return 0.92;
+      if (term.joined && field.joined === term.joined) return 0.9;
+      return 0;
+    } },
+    Prefix: { match: function (term, field) {
+      var ratio = term.lower.length / Math.max(field.lower.length, 1);
+      if (starts(field.lower, term.lower)) return 0.75 + 0.25 * ratio;
+      if (starts(field.tail, term.lower)) return 0.7 + 0.2 * term.lower.length / Math.max(field.tail.length, 1);
+      if (starts(field.joined, term.joined)) return 0.65 + 0.2 * ratio;
+      return 0;
+    } },
+    Words: { match: function (term, field) {
+      var wanted = term.words;
+      if (!wanted.length || !field.words.length) return 0;
+      var next = 0;
+      var first = -1;
+      var last = -1;
+      var whole = 0;
+      for (var i = 0; i < field.words.length && next < wanted.length; i++) {
+        if (starts(field.words[i], wanted[next])) {
+          if (first < 0) first = i;
+          last = i;
+          if (field.words[i] === wanted[next]) whole++;
+          next++;
+        }
+      }
+      if (next < wanted.length) return 0;
+      var gaps = last - first + 1 - wanted.length;
+      var score = 0.55 + 0.15 * whole / wanted.length + (first === 0 ? 0.1 : 0) - 0.05 * gaps;
+      return Math.max(0.2, Math.min(score, 0.85));
+    } },
+    Initials: { match: function (term, field) {
+      var letters = term.joined;
+      if (letters.length < 2 || field.words.length < 2 || /\d/.test(letters)) return 0;
+      if (field.initials === letters) return 0.7;
+      if (starts(field.initials, letters)) return 0.45 + 0.2 * letters.length / field.initials.length;
+      return 0;
+    } },
+    Substring: { weak: true, match: function (term, field) {
+      var at = field.lower.indexOf(term.lower);
+      var length = field.lower.length;
+      if (at < 0 && term.joined) {
+        at = field.joined.indexOf(term.joined);
+        length = field.joined.length;
+      }
+      if (at < 0 || term.lower.length < 2) return 0;
+      return 0.4 - 0.15 * at / Math.max(length, 1);
+    } },
+    // Short terms allow no typos, so "fs" never matches "os".
+    Typos: { match: function (term, field, options) {
+      var target = term.joined;
+      var allowed = target.length < 4 ? 0 : target.length < 8 ? 1 : 2;
+      allowed = Math.min(allowed, options[0] === undefined ? 2 : options[0]);
+      if (allowed === 0) return 0;
+      var best = allowed + 1;
+      var candidates = field.words.concat([field.tail, field.joined]);
+      for (var i = 0; i < candidates.length && best > 0; i++) {
+        var candidate = candidates[i];
+        best = Math.min(best, distance(target, candidate, allowed));
+        if (candidate.length > target.length) {
+          best = Math.min(best, distance(target, candidate.slice(0, target.length), allowed));
+        }
+      }
+      return best > allowed ? 0 : 1 - best / (allowed + 1);
+    } },
+    // The term's words have to appear in a row. The last one may be cut short, as it is while the reader types.
+    FullText: { text: true, match: function (term, field) {
+      var wanted = term.words.length ? term.words : [term.lower];
+      if (wanted.join("").length < 2) return 0;
+      var best = 0;
+      for (var i = 0; i + wanted.length <= field.words.length && best < 1; i++) {
+        var whole = true;
+        var hit = true;
+        for (var j = 0; j < wanted.length && hit; j++) {
+          var word = field.words[i + j];
+          if (word === wanted[j]) continue;
+          var last = j === wanted.length - 1;
+          if (last && wanted[j].length >= 3 && starts(word, wanted[j])) {
+            whole = false;
+          } else {
+            hit = false;
+          }
+        }
+        if (hit) best = Math.max(best, whole ? 1 : 0.6);
+      }
+      if (best > 0) return best;
+      if (term.lower.length >= 4 && field.lower.indexOf(term.lower) >= 0) return 0.2;
+      // One typo in a longer word still finds it in body text, below every exact match.
+      var target = term.joined;
+      if (target.length < 5) return 0;
+      for (var k = 0; k < field.words.length; k++) {
+        if (distance(target, field.words[k], 1) <= 1) return 0.35;
+      }
+      return 0;
+    } },
+  };
+  function matcher(name) {
+    var custom = window.chimeraMatchers && window.chimeraMatchers[name];
+    return custom || matchers[name];
+  }
+
+  var DEFAULT_MATCHERS = "Exact:100 Prefix:80 Words:60 Initials:45 Substring:35 Typos:25 FullText:15";
+  function parse_pairs(text) {
+    return (text || "").split(/\s+/).filter(Boolean).map(function (pair) {
+      var parts = pair.split(":");
+      return { name: parts[0], weight: parseFloat(parts[1]) || 0, options: parts.slice(2).map(parseFloat) };
+    });
+  }
+  function config_of(form) {
+    var data = form ? form.dataset : {};
+    var fields = { title: 1, keywords: 0.8, page: 0.4, text: 1 };
+    parse_pairs(data.fields).forEach(function (pair) { fields[pair.name] = pair.weight; });
+    return {
+      matchers: parse_pairs(data.matchers || DEFAULT_MATCHERS),
+      fields: fields,
+      limit: parseInt(data.limit || "10", 10),
+      kinds: data.kinds ? data.kinds.split(/\s+/) : null,
+      min_score: parseFloat(data.minScore || "0"),
+      group: data.group !== "false",
+      snippets: data.snippets !== "false",
+    };
+  }
+
+  var entries = null;
+  var loading = null;
+  function prepare_entry(raw, order) {
+    var names = [{ field: "title", value: prepare(raw.t) }];
+    (raw.w || []).forEach(function (keyword) { names.push({ field: "keywords", value: prepare(keyword) }); });
+    if (raw.g && raw.g !== raw.t) names.push({ field: "page", value: prepare(raw.g) });
+    return {
+      kind: raw.k,
+      title: raw.t,
+      path: raw.p,
+      page: raw.g,
+      section: raw.s || null,
+      text: raw.x || "",
+      order: order,
+      names: names,
+      body: prepare_text(raw.x || ""),
+    };
+  }
+  function load(form) {
+    if (loading) return loading;
+    loading = new Promise(function (resolve, reject) {
+      function finish() {
+        entries = (window.chimeraSearchIndex || []).map(prepare_entry);
+        resolve(entries);
+      }
+      if (window.chimeraSearchIndex) return finish();
+      var source = form && form.dataset.index;
+      if (!source) return reject(new Error("this page has no search index"));
+      var script = document.createElement("script");
+      script.src = source;
+      script.onload = finish;
+      script.onerror = function () { loading = null; reject(new Error("couldn't load " + source)); };
+      document.head.appendChild(script);
+    });
+    return loading;
+  }
+
+  // How a term matched an entry, best first: by a name, by a weak match in a name, or only in body text.
+  var NAME = 2;
+  var WEAK_NAME = 1;
+  var TEXT = 0;
+  function score_term(term, entry, config) {
+    var best = 0;
+    var tier = -1;
+    function offer(score, at) {
+      if (score <= 0) return;
+      if (at > tier || (at === tier && score > best)) {
+        tier = at;
+        best = score;
+      }
+    }
+    config.matchers.forEach(function (use) {
+      var found = matcher(use.name);
+      if (!found || use.weight <= 0) return;
+      if (found.text) {
+        if (entry.body.lower) offer(use.weight * config.fields.text * found.match(term, entry.body, use.options), TEXT);
+        return;
+      }
+      entry.names.forEach(function (name) {
+        var weight = config.fields[name.field];
+        if (weight > 0) {
+          offer(use.weight * weight * found.match(term, name.value, use.options), found.weak ? WEAK_NAME : NAME);
+        }
+      });
+    });
+    // Smart case: a term with capitals ranks entries that match its exact case higher.
+    if (best > 0 && term.has_upper && entry.title.indexOf(term.raw) >= 0) best *= 1.1;
+    return { score: best, tier: tier };
+  }
+  function rank(query, config) {
+    var terms = query.trim().split(/\s+/).filter(Boolean).map(prepare);
+    if (!terms.length || !entries) return [];
+    var results = [];
+    entries.forEach(function (entry) {
+      if (config.kinds && config.kinds.indexOf(entry.kind) < 0) return;
+      var total = 0;
+      var tier = NAME;
+      for (var i = 0; i < terms.length; i++) {
+        var matched = score_term(terms[i], entry, config);
+        if (matched.score <= 0) return;
+        total += matched.score;
+        tier = Math.min(tier, matched.tier);
+      }
+      total -= Math.min(entry.title.length, 60) * 0.01;
+      if (total >= config.min_score) results.push({ entry: entry, score: total, tier: tier });
+    });
+    // An entry whose headings match every term comes before one that only mentions the terms.
+    results.sort(function (a, b) {
+      return b.tier - a.tier || b.score - a.score || a.entry.order - b.entry.order;
+    });
+    return results.slice(0, config.limit).map(function (result) {
+      var entry = result.entry;
+      return {
+        kind: entry.kind,
+        title: entry.title,
+        path: entry.path,
+        page: entry.page,
+        section: entry.section,
+        text: entry.text,
+        score: Math.round(result.score * 100) / 100,
+      };
+    });
+  }
+
+  function escape(text) {
+    return text.replace(/[&<>"]/g, function (char) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[char];
+    });
+  }
+  // Where `piece` first starts a word in `lower`, or failing that where it first appears.
+  function find_word(lower, piece) {
+    var first = lower.indexOf(piece);
+    var at = first;
+    while (at > 0 && /[\p{L}\p{N}]/u.test(lower.charAt(at - 1))) at = lower.indexOf(piece, at + 1);
+    return at >= 0 ? at : first;
+  }
+  // Wraps where each of a term's words appears in a <mark>.
+  function mark(text, terms) {
+    var lower = text.toLowerCase();
+    var ranges = [];
+    terms.forEach(function (term) {
+      var pieces = term.words.length > 1 ? term.words : [term.lower];
+      pieces.forEach(function (piece) {
+        if (piece.length < 2) return;
+        var at = find_word(lower, piece);
+        if (at >= 0) ranges.push([at, at + piece.length]);
+      });
+    });
+    ranges.sort(function (a, b) { return a[0] - b[0]; });
+    var out = "";
+    var position = 0;
+    ranges.forEach(function (range) {
+      if (range[0] < position) return;
+      out += escape(text.slice(position, range[0])) + "<mark>" + escape(text.slice(range[0], range[1])) + "</mark>";
+      position = range[1];
+    });
+    return out + escape(text.slice(position));
+  }
+  function snippet(text, terms) {
+    if (!text) return "";
+    var lower = text.toLowerCase();
+    var at = -1;
+    terms.forEach(function (term) {
+      var found = find_word(lower, term.words[0] || term.lower);
+      if (found >= 0 && (at < 0 || found < at)) at = found;
+    });
+    var start = Math.max(0, at - 40);
+    // Start the quote on a whole word.
+    var space = start > 0 ? text.indexOf(" ", start) : -1;
+    if (space >= 0 && space < at) start = space + 1;
+    var piece = text.slice(start, start + 140);
+    return (start > 0 ? "…" : "") + mark(piece, terms) + (start + 140 < text.length ? "…" : "");
+  }
+
+  function href_for(form, path) {
+    var url = new URL((form.dataset.root || "") + path, location.href);
+    var theme = document.documentElement.dataset.theme;
+    if (theme) url.searchParams.set("theme", theme);
+    return url.href;
+  }
+  function show(form, query) {
+    var box = form.querySelector(".chimera-search-results");
+    var config = config_of(form);
+    var terms = query.trim().split(/\s+/).filter(Boolean).map(prepare);
+    if (!terms.length) {
+      box.hidden = true;
+      box.replaceChildren();
+      return;
+    }
+    var results = rank(query, config);
+    var html = "";
+    var groups = [];
+    if (config.group) {
+      var by_page = {};
+      results.forEach(function (result) {
+        var key = result.page || "";
+        if (!by_page[key]) {
+          by_page[key] = [];
+          groups.push({ page: key, results: by_page[key] });
+        }
+        by_page[key].push(result);
+      });
+    } else {
+      groups.push({ page: "", results: results });
+    }
+    groups.forEach(function (group) {
+      if (config.group && group.page) html += "<div class=\"chimera-search-group\">" + escape(group.page) + "</div>";
+      group.results.forEach(function (result) {
+        html += "<a class=\"chimera-search-result\" role=\"option\" aria-selected=\"false\" href=\""
+          + escape(href_for(form, result.path)) + "\"><span class=\"chimera-search-title\">"
+          + mark(result.title, terms) + "</span><span class=\"chimera-search-kind\">" + escape(result.kind)
+          + "</span>";
+        if (!config.group && result.page && result.page !== result.title) {
+          html += "<span class=\"chimera-search-where\">" + escape(result.page) + "</span>";
+        }
+        if (config.snippets && result.text) {
+          html += "<span class=\"chimera-search-snippet\">" + snippet(result.text, terms) + "</span>";
+        }
+        html += "</a>";
+      });
+    });
+    if (!results.length) {
+      html = "<div class=\"chimera-search-empty\">No results for “" + escape(query.trim()) + "”</div>";
+    }
+    box.innerHTML = html;
+    box.hidden = false;
+    select(form, 0);
+  }
+  function select(form, index) {
+    var options = form.querySelectorAll(".chimera-search-result");
+    options.forEach(function (option, at) {
+      option.setAttribute("aria-selected", at === index ? "true" : "false");
+      if (at === index) option.scrollIntoView({ block: "nearest" });
+    });
+    form.dataset.selected = String(index);
+  }
+  function move(form, step) {
+    var count = form.querySelectorAll(".chimera-search-result").length;
+    if (!count) return;
+    var index = (parseInt(form.dataset.selected || "0", 10) + step + count) % count;
+    select(form, index);
+  }
+  function close(form) {
+    var box = form.querySelector(".chimera-search-results");
+    if (box) box.hidden = true;
+  }
+  function bind(form) {
+    var input = form.querySelector(".chimera-search-input");
+    if (!input) return;
+    function update() {
+      load(form).then(function () { show(form, input.value); }, function (error) {
+        var box = form.querySelector(".chimera-search-results");
+        box.innerHTML = "<div class=\"chimera-search-empty\">" + escape(error.message) + "</div>";
+        box.hidden = false;
+      });
+    }
+    input.addEventListener("focus", function () {
+      load(form).catch(function () {});
+      if (input.value.trim()) update();
+    });
+    input.addEventListener("input", update);
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        move(form, 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        move(form, -1);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        var chosen = form.querySelector(".chimera-search-result[aria-selected=true]");
+        if (chosen) location.href = chosen.href;
+      } else if (event.key === "Escape") {
+        input.value = "";
+        close(form);
+        input.blur();
+      }
+    });
+    form.addEventListener("submit", function (event) { event.preventDefault(); });
+  }
+  function typing(target) {
+    return target && (target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName));
+  }
+  document.addEventListener("keydown", function (event) {
+    var forms = document.querySelectorAll("form.chimera-search");
+    if (!forms.length) return;
+    var form = forms[0];
+    var shortcut = form.dataset.shortcut;
+    var wanted = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k";
+    if (!wanted && shortcut && event.key === shortcut && !typing(event.target)) wanted = true;
+    if (!wanted) return;
+    event.preventDefault();
+    form.querySelector(".chimera-search-input").focus();
+  });
+  document.addEventListener("click", function (event) {
+    document.querySelectorAll("form.chimera-search").forEach(function (form) {
+      if (!form.contains(event.target)) close(form);
+    });
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("form.chimera-search").forEach(bind);
+  });
+
+  window.chimera = window.chimera || {};
+  // For scripts and tests: ranks `query` the way the page's first search box would.
+  window.chimera.search = {
+    ready: function () { return load(document.querySelector("form.chimera-search")); },
+    rank: function (query, form) {
+      return rank(query, config_of(form || document.querySelector("form.chimera-search")));
+    },
+    words: words,
+    distance: distance,
+  };
+})();</script>
 </head>
 <body>
   <header>
     <nav data-element="Menu" class="chimera-menu"><button type="button" class="chimera-menu-toggle" aria-label="Menu" aria-expanded="false" onclick="chimera.menu(this)"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><a data-element="PageLink" data-page="index.html" href="../index.html" class="chimera-brand">chimera</a><a data-element="PageLink" data-page="guide.html" href="../guide.html">Guide</a><a data-element="PageLink" data-page="luwu/index.html" href="index.html">Luwu</a><details data-element="Dropdown" class="chimera-dropdown">
       <summary>More</summary>
       <div class="chimera-dropdown-items"><a href="https://github.com/seal-runtime/chimera" target="_blank" rel="noopener noreferrer">Source</a><a href="https://github.com/luwu-community/luwu" target="_blank" rel="noopener noreferrer">Luwu</a><a href="https://github.com/seal-runtime/seal" target="_blank" rel="noopener noreferrer">seal</a></div>
-    </details><details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary aria-label="Change theme" title="Change theme"><svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></summary><div class="chimera-theme-options" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-latte" onclick="chimera.setTheme('catppuccin-latte')"><span class="chimera-theme-swatch"><span style="background: #eff1f5"></span><span style="background: #8839ef"></span><span style="background: #fe640b"></span></span>Catppuccin Latte</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-mocha" onclick="chimera.setTheme('catppuccin-mocha')"><span class="chimera-theme-swatch"><span style="background: #1e1e2e"></span><span style="background: #cba6f7"></span><span style="background: #fab387"></span></span>Catppuccin Mocha</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-macchiato" onclick="chimera.setTheme('catppuccin-macchiato')"><span class="chimera-theme-swatch"><span style="background: #24273a"></span><span style="background: #c6a0f6"></span><span style="background: #f5a97f"></span></span>Catppuccin Macchiato</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-frappe" onclick="chimera.setTheme('catppuccin-frappe')"><span class="chimera-theme-swatch"><span style="background: #303446"></span><span style="background: #ca9ee6"></span><span style="background: #ef9f76"></span></span>Catppuccin Frappé</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="light" onclick="chimera.setTheme('light')"><span class="chimera-theme-swatch"><span style="background: #ffffff"></span><span style="background: #3b5bdb"></span><span style="background: #e8590c"></span></span>Light</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="dark" onclick="chimera.setTheme('dark')"><span class="chimera-theme-swatch"><span style="background: #121214"></span><span style="background: #7b9cff"></span><span style="background: #ffa94d"></span></span>Dark</button></div></details></nav>
+    </details><form data-element="Search" role="search" data-index="../search-index.js" data-root="../" data-matchers="Exact:100 Prefix:80 Words:60 Initials:45 Substring:35 Typos:25:2 FullText:15" data-limit="10" data-shortcut="/" data-placeholder="Search the docs" class="chimera-search"><input class="chimera-search-input" type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" spellcheck="false"><div class="chimera-search-results" role="listbox" hidden></div></form><details data-element="ThemeSwitcher" class="chimera-theme-switcher"><summary aria-label="Change theme" title="Change theme"><svg class="chimera-theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></summary><div class="chimera-theme-options" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-latte" onclick="chimera.setTheme('catppuccin-latte')"><span class="chimera-theme-swatch"><span style="background: #eff1f5"></span><span style="background: #8839ef"></span><span style="background: #fe640b"></span></span>Catppuccin Latte</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-mocha" onclick="chimera.setTheme('catppuccin-mocha')"><span class="chimera-theme-swatch"><span style="background: #1e1e2e"></span><span style="background: #cba6f7"></span><span style="background: #fab387"></span></span>Catppuccin Mocha</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-macchiato" onclick="chimera.setTheme('catppuccin-macchiato')"><span class="chimera-theme-swatch"><span style="background: #24273a"></span><span style="background: #c6a0f6"></span><span style="background: #f5a97f"></span></span>Catppuccin Macchiato</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="catppuccin-frappe" onclick="chimera.setTheme('catppuccin-frappe')"><span class="chimera-theme-swatch"><span style="background: #303446"></span><span style="background: #ca9ee6"></span><span style="background: #ef9f76"></span></span>Catppuccin Frappé</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="light" onclick="chimera.setTheme('light')"><span class="chimera-theme-swatch"><span style="background: #ffffff"></span><span style="background: #3b5bdb"></span><span style="background: #e8590c"></span></span>Light</button><button type="button" role="menuitemradio" aria-checked="false" data-chimera-theme-option="dark" onclick="chimera.setTheme('dark')"><span class="chimera-theme-swatch"><span style="background: #121214"></span><span style="background: #7b9cff"></span><span style="background: #ffa94d"></span></span>Dark</button></div></details></nav>
   </header>
   <nav data-element="Breadcrumbs" aria-label="Breadcrumb" class="chimera-breadcrumbs"><ol><li><a href="index.html">Luwu</a></li><li><span aria-current="page">Table Comprehensions</span></li></ol></nav>
   <main>

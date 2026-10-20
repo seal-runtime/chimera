@@ -1,0 +1,161 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const env = require("@std/env")
+const json = require("@std/json")
+const time = require("@std/time")
+const process = require("@std/process")
+const websocket = require("@std/net/websocket")
+const base64 = require("@std/serde/base64")
+
+type BidiReply = {
+    id: number?,
+    type: string?,
+    error: string?,
+    message: string?,
+    result: {
+        context: string?,
+        data: string?,
+        type: string?,
+        result: { value: unknown? }?,
+        exceptionDetails: { text: string? }?,
+    }?,
+}
+
+--- Firefox's executable: `CHIMERA_FIREFOX` when it's set, then `firefox` on the PATH, then where installers put it.
+const function find_firefox(): string?
+    if const chosen = env.vars.get("CHIMERA_FIREFOX") then
+        return chosen
+    end
+    if const found = env.where("firefox")[1] then
+        return found
+    end
+    const installed = {
+        "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+        "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+        "/Applications/Firefox.app/Contents/MacOS/firefox",
+    }
+    for _, candidate in installed when fs.path.exists(candidate) do
+        return candidate
+    end
+    return nil
+end
+
+--- A `file://` URL for `path`, with Windows drive paths like `C:\docs` turned into `file:///C:/docs`.
+const function file_url(path: string): string
+    const forward = string.gsub(string.gsub(path, "\\", "/"), " ", "%%20")
+    return if string.sub(forward, 1, 1) == "/" then `file://{forward}` else `file:///{forward}`
+end
+
+--[=[
+    Headless Firefox driven over WebDriver BiDi, for tests of the JavaScript chimera's pages run. A test opens a
+    page and evaluates code in it, the way a reader's browser would run it.
+]=]
+export class Browser private (
+    private const child: process.ChildProcess,
+    private const socket: Websocket
+)
+    private next_id = 0
+    private context = ""
+
+    --- Whether Firefox is installed. Browser tests skip themselves without it.
+    public function available(): boolean
+        return find_firefox() ~= nil
+    end
+
+    --- Starts headless Firefox with a profile of its own under `tests/`.
+    public function launch(): Browser
+        const port = tostring(math.random(20000, 40000))
+        const profile = fs.path.join(fs.path.cwd(), "tests", ".tmp_firefox_profile")
+        fs.dir.ensure(profile, true)
+        const child = process.spawn({
+            program = find_firefox() or error("Firefox isn't installed; set CHIMERA_FIREFOX to its executable", 2),
+            args = { "--headless", "--no-remote", "--profile", profile, "--remote-debugging-port", port },
+        })
+        for _ = 1, 100 do
+            time.wait(0.1)
+            const ok, socket = pcall(websocket.connect, `ws://127.0.0.1:{port}/session`)
+            if ok and typeof(socket) ~= "error" then
+                const browser = Browser(child, socket)
+                browser:call("session.new", { capabilities = {} })
+                const created = browser:call("browsingContext.create", { type = "tab" }).result
+                browser.context = if created then created.context or "" else ""
+                if browser.context == "" then
+                    error("Firefox didn't open a tab", 2)
+                end
+                return browser
+            end
+        end
+        child:kill()
+        error("Firefox didn't start its WebDriver BiDi server", 2)
+    end
+
+    private function call(self, method: string, params: { [string]: unknown }): BidiReply
+        self.next_id += 1
+        const id = self.next_id
+        self.socket:send(json.raw({ id = id, method = method, params = params }))
+        while true do
+            const reply = json.decode(self.socket:read():as_string()) :: BidiReply
+            if reply.id == id then
+                if reply.type == "error" then
+                    error(`{method} failed: {reply.error}: {reply.message}`, 3)
+                end
+                return reply
+            end
+        end
+    end
+
+    --- Opens `file` and waits for it to finish loading.
+    public function open(self, file: string)
+        self:call("browsingContext.navigate", {
+            context = self.context,
+            url = file_url(file),
+            wait = "complete",
+        })
+    end
+
+    --[=[
+        Evaluates `expression` in the open page and returns its value, which must be a string. A promise is awaited
+        first. An exception in the page raises here with its message.
+    ]=]
+    public function evaluate(self, expression: string): string
+        const reply = self:call("script.evaluate", {
+            expression = expression,
+            target = { context = self.context },
+            awaitPromise = true,
+        })
+        const result = reply.result or error("script.evaluate gave no result", 2)
+        if result.type == "exception" then
+            error(`page threw: {if result.exceptionDetails then result.exceptionDetails.text else "?"}`, 2)
+        end
+        const value = if result.result then result.result.value else nil
+        if type(value) ~= "string" then
+            error(`expected the page to give a string, got {typeof(value)}`, 2)
+        end
+        return value
+    end
+
+    --- Saves what the page shows as a PNG at `file`, for checking a page's look after code has run in it.
+    public function screenshot(self, file: string)
+        const reply = self:call("browsingContext.captureScreenshot", { context = self.context })
+        const data = if reply.result then reply.result.data else nil
+        fs.writefile(file, base64.decode(data or error("Firefox sent no screenshot", 2)))
+    end
+
+    --- Resizes the page's viewport, in CSS pixels.
+    public function resize(self, width: number, height: number)
+        self:call("browsingContext.setViewport", {
+            context = self.context,
+            viewport = { width = width, height = height },
+        })
+    end
+
+    public function close(self)
+        pcall(function()
+            return self:call("session.end", {})
+        end)
+        self.child:kill()
+    end
+end
