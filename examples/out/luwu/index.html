@@ -1439,7 +1439,7 @@ apple: 1.25</code></pre>
         <span class="hljs-keyword">return</span> <span class="hljs-title class_">Health</span><span class="chimera-bracket-1">(</span>max_health, max_health<span class="chimera-bracket-1">)</span>
     <span class="hljs-keyword">end</span>
     <span class="hljs-keyword">private</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">clamped</span><span class="chimera-bracket-1">(</span>current: <span class="hljs-type">number</span>, max_health: <span class="hljs-type">number</span><span class="chimera-bracket-1">)</span>: <span class="hljs-title class_">Health</span>
-        <span class="hljs-keyword">if</span> current ~= current <span class="hljs-keyword">then</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-built_in">math</span>.<span class="hljs-title function_ invoke__">isnan</span><span class="chimera-bracket-1">(</span>current<span class="chimera-bracket-1">)</span> <span class="hljs-keyword">then</span>
             <span class="hljs-title function_ invoke__">error</span><span class="chimera-bracket-1">(</span><span class="hljs-string">"health can't be NaN"</span>, <span class="hljs-number">3</span><span class="chimera-bracket-1">)</span>
         <span class="hljs-keyword">end</span>
         <span class="hljs-keyword">return</span> <span class="hljs-title class_">Health</span><span class="chimera-bracket-1">(</span><span class="hljs-built_in">math</span>.<span class="hljs-title function_ invoke__">clamp</span><span class="chimera-bracket-2">(</span>current, <span class="hljs-number">0</span>, max_health<span class="chimera-bracket-2">)</span>, max_health<span class="chimera-bracket-1">)</span>

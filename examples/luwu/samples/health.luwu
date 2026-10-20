@@ -11,7 +11,7 @@ class Health private (
         return Health(max_health, max_health)
     end
     private function clamped(current: number, max_health: number): Health
-        if current ~= current then
+        if math.isnan(current) then
             error("health can't be NaN", 3)
         end
         return Health(math.clamp(current, 0, max_health), max_health)

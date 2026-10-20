@@ -288,22 +288,72 @@ return Page("Classes and Traits", {
         "Metamethods let your objects work with operators like ", Code("+"), " and ", Code("=="),
         ". Name a method after the metamethod.",
     }),
+    Paragraph({
+        Code("Money"), " keeps whole units and cents in separate fields because a floating point ",
+        Code("number"), " can't hold most fractions exactly: ", Code("0.1 + 0.2"), " is ",
+        Code("0.30000000000000004"), ". Its private constructor and fields mean every amount comes from ",
+        Code("Money.usd"), ", ", Code("Money.eur"), " or ", Code("Money.gbp"), " and stays valid.",
+    }),
     luwu([====[
-        class Vector2(x: number, y: number)
-            function __add(self, other: Vector2): Vector2
-                return Vector2(self.x + other.x, self.y + other.y)
+        type Currency = "USD" | "EUR" | "GBP"
+
+        class Money private (
+            private const units: number,
+            private const cents: number,
+            public const currency: Currency
+        )
+            public function usd(units: number, cents: number): Money
+                return Money.of(units, cents, "USD")
             end
-            function __eq(self, other: Vector2): boolean
-                return self.x == other.x and self.y == other.y
+            public function eur(units: number, cents: number): Money
+                return Money.of(units, cents, "EUR")
             end
-            function __tostring(self): string
-                return `({self.x}, {self.y})`
+            public function gbp(units: number, cents: number): Money
+                return Money.of(units, cents, "GBP")
+            end
+            private function of(units: number, cents: number, currency: Currency): Money
+                if
+                    units % 1 ~= 0
+                    or cents % 1 ~= 0
+                    or units < 0
+                    or cents < 0
+                    or cents > 99
+                then
+                    error("expected whole units and 0 to 99 cents", 3)
+                end
+                return Money(units, cents, currency)
+            end
+            private function check_currency(self, other: Money)
+                if self.currency ~= other.currency then
+                    error(`can't mix {self.currency} and {other.currency}`, 3)
+                end
+            end
+            public function __add(self, other: Money): Money
+                self:check_currency(other)
+                const cents = self.cents + other.cents
+                const units = self.units + other.units + cents // 100
+                return Money(units, cents % 100, self.currency)
+            end
+            public function __eq(self, other: Money): boolean
+                return self.units == other.units
+                    and self.cents == other.cents
+                    and self.currency == other.currency
+            end
+            public function __lt(self, other: Money): boolean
+                self:check_currency(other)
+                if self.units ~= other.units then
+                    return self.units < other.units
+                end
+                return self.cents < other.cents
+            end
+            public function __tostring(self): string
+                return string.format("%d.%02d %s", self.units, self.cents, self.currency)
             end
         end
 
-        const position = Vector2(1, 2) + Vector2(3, 4)
-        print(`{position}`)
-        print(position == Vector2(4, 6))
+        const total = Money.usd(19, 99) + Money.usd(5, 1)
+        print(`{total}`)
+        print(total == Money.usd(25, 0), total < Money.usd(30, 0))
     ]====]),
 
     h3("Checking what an object is"),
@@ -479,10 +529,26 @@ return Page("Classes and Traits", {
     Paragraph({
         "A trait is also a type. ", Code("{ Shape }"), " is a list of anything that implements ", Code("Shape"), ".",
     }),
+    Paragraph({ Code("class.implements"), " checks a value at runtime." }),
     Paragraph({
-        Code("class.implements"), " checks a value at runtime. ",
-        Code("class<Trait>"), " is the type of a class that implements it.",
+        Code("Trait"), " is any object whose class implements ", Code("Trait"), ", ", Code("class<Trait>"),
+        " is the type of the class value of any class that implements ", Code("Trait"), ", and ",
+        Code("trait<Trait>"), " is the type of the trait value itself. This might be confusing, so here's an example:",
     }),
+    luwu([====[
+        trait Animal -- Animal is trait<Animal>
+            expect species: string
+        end
+
+        class Cat( -- Cat is class<Animal>
+            name: string,
+            age: number
+        ) implements Animal
+            species = "Felis catus"
+        end
+
+        const nyla = Cat("Nyla", 14) -- nyla is Animal
+    ]====]),
     Paragraph("Together they make registries: look up a class by name, then build it."),
     luwu([====[
         trait Spawnable
