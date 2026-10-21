@@ -1409,7 +1409,7 @@
     to_top.toggleAttribute("data-visible", scrollY > innerHeight * 0.75);
   }
   addEventListener("scroll", function () { if (document.body) sync_to_top(); }, { passive: true });
-  // Squiggle messages and code hovers show in a box by the pointer, like an editor's hover.
+  // Squiggle messages and code hovers show in a box under the marked code, like an editor's hover.
   var hover = null;
   var hovered = null;
   var hide_timer = 0;
@@ -1428,7 +1428,7 @@
     }
     return null;
   }
-  function show_hover(mark, x, y) {
+  function show_hover(mark) {
     clearTimeout(hide_timer);
     if (hovered === mark && hover && !hover.hidden) return;
     var message = mark.dataset.message;
@@ -1461,8 +1461,10 @@
     hover.hidden = false;
     var width = hover.offsetWidth;
     var height = hover.offsetHeight;
-    var left = Math.max(8, Math.min(x + 4, innerWidth - width - 8));
-    var top = y + 18 + height > innerHeight ? y - height - 10 : y + 18;
+    // Anchoring to the mark's first line keeps the box still while the pointer moves.
+    var anchor = mark.getClientRects()[0] || mark.getBoundingClientRect();
+    var left = Math.max(8, Math.min(anchor.left, innerWidth - width - 8));
+    var top = anchor.bottom + 4 + height > innerHeight ? anchor.top - height - 4 : anchor.bottom + 4;
     hover.style.left = left + "px";
     hover.style.top = Math.max(8, top) + "px";
   }
@@ -1473,7 +1475,7 @@
   }
   document.addEventListener("mouseover", function (event) {
     var mark = mark_at(event.target);
-    if (mark) show_hover(mark, event.clientX, event.clientY);
+    if (mark) show_hover(mark);
   });
   document.addEventListener("mouseout", function (event) {
     if (mark_at(event.target) && !mark_at(event.relatedTarget)) hide_timer = setTimeout(hide_hover, 150);
@@ -1488,7 +1490,7 @@
     var mark = mark_at(event.target);
     if (mark) {
       hovered = null;
-      show_hover(mark, event.clientX, event.clientY);
+      show_hover(mark);
     } else if (!(hover && hover.contains(event.target))) {
       hide_hover();
     }
