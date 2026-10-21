@@ -165,7 +165,6 @@ const themes_by_name: { [string]: class<Theme> } = {}
         end
     end
 
-    Theme.register(Dracula)
     page:default_dark_theme(Dracula)
     ```
 
@@ -1033,25 +1032,14 @@ export trait Theme
         }
     end
 
-    --[=[
-        Makes the theme class `cls` findable by its name with [Theme.find]. Parsing a page looks up the theme names
-        on its `<html>` tag here. Register every theme your pages use.
-
-        ## Usage
-
-        ```luwu
-        Theme.register(Sepia)
-        Parser():parse_document(html).light_theme
-        ```
-    ]=]
-    final function register(cls: class<Theme>)
+    --- Every theme class is findable by its name with [Theme.find]. Parsing a page looks up the theme names on its
+    --- `<html>` tag there.
+    final function __implemented(cls: class<Theme>)
         themes_by_name[cls().name] = cls
     end
 
     --[=[
-        The registered theme called `name`, or nil. Every theme in [themes] is registered.
-
-        [themes = require("@themes")]
+        The theme class called `name`, or nil when no theme class has that name.
 
         ## Usage
 

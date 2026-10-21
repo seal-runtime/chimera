@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Metadata, Text } = require("@core/markup")
+const .{ Element, Component, Metadata, Text, HtmlElement } = require("@core/markup")
 const style_module = require("@style/style")
 const Rule = style_module.Rule
 type .{ Markup, Writer } = markup
@@ -16,7 +16,7 @@ const ESCAPES: { [string]: string } = {
 }
 
 --- A `"title"` element that names the page in the browser tab.
-export class Title implements Metadata
+export class Title implements Metadata, HtmlElement
     function tag(): string
         return "title"
     end
@@ -59,7 +59,7 @@ end
     Meta.charset("utf-8")
     ```
 ]=]
-export class Meta implements Metadata
+export class Meta implements Metadata, HtmlElement
     function tag(): string
         return "meta"
     end
@@ -140,7 +140,7 @@ const ICON_TYPES: { [string]: string? } = {
     ResourceLink.icon("/favicon.svg")
     ```
 ]=]
-export class ResourceLink implements Metadata
+export class ResourceLink implements Metadata, HtmlElement
     function tag(): string
         return "link"
     end
@@ -196,7 +196,7 @@ end
     Script(nil, "/app.js"):module()
     ```
 ]=]
-export class Script implements Component, Metadata
+export class Script implements Component, Metadata, HtmlElement
     function tag(): string
         return "script"
     end
@@ -282,7 +282,7 @@ end
         :css("footer { opacity: 0.7 }")
     ```
 ]=]
-export class Stylesheet implements Component, Metadata
+export class Stylesheet implements Component, Metadata, HtmlElement
     function tag(): string
         return "style"
     end
@@ -403,7 +403,7 @@ end
     Head { Title("Home"), Meta.charset("utf-8"), ResourceLink.stylesheet("/site.css") }
     ```
 ]=]
-export class Head implements Element
+export class Head implements Element, HtmlElement
     function tag(): string
         return "head"
     end
@@ -472,8 +472,4 @@ export class Head implements Element
     function child_nodes(self): { read Markup }
         return self.items
     end
-end
-
-for _, cls in { Title, Meta, ResourceLink, Script, Stylesheet, Head } do
-    Element.register_class(cls)
 end

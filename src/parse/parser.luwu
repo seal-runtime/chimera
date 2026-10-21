@@ -3,14 +3,8 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Child, Text, Comment, Tag, Shape } = require("@core/markup")
-const .{ Document } = require("@document/document")
+const .{ Element, Text, Comment, Tag, Shape } = require("@core/markup")
 type .{ Markup, Element } = markup
-
--- Each built-in module registers its classes with the parser when it loads.
-require("@elements")
-require("@components")
-require("@site")
 
 --- Tags whose content is text up to the closing tag; `escapable` ones decode entities.
 const RAW_TEXT_TAGS: { [string]: { escapable: boolean } } = {
@@ -126,11 +120,15 @@ type Attribute = { name: string, value: string | boolean }
     collected in `warnings`. Registered [Shape]s are recognized in what it reads unless
     [Parser:recognize_shapes] turns that off.
 
+    It builds the classes chimera has loaded: every element and component registers itself when its class is
+    defined. For a whole page, use [Document.from_html][document.Document.from_html].
+
+    [document = require("@document/document")]
+
     ```luwu
     const parser = Parser()
     const nodes = parser:parse(`<ul><li>one<li>two</ul>`)
     print(nodes[1])
-    const page = parser:parse_document(fs.readfile("index.html"))
     ```
 ]=]
 export class Parser
@@ -203,31 +201,6 @@ export class Parser
             return { for _, root in self.roots give Shape.recognize_all(root) }
         end
         return self.roots
-    end
-
-    --[=[
-        Parses a whole page. Content outside an `<html>` element goes into a new document's body.
-
-        ```luwu
-        const page = Parser():parse_document(`<p>Just a paragraph</p>`)
-        print(page:to_html())
-        ```
-    ]=]
-    public function parse_document(self, html: string): Document
-        local document: Document? = nil
-        const loose: { Child } = {}
-        for _, node in self:parse(html) do
-            if class.isinstance(node, Document) then
-                document = node
-            elseif class.implements(node, Child) then
-                table.insert(loose, node)
-            end
-        end
-        const result: Document = document or Document()
-        for _, child in loose do
-            result.body:add(child)
-        end
-        return result
     end
 
     private function warn(self, message: string)

@@ -129,9 +129,8 @@ return Page("Guide", {
         module(Code("style"), "Typed CSS, colors and theme tokens", PageLink(styling_page)),
         module(Code("themes"), "Light, Dark and the Catppuccin flavors", PageLink(theming_page)),
         module(Code("site"), "Sites, pages and the links between them", PageLink(sites_page)),
-        module(Code("serde"), "Markdown and JSON, in and out", PageLink(serde_page)),
-        module("top level", "Traits for your own elements, Document, Parser", {
-            PageLink(custom_page), ", ", PageLink(parsing_page),
+        module("top level", "Traits for your own elements, Document, Parser, MarkdownReader", {
+            PageLink(custom_page), ", ", PageLink(parsing_page), ", ", PageLink(serde_page),
         }),
     }),
 }, "guide.html")

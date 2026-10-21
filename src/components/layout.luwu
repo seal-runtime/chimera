@@ -74,7 +74,3 @@ export class Grid implements Component, Layout
             :grid(min_width)
     end
 end
-
-for _, cls in { Row, Column, Grid } do
-    Component.register(cls)
-end

@@ -22,13 +22,14 @@
                 :add(content)
         end
     end
-
-    Component.register(Callout)
     ```
 ]=]
 export .{
     Component,
     Container,
+    HtmlElement,
+    Shape,
+    Json,
 } = require("@self/src/core/markup")
 
 --- The trait that arranges a container's children in a row, a column or a grid: [elements_layout.Layout].
@@ -75,9 +76,14 @@ export .{
     Parser,
 } = require("@self/src/parse/parser")
 
---- Markdown and JSON: [serde.Markdown] reads Markdown into chimera nodes and [serde.Json] reads and writes the JSON
---- form of any node. Every node writes Markdown with `to_markdown`.
-export serde = require("@self/src/serde")
+--- Reads Markdown into chimera nodes, with settings like how fenced code becomes components:
+--- [markdown_module.MarkdownReader]. [document_module.Document.from_markdown] and `Site:add_markdown` take one.
+---
+--- [markdown_module = require("@self/src/formats/markdown")]
+--- [document_module = require("@self/src/document/document")]
+export .{
+    MarkdownReader,
+} = require("@self/src/formats/markdown")
 
 --- Low-level building blocks: every trait, the [core.Writer], and nodes that aren't tags ([core.Text], [core.Raw],
 --- ...).

@@ -88,11 +88,10 @@ return Page("Theming", {
             end
         end
 
-        Theme.register(Sepia)
         site:offer_theme(Sepia)
     ]====]):copyable(),
     Paragraph({
-        Code("Theme.register"), " lets the parser find the theme by name, and ", Code("label()"),
+        "The parser finds every theme class by its name. ", Code("label()"),
         " sets the name the switcher shows. To restyle the built-in elements themselves, override ",
         Code("base_styles()"), ".",
     }),

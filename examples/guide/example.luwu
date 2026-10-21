@@ -62,7 +62,6 @@ export class Example implements Component, Container
     end
 end
 
-Component.register(Example)
 
 --[=[
     The examples marked in a guide page's own source. A snippet starts at a `--@ name` line and ends at `--@ end`.

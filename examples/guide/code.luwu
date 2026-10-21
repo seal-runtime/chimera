@@ -140,7 +140,5 @@ return Page("Code", {
                 out:write("</code></pre></figure>")
             end
         end
-
-        Component.register(FileSnippet)
     ]====]),
 })

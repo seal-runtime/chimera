@@ -238,8 +238,8 @@ return Page("Sites and pages", {
     h3("Your own matchers"),
     Paragraph({
         "Matching runs in the reader's browser, so a matcher of your own is a class with a little JavaScript. ",
-        Code("source"), " returns a function that scores a query word against a name from 0 to 1. Register the ",
-        "class so parsed pages find it again:",
+        Code("source"), " returns a function that scores a query word against a name from 0 to 1. Pages store the ",
+        "matcher by its class name, so parsed pages find it again:",
     }),
     CodeBlock([====[
         class Suffix(weight: number = 30) implements Matcher
@@ -251,7 +251,6 @@ return Page("Sites and pages", {
                 ]=]
             end
         end
-        Matcher.register(Suffix)
 
         site:search(Search():matchers({ Exact(), Prefix(), Suffix() }))
     ]====]),

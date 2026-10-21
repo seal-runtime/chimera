@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container } = require("@core/markup")
+const .{ Element, Component, Container, HtmlElement } = require("@core/markup")
 type .{ Content, Markup, MarkdownWriter } = markup
 
 const ALIGNMENT_RULES: { [string]: string? } = {
@@ -13,7 +13,7 @@ const ALIGNMENT_RULES: { [string]: string? } = {
 }
 
 --- A `"td"` element that holds one data cell of a [TableRow].
-export class TableCell implements Container
+export class TableCell implements Container, HtmlElement
     function tag(): string
         return "td"
     end
@@ -24,7 +24,7 @@ export class TableCell implements Container
 end
 
 --- A `"th"` element that labels a column or row from inside a [TableRow].
-export class TableHeaderCell implements Container
+export class TableHeaderCell implements Container, HtmlElement
     function tag(): string
         return "th"
     end
@@ -42,7 +42,7 @@ end
     TableRow { TableHeaderCell("Name"), "Taz", 14 }
     ```
 ]=]
-export class TableRow implements Element
+export class TableRow implements Element, HtmlElement
     function tag(): string
         return "tr"
     end
@@ -101,7 +101,7 @@ export class TableRow implements Element
 end
 
 --- A `"thead"` element that groups a [Table]'s header rows.
-export class TableHead implements Element
+export class TableHead implements Element, HtmlElement
     function tag(): string
         return "thead"
     end
@@ -130,7 +130,7 @@ export class TableHead implements Element
 end
 
 --- A `"tbody"` element that groups a [Table]'s body rows.
-export class TableBody implements Element
+export class TableBody implements Element, HtmlElement
     function tag(): string
         return "tbody"
     end
@@ -159,7 +159,7 @@ export class TableBody implements Element
 end
 
 --- A `"caption"` element that titles a [Table].
-export class TableCaption implements Container
+export class TableCaption implements Container, HtmlElement
     function tag(): string
         return "caption"
     end
@@ -330,7 +330,7 @@ export class TableRecord<Headings>(values: { Content }) end
     <tbody><tr><td>Taz</td><td>14</td></tr><tr><td>Oreo</td><td>3</td></tr></tbody></table>
     ```
 ]=]
-export class Table<Headings = ""> implements Component
+export class Table<Headings = ""> implements Component, HtmlElement
     function tag(): string
         return "table"
     end
@@ -574,8 +574,4 @@ export class Table<Headings = ""> implements Component
     function child_nodes(self): { read Markup }
         return self.parts
     end
-end
-
-for _, cls in { TableCell, TableHeaderCell, TableRow, TableHead, TableBody, TableCaption, Table } do
-    Element.register_class(cls)
 end

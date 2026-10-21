@@ -138,7 +138,7 @@ src/document/          Document: one page, its head, themes and generated CSS/JS
 src/site/              Site, Page, PageLink, TableOfContents, Breadcrumbs (site.luwu); Search, SearchIndex,
                        Matcher and its classes, the browser search engine (search.luwu)
 src/parse/parser.luwu  HTML back into chimera objects
-src/serde/             Markdown (markdown.luwu) and JSON (json.luwu) readers and writers
+src/formats/           MarkdownReader (markdown.luwu) and the JSON format core uses (json.luwu); no hub
 tests/                 run.luwu runs every suite; each suite returns { [name]: () -> () }; browser.luwu drives
                        headless Firefox over WebDriver BiDi so tests can run a page's JavaScript
 examples/site.luwu     the docs site: home page and Site config
@@ -156,11 +156,13 @@ other through those, never `require("..")`. Users import from the hubs:
 
 Where a class belongs:
 
-- **elements**: a plain HTML tag, rendered without `data-element`, registered by
-  tag with `Element.register_class`.
-- **components**: anything higher-level, rendered with `data-element="<Class>"`
-  and registered with `Component.register`. The parser rebuilds them from that
-  attribute.
+- **elements**: a plain HTML tag, rendered without `data-element`. They
+  implement `HtmlElement`, whose `__implemented` hook registers the class by
+  its tag.
+- **components**: anything higher-level, rendered with `data-element="<Class>"`.
+  Implementing `Component` registers the class by name (its `__implemented`
+  hook), and the parser rebuilds it from that attribute. Nothing calls a
+  register function: every registry fills itself through `__implemented`.
 - **site**: components that only make sense inside a `Site` (they read the page
   tree from the `Writer`).
 - **top level**: traits users implement (`Component`, `Container`, `Layout`, `SourceCode`), and `Document` and
@@ -181,11 +183,15 @@ Every node implements `Markup` (`render`, `to_html`, `child_nodes`,
 - `Container needs Element`: holds children (`add`, `insert`, `clear`).
   `Content` is what `add` takes: strings, numbers, children, or arrays of them.
   Arrays may hold `none` for a left-out item.
-- `Component needs Element, Child`: a user-facing element;
-  `Component.register(cls)` makes it parseable.
+- `Component needs Element, Child`: a user-facing element, parseable by its
+  class name once defined.
+- `HtmlElement needs Element`: parses from its tag alone and never renders
+  `data-element` (every built-in element; `Code` and `Body` too).
 - `Metadata needs Element`: things that go in `<head>`.
 - `Shape needs Component`: a component that recognizes itself in parsed HTML,
-  JSON or Markdown (`recognize(node)`, `Shape.register_shape(cls)`).
+  JSON or Markdown (`recognize(node)`).
+- `Json needs Component`: a component with its own JSON fields (`json(self)`,
+  static `from_json(data)`).
 - `Layout needs Container` (`src/elements/layout.luwu`): `row`, `column`,
   `grid`, `gap`, `wrap`, `align`, `justify`. Each arrangement is a theme class
   (`chimera-row`, ...); only explicit overrides are inline style. All built-in
@@ -211,7 +217,7 @@ Hot render paths live in the class's own module so methods inline.
 - `Theme` trait: `expect const name`, `expect const mode: ThemeMode` ("Light" |
   "Dark"), `palette()`,
   `base_styles()` (all built-in element/component CSS lives here, written with
-  tokens). `Theme.register`/`find` make themes parseable by name.
+  tokens). Every theme class is findable by name with `Theme.find`.
 - `Document` holds `default_light_theme`/`default_dark_theme` plus offered
   themes; with neither default set it uses `Light` and `Dark`. The generated
   stylesheet writes each theme's tokens under `:root[data-theme="<name>"]`, the
@@ -284,15 +290,21 @@ luwu-lsp's real hovers: `capture.luwu` asks the server and writes
   blocks writes its tags on lines of their own with Markdown between them,
   which the reader turns back into the same element (seal's docs wrap
   `<details>` this way).
-- `Markdown` (`src/serde/markdown.luwu`) builds elements directly. HTML
-  inside it goes through `Parser` with shapes off, and shapes run once over
-  the finished tree. `pages(folder)` turns a folder of `.md` files into
-  `Page`s; it lives in serde because the parser loads the site module.
-- `Json` is the HTML's own tree: `Parser:parse_tree` reads rendered HTML into
-  plain `Tag`s, and decoding builds nodes the parser's way
-  (`Element.create`, `attr`, `adopt`). Round trips give identical HTML.
-- `Shape`s recognize themselves in parsed content, children first; register
-  with `Shape.register_shape` as well as `Component.register`.
+- `MarkdownReader` (`src/formats/markdown.luwu`) builds elements directly.
+  HTML inside it goes through `Parser` with shapes off, and shapes run once
+  over the finished tree. The API lives on the classes:
+  `Document.from_markdown`, `Page.from_markdown`, `Site:add_markdown`.
+- JSON is the HTML's own tree: `Parser:parse_tree` reads rendered HTML into
+  plain `Tag`s, and reading builds nodes the parser's way (`Element.create`,
+  `attr`, `adopt`). Round trips give identical HTML. `Markup:to_json`,
+  `Element.nodes_from_json` and `Document.from_json` call the format that
+  `src/formats/json.luwu` hands core with `use_json_format`, because core
+  can't load the parser. `Json` components replace their tree with their own
+  fields; inside other nodes they're rebuilt from their HTML to ask.
+- `Shape`s recognize themselves in parsed content, children first.
+- The parser loads no element modules itself: classes register as they're
+  defined, so it builds whatever chimera has loaded. `Document.from_html`
+  reads whole pages.
 
 ### Luwu bugs
 

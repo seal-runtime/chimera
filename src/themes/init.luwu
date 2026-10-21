@@ -47,9 +47,6 @@ export class Dark() implements Theme
     end
 end
 
-for _, cls in { Light, Dark } do
-    Theme.register(cls)
-end
 
 --- The Catppuccin flavors as themes ([catppuccin.Mocha], [catppuccin.Latte], ...) and as full color palettes.
 export catppuccin = require("@self/catppuccin")

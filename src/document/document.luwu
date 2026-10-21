@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Container } = require("@core/markup")
+const .{ Element, Container, HtmlElement } = require("@core/markup")
 const .{ Heading } = require("@elements/text")
 const head_module = require("@elements/head")
 const .{ Head, Title, Meta, ResourceLink, Script, Stylesheet } = require("@elements/head")
@@ -13,6 +13,11 @@ type .{ Style, StyleInput } = style_module
 const theme_module = require("@style/theme")
 const .{ Theme } = require("@style/theme")
 const .{ Light, Dark } = require("@themes")
+const .{ Parser } = require("@parse/parser")
+const .{ MarkdownReader } = require("@formats/markdown")
+const .{ Main } = require("@elements/layout")
+-- Loading the JSON format gives every node `to_json` and `Element.nodes_from_json`.
+require("@formats/json")
 type .{
     Content,
     Markup,
@@ -23,6 +28,7 @@ type .{
     Metadata,
     AttributeValue,
     MarkdownWriter,
+    JsonNode,
 } = markup
 type .{ Head } = head_module
 type .{ Theme, ThemeMode } = theme_module
@@ -286,7 +292,7 @@ const function theme_option(theme: Theme): ThemeOption
 end
 
 --- A `"body"` element that holds a [Document]'s visible content.
-export class Body implements Container
+export class Body implements Container, HtmlElement
     function tag(): string
         return "body"
     end
@@ -426,7 +432,7 @@ end
     fs.writefile("site/index.html", page:to_html(true))
     ```
 ]=]
-export class Document implements Element
+export class Document implements Element, HtmlElement
     function tag(): string
         return "html"
     end
@@ -457,6 +463,85 @@ export class Document implements Element
             self.head:add(Title(title))
         end
         self:attr("lang", "en")
+    end
+
+    --[=[
+        Reads a whole page of HTML. Content outside an `<html>` element goes into a new document's body. The
+        stylesheet and script chimera generated are dropped, since the document writes them again when it renders.
+        Pass a [Parser] to read its `warnings` afterwards.
+
+        ## Usage
+
+        ```luwu
+        const page = Document.from_html(fs.readfile("out/index.html"))
+        page:style_every(Card, { padding = "2rem" })
+        fs.writefile("out/index.html", page:to_html(true))
+        ```
+    ]=]
+    function from_html(html: string, parser: Parser?): Document
+        return Document.gather((parser or Parser()):parse(html))
+    end
+
+    --[=[
+        Reads a Markdown file into a whole page. Its title comes from the front matter's `title`, or else its first
+        level 1 heading, and its description from the front matter's `description`. The content goes in the body's
+        `<main>`. Pass a [MarkdownReader] to change how it reads.
+
+        ## Usage
+
+        ```luwu
+        const page = Document.from_markdown(fs.readfile("install.md"))
+        fs.writefile("install.html", page:to_html(true))
+        ```
+    ]=]
+    function from_markdown(text: string, reader: MarkdownReader?): Document
+        const meta, body = MarkdownReader.front_matter(text)
+        const nodes = (reader or MarkdownReader()):parse(body)
+        const document = Document(meta.title or MarkdownReader.title_of(nodes))
+        if const description = meta.description then
+            document:describe(description)
+        end
+        const main = Main()
+        for _, node in nodes do
+            main:adopt(node)
+        end
+        return document:add(main)
+    end
+
+    --[=[
+        Reads a whole page written by [Markup:to_json][markup.Markup.to_json], text or tables. Content outside an
+        `html` node goes into a new document's body. Also returns the problems that didn't stop reading.
+
+        [markup = require("@core/markup")]
+
+        ## Usage
+
+        ```luwu
+        const page = Document.from_json(fs.readfile("index.json"))
+        fs.writefile("index.html", page:to_html(true))
+        ```
+    ]=]
+    function from_json(data: string | JsonNode, recognize_shapes: boolean = true): (Document, { string })
+        const nodes, warnings = Element.nodes_from_json(data, recognize_shapes)
+        return Document.gather(nodes), warnings
+    end
+
+    --- The one [Document] among `nodes`, with the rest moved into its body, or a new document holding them all.
+    function gather(nodes: { read Markup }): Document
+        local found: Document? = nil
+        const loose: { Markup } = {}
+        for _, node in nodes do
+            if class.isinstance(node, Document) then
+                found = node
+            else
+                table.insert(loose, node)
+            end
+        end
+        const result: Document = found or Document()
+        for _, node in loose do
+            result.body:adopt(node)
+        end
+        return result
     end
 
     --[=[
@@ -963,6 +1048,3 @@ export class Document implements Element
     end
 
 end
-
-Element.register_class(Body)
-Element.register_class(Document)

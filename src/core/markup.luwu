@@ -3,6 +3,7 @@
 --!lint ConstLocal
 
 const colors = require("@std/colors")
+const std_json = require("@std/json")
 const style_module = require("@style/style")
 const Style = style_module.Style
 const Rule = style_module.Rule
@@ -105,6 +106,49 @@ export type SearchEntry = {
     --- Other names the entry goes by, like `"readfile"` for `fs.readfile`.
     keywords: { string }?,
 }
+
+--- One attribute of a [JsonNode], in the order the element renders it. `true` is an attribute without a value.
+export type JsonAttribute = {
+    name: string,
+    value: string | boolean,
+}
+
+--[=[
+    One node of chimera's JSON: an element, text or a comment. An element has its `tag`, the component it is in
+    `element`, its `attributes` and its `children`. Text has `text` and a comment has `comment`. A [Json]
+    component writes its own fields next to `element`.
+
+    ```json
+    { "tag": "div", "element": "Card", "attributes": [{ "name": "class", "value": "chimera-card" }],
+      "children": [{ "tag": "h3", "children": [{ "text": "Fast" }] }] }
+    ```
+]=]
+export type JsonNode = {
+    tag: string?,
+    element: string?,
+    attributes: { JsonAttribute }?,
+    children: { JsonNode }?,
+    text: string?,
+    comment: string?,
+    [string]: unknown,
+}
+
+--- How chimera turns nodes into [JsonNode]s and back, provided by its JSON module when it loads.
+export type JsonFormat = {
+    tree: (node: Markup) -> JsonNode,
+    build: (data: JsonNode | { JsonNode }, recognize_shapes: boolean) -> ({ Markup }, { string }),
+}
+
+local json_format: JsonFormat? = nil
+
+--- Gives core the JSON format. chimera's JSON module calls it as it loads; nothing else needs to.
+export function use_json_format(format: JsonFormat)
+    json_format = format
+end
+
+const function json_format_or_error(): JsonFormat
+    return json_format or error("chimera's JSON format isn't loaded; require chimera itself", 3)
+end
 
 --- A page of the site, with its path from the site's root and its child pages.
 export type PageEntry = {
@@ -583,6 +627,38 @@ export trait Markup
     end
 
     --[=[
+        Serializes the node and everything inside it to JSON, indented when `pretty` is true. The JSON is the tree
+        the node's HTML has, with [Json] components writing their own fields. [Element.nodes_from_json] reads it back
+        into the same nodes.
+
+        ## Usage
+
+        ```luwu
+        fs.writefile("page.json", site:document(page):to_json(true))
+        ```
+    ]=]
+    function to_json(self, pretty: boolean?): string
+        -- Records are a kind of table json can encode, but the type system only takes maps here.
+        const data = self:json_tree() :: std_json.JsonData
+        return if pretty then std_json.encode(data, { pretty = true }) else std_json.raw(data)
+    end
+
+    --[=[
+        The node as a [JsonNode] table, the form [Markup:to_json] writes. Tools written in Luwu read this instead of
+        the JSON text.
+
+        ## Usage
+
+        ```luwu
+        const tree = Paragraph({ "Hi ", Strong("there") }):json_tree()
+        print(tree.tag, #(tree.children or {}))
+        ```
+    ]=]
+    function json_tree(self): JsonNode
+        return json_format_or_error().tree(self)
+    end
+
+    --[=[
         The node's Markdown, for [Markup:to_markdown]. The default writes the node's HTML. Override it in elements
         that have a Markdown form, using `out` for their children.
 
@@ -696,6 +772,8 @@ export trait Child needs Markup end
 const element_factories: { [string]: () -> Element } = {}
 const component_factories: { [string]: () -> Element } = {}
 const component_names: { [class]: string } = {}
+--- Classes that parse from their tag alone, so they never render a `data-element`.
+const plain_classes: { [class]: boolean? } = {}
 const selectors: { [class]: string } = {}
 local last_auto_id = 0
 
@@ -1028,9 +1106,9 @@ export trait Element needs Markup, Tagged
     end
 
     --[=[
-        The CSS selector matching every element of this one's class. Registered components get an attribute
-        selector on the `data-element` they render with. Their rules skip other elements with the same tag.
-        Other elements get their tag.
+        The CSS selector matching every element of this one's class. Components get an attribute selector on the
+        `data-element` they render with, so their rules skip other elements with the same tag. An [HtmlElement]
+        gets its tag.
 
         ## Usage
 
@@ -1044,7 +1122,6 @@ export trait Element needs Markup, Tagged
                 return { Rule(self:style_selector(), { padding = "1rem" }) }
             end
         end
-        Component.register(Callout)
         ```
 
         ```css
@@ -1326,21 +1403,10 @@ export trait Element needs Markup, Tagged
     end
 
     --[=[
-        Makes the parser build `cls` for its tag, replacing any class registered for that tag before.
-        Custom elements usually use [Component.register] instead. It leaves common tags like `div` to their elements.
+        Makes the parser call `create` for `tag`. For classes whose tag depends on constructor arguments, like a
+        [Heading][text.Heading] for each of `h1` to `h6`. An [HtmlElement] registers its own tag.
 
-        ```luwu
-        Element.register_class(MyButton)
-        ```
-    ]=]
-    final function register_class(cls: class<Element>)
-        element_factories[cls.tag()] = function()
-            return cls()
-        end
-    end
-
-    --[=[
-        Makes the parser call `create` for `tag`. For classes whose tag depends on constructor arguments.
+        [text = require("@elements/text")]
 
         ```luwu
         Element.register_tag("h2", function()
@@ -1371,6 +1437,26 @@ export trait Element needs Markup, Tagged
             return factory()
         end
         return Tag(string.lower(tag))
+    end
+
+    --[=[
+        Reads JSON, as text or [JsonNode] tables, back into chimera nodes: what [Markup:to_json] wrote, or a list of
+        nodes from another tool. Components come back as themselves, a [Json] component through its `from_json`,
+        and registered [Shape]s are recognized unless `recognize_shapes` is false. Also returns the problems that
+        didn't stop reading, like a child its parent can't hold.
+
+        ## Usage
+
+        ```luwu
+        const nodes, warnings = Element.nodes_from_json(fs.readfile("card.json"))
+        ```
+    ]=]
+    final function nodes_from_json(
+        data: string | JsonNode | { JsonNode },
+        recognize_shapes: boolean = true
+    ): ({ Markup }, { string })
+        const tree = if type(data) == "string" then std_json.decode(data) :: JsonNode | { JsonNode } else data
+        return json_format_or_error().build(tree, recognize_shapes)
     end
 
     --[=[
@@ -1613,27 +1699,55 @@ end
         end
     end
 
-    Component.register(Badge)
-    Component.register(Callout)
     ```
+
+    Both render with `data-element="Badge"` or `data-element="Callout"` and parse back as themselves, because
+    implementing [Component] registers each class by name.
 ]=]
 export trait Component needs Element, Child
     expect function __init(self)
 
-    --[=[
-        Makes `cls` survive parsing. Its elements render with `data-element="ClassName"`, and the parser builds
-        `cls` for them even though their tag is a common one like `div`.
-
-        ```luwu
-        chimera.Component.register(Card)
-        ```
-    ]=]
-    final function register(cls: class<Component>)
+    --- Every component survives parsing: it renders with its class name in `data-element`, and the parser builds
+    --- the class again from that name, even though its tag is a common one like `div`.
+    final function __implemented(cls: class<Component>)
         const name: string = class.name(cls)
         component_factories[name] = function()
             return cls()
         end
-        component_names[cls] = name
+        if not plain_classes[cls] then
+            component_names[cls] = name
+        end
+    end
+end
+
+--[=[
+    An element the parser builds from its tag alone, like [Paragraph][text.Paragraph] for every `<p>`. It renders
+    without `data-element`. chimera's own elements implement it. Implement it in your own class to have every tag
+    of its kind parse as that class, replacing the class that had the tag before.
+
+    [text = require("@elements/text")]
+
+    ## Usage
+
+    ```luwu
+    class Rating implements HtmlElement, Component
+        function tag(): string
+            return "meter"
+        end
+    end
+    ```
+]=]
+export trait HtmlElement needs Element
+    -- LUWU FIXME: repeated from Element so `class<HtmlElement>` sees them (luwu CLASS_TRAIT_BUGS.CLAUDE.md, bug 1).
+    expect function __init(self)
+    expect function tag(): string
+
+    final function __implemented(cls: class<HtmlElement>)
+        plain_classes[cls] = true
+        component_names[cls] = nil
+        element_factories[cls.tag()] = function()
+            return cls()
+        end
     end
 end
 
@@ -1668,9 +1782,9 @@ end
     `> **Note:** ...`; a `Callout` shape turns each of those blockquotes into a `Callout` when the Markdown is read.
 
     Implement `recognize`: given a parsed element, it returns the component that element stands for, or nil.
-    Children are recognized first, so `recognize` sees shapes already found inside. Register the class with
-    [Shape.register_shape] as well as [Component.register]. The [Parser][parser.Parser] and the Markdown and JSON
-    readers then try every registered shape on every element, in the order they were registered.
+    Children are recognized first, so `recognize` sees shapes already found inside. The [Parser][parser.Parser]
+    and the Markdown and JSON readers try every shape on every element, in the order the shape classes were
+    defined.
 
     [parser = require("@parse/parser")]
 
@@ -1689,24 +1803,14 @@ end
             return nil
         end
     end
-    Component.register(Callout)
-    Shape.register_shape(Callout)
     ```
 ]=]
 export trait Shape needs Component
     --- The component `node` stands for, or nil when `node` doesn't have this shape.
     expect function recognize(node: Element): Shape?
 
-    --[=[
-        Makes every parser try `cls` on the elements it reads.
-
-        ## Usage
-
-        ```luwu
-        Shape.register_shape(Callout)
-        ```
-    ]=]
-    final function register_shape(cls: class<Shape>)
+    --- Every parser tries each shape class on the elements it reads.
+    final function __implemented(cls: class<Shape>)
         table.insert(shapes, cls)
     end
 
@@ -1723,6 +1827,69 @@ export trait Shape needs Component
     ]=]
     final function recognize_all(node: Markup): Markup
         return recognize(node)
+    end
+end
+
+const json_classes: { [string]: class<Json>? } = {}
+
+--[=[
+    A component with JSON of its own. By default a component's JSON is the tree its HTML has, which is exact but
+    says little: a card is a `div` with a heading and a paragraph inside. A `Json` component writes the fields
+    that describe it instead, like a card's title, and reads them back in `from_json`. Tools that read chimera's
+    JSON then get `{ "element": "Card", "title": "Fast" }`.
+
+    [Markup:to_json] calls `json` for every component of the class, and [Element.nodes_from_json] calls `from_json` for
+    every node whose `element` names the class. Children inside the JSON are [JsonNode]s too: write them with
+    [Markup:json_tree] and read them with [Element.nodes_from_json].
+
+    ## Usage
+
+    ```luwu
+    class Badge(label: string = "") implements Json
+        function tag(): string
+            return "span"
+        end
+        function render(self, out: Writer)
+            out:write(`<span data-element="Badge">{Text.escape(self.label)}</span>`)
+        end
+        function json(self): JsonNode
+            return { element = "Badge", label = self.label }
+        end
+        function from_json(data: JsonNode): Json?
+            return if type(data.label) == "string" then Badge(data.label) else nil
+        end
+    end
+    ```
+
+    ```json
+    { "element": "Badge", "label": "New" }
+    ```
+]=]
+export trait Json needs Component
+    --- The component's JSON. `element` can be left out; chimera adds the class name.
+    expect function json(self): JsonNode
+    --- The component `data` describes, or nil when the JSON doesn't fit. [Element.nodes_from_json] then reads it as a
+    --- plain tree.
+    expect function from_json(data: JsonNode): Json?
+
+    final function __implemented(cls: class<Json>)
+        const name: string = class.name(cls)
+        json_classes[name] = cls
+    end
+
+    --[=[
+        The [Json] component class named `name`, for readers of chimera's JSON.
+
+        ## Usage
+
+        ```luwu
+        if const cls = Json.find("Badge") then
+            print(cls.from_json({ label = "New" }))
+        end
+        ```
+    ]=]
+    final function find(name: string): class<Json>?
+        return json_classes[name]
     end
 end
 
@@ -1886,7 +2053,7 @@ end
     Tag("dialog", { Paragraph("Are you sure?") }):attr("open", true)
     ```
 ]=]
-export class Tag implements Component, Container
+export class Tag implements Child, Container
     tag_name = "div"
 
     function tag(): string
@@ -1904,4 +2071,3 @@ export class Tag implements Component, Container
         return self.tag_name
     end
 end
-

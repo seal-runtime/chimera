@@ -8,7 +8,7 @@ const .{
     Parser,
     Document,
     Component,
-    core.{ Element, Raw },
+    core.{ Raw, HtmlElement },
     elements.{
         Div,
         Main,
@@ -33,8 +33,8 @@ const .{
     themes.{ Light, Dark },
 } = chimera
 
---- A user-defined leaf element registered under its own tag.
-class Rating implements Component
+--- A user-defined leaf element that owns its tag.
+class Rating implements Component, HtmlElement
     function tag(): string
         return "x-rating"
     end
@@ -44,7 +44,6 @@ class Rating implements Component
     end
 end
 
-Element.register_class(Rating)
 
 const ratings_header = Table.header()
     :column("Name")
@@ -96,8 +95,8 @@ const tests: { [string]: () -> () } = {
     ["compact html survives parse and render"] = function()
         const parser = Parser()
         const html = sample():to_html()
-        const again = parser
-            :parse_document(html)
+        const again = Document
+            .from_html(html, parser)
             :to_html()
         equal(#parser.warnings, 0, `warnings: {table.concat(parser.warnings, "; ")}`)
         equal(again, html)
@@ -106,15 +105,15 @@ const tests: { [string]: () -> () } = {
     ["pretty html parses to the same document"] = function()
         const document = sample()
         equal(
-            Parser()
-                :parse_document(document:to_html(true))
+            Document
+                .from_html(document:to_html(true))
                 :to_html(),
             document:to_html()
         )
     end,
 
     ["parsed documents keep their classes and themes"] = function()
-        const document = Parser():parse_document(sample():to_html())
+        const document = Document.from_html(sample():to_html())
         equal(if const dark = document.dark_theme then dark.name else nil, "dark")
         equal(document.light_theme, nil)
         equal(#document.themes, 2)

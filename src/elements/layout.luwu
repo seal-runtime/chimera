@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container, MarkdownWriter } = require("@core/markup")
+const .{ Component, Container, MarkdownWriter, HtmlElement } = require("@core/markup")
 const properties = require("@style/properties")
 type .{ Content, MarkdownWriter } = markup
 type .{ Length, ItemAlignment, ContentAlignment } = properties
@@ -157,7 +157,7 @@ end
     Div { Heading.h2("Pricing"), Paragraph("Pay once, keep forever.") }:add_style_class("card")
     ```
 ]=]
-export class Div implements Component, Layout
+export class Div implements Component, Layout, HtmlElement
     function tag(): string
         return "div"
     end
@@ -168,7 +168,7 @@ export class Div implements Component, Layout
 end
 
 --- A `"section"` element that groups one part of a page, usually under a heading.
-export class Section implements Component, Layout
+export class Section implements Component, Layout, HtmlElement
     function tag(): string
         return "section"
     end
@@ -179,7 +179,7 @@ export class Section implements Component, Layout
 end
 
 --- An `"article"` element that holds self-contained content, like a post or a card.
-export class Article implements Component, Layout
+export class Article implements Component, Layout, HtmlElement
     function tag(): string
         return "article"
     end
@@ -190,7 +190,7 @@ export class Article implements Component, Layout
 end
 
 --- An `"aside"` element that holds content beside the main flow, like a sidebar.
-export class Aside implements Component, Layout
+export class Aside implements Component, Layout, HtmlElement
     function tag(): string
         return "aside"
     end
@@ -201,7 +201,7 @@ export class Aside implements Component, Layout
 end
 
 --- A `"header"` element that introduces a page or section, usually with its title and navigation.
-export class Header implements Component, Layout
+export class Header implements Component, Layout, HtmlElement
     function tag(): string
         return "header"
     end
@@ -212,7 +212,7 @@ export class Header implements Component, Layout
 end
 
 --- A `"footer"` element that closes a page or section, usually with credits or links.
-export class Footer implements Component, Layout
+export class Footer implements Component, Layout, HtmlElement
     function tag(): string
         return "footer"
     end
@@ -223,7 +223,7 @@ export class Footer implements Component, Layout
 end
 
 --- A `"main"` element that holds the page's main content; a page should have one.
-export class Main implements Component, Layout
+export class Main implements Component, Layout, HtmlElement
     function tag(): string
         return "main"
     end
@@ -243,7 +243,7 @@ end
 
 --- A `"nav"` element that holds navigation links. See [Menu][components.Menu] for a styled navigation bar.
 --- [components = require("@components/components")]
-export class Navigation implements Component, Layout
+export class Navigation implements Component, Layout, HtmlElement
     function tag(): string
         return "nav"
     end
@@ -254,7 +254,7 @@ export class Navigation implements Component, Layout
 end
 
 --- A `"figure"` element that holds an illustration, diagram or code listing, with an optional [FigureCaption].
-export class Figure implements Component, Layout
+export class Figure implements Component, Layout, HtmlElement
     function tag(): string
         return "figure"
     end
@@ -265,7 +265,7 @@ export class Figure implements Component, Layout
 end
 
 --- A `"figcaption"` element that captions a [Figure].
-export class FigureCaption implements Component, Container
+export class FigureCaption implements Component, Container, HtmlElement
     function tag(): string
         return "figcaption"
     end
@@ -282,7 +282,7 @@ end
     Image("/cat.png", "A cat asleep on a keyboard"):attr("width", 320)
     ```
 ]=]
-export class Image implements Component
+export class Image implements Component, HtmlElement
     function tag(): string
         return "img"
     end
@@ -304,8 +304,4 @@ export class Image implements Component
         const description = if type(alt) == "string" then MarkdownWriter.escape(alt) else ""
         return `![{description}]({string.gsub(src, " ", "%%20")}{quoted})`
     end
-end
-
-for _, cls in { Div, Section, Article, Aside, Header, Footer, Main, Navigation, Figure, FigureCaption, Image } do
-    Element.register_class(cls)
 end

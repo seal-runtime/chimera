@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container, Text } = require("@core/markup")
+const .{ Element, Component, Container, Text, HtmlElement } = require("@core/markup")
 type .{ Content, Markup, Writer, MarkdownWriter } = markup
 
 --- The text of `nodes` without markup, for comparing a heading with the id a document gives it.
@@ -38,7 +38,7 @@ const LINK_ICON = [=[<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden
     .. [=[0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>]=]
 
 --- A `"p"` element that holds a paragraph of text.
-export class Paragraph implements Component, Container
+export class Paragraph implements Component, Container, HtmlElement
     function tag(): string
         return "p"
     end
@@ -69,7 +69,7 @@ end
     Div { h1("Guide"), h2("Setup") }
     ```
 ]=]
-export class Heading implements Component, Container
+export class Heading implements Component, Container, HtmlElement
     --- The heading's level, 1 to 6.
     level = 1
 
@@ -208,7 +208,7 @@ export class Heading implements Component, Container
 end
 
 --- A `"span"` element that marks inline text with no meaning of its own, usually to style it.
-export class Span implements Component, Container
+export class Span implements Component, Container, HtmlElement
     function tag(): string
         return "span"
     end
@@ -219,7 +219,7 @@ export class Span implements Component, Container
 end
 
 --- A `"strong"` element that marks text as important, usually shown in bold.
-export class Strong implements Component, Container
+export class Strong implements Component, Container, HtmlElement
     function tag(): string
         return "strong"
     end
@@ -234,7 +234,7 @@ export class Strong implements Component, Container
 end
 
 --- An `"em"` element that stresses text, usually shown in italics.
-export class Emphasis implements Component, Container
+export class Emphasis implements Component, Container, HtmlElement
     function tag(): string
         return "em"
     end
@@ -249,7 +249,7 @@ export class Emphasis implements Component, Container
 end
 
 --- A `"small"` element that holds side comments and fine print.
-export class Small implements Component, Container
+export class Small implements Component, Container, HtmlElement
     function tag(): string
         return "small"
     end
@@ -260,7 +260,7 @@ export class Small implements Component, Container
 end
 
 --- A `"pre"` element that keeps its text's whitespace as written, usually for code blocks.
-export class Preformatted implements Component, Container
+export class Preformatted implements Component, Container, HtmlElement
     function tag(): string
         return "pre"
     end
@@ -271,7 +271,7 @@ export class Preformatted implements Component, Container
 end
 
 --- A `"blockquote"` element that quotes a passage from another source.
-export class BlockQuote implements Component, Container
+export class BlockQuote implements Component, Container, HtmlElement
     function tag(): string
         return "blockquote"
     end
@@ -297,7 +297,7 @@ end
     Link("Source", "https://github.com/seal-runtime/chimera"):new_tab()
     ```
 ]=]
-export class Link implements Component, Container
+export class Link implements Component, Container, HtmlElement
     function tag(): string
         return "a"
     end
@@ -361,7 +361,7 @@ export class Link implements Component, Container
 end
 
 --- A `"br"` element that breaks a line of text.
-export class LineBreak implements Component
+export class LineBreak implements Component, HtmlElement
     function tag(): string
         return "br"
     end
@@ -374,7 +374,7 @@ export class LineBreak implements Component
 end
 
 --- A `"hr"` element that marks a thematic break, drawn as a horizontal rule.
-export class HorizontalRule implements Component
+export class HorizontalRule implements Component, HtmlElement
     function tag(): string
         return "hr"
     end
@@ -384,22 +384,6 @@ export class HorizontalRule implements Component
     function markdown(self, out: MarkdownWriter): string
         return if self:only_attributes() then "---" else self:to_html()
     end
-end
-
-const classes = {
-    Paragraph,
-    Span,
-    Strong,
-    Emphasis,
-    Small,
-    Preformatted,
-    BlockQuote,
-    Link,
-    LineBreak,
-    HorizontalRule,
-}
-for _, cls in classes do
-    Element.register_class(cls)
 end
 
 for level = 1, 6 do

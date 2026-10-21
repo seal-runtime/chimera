@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Text, Fragment, Tag } = require("@core/markup")
+const .{ Element, Component, Text, Fragment, Tag, HtmlElement } = require("@core/markup")
 const .{ Script } = require("@elements/head")
 const .{ Color } = require("@style/color")
 const .{ Token, token } = require("@style/token")
@@ -774,8 +774,6 @@ end
             out:write("</code></pre></figure>")
         end
     end
-
-    Component.register(FileSnippet)
     ```
 ]=]
 export trait SourceCode needs Component
@@ -1020,7 +1018,7 @@ end
     invoke__">to_html</span>(<span class="hljs-literal">true</span>)</code>
     ```
 ]=]
-export class Code implements SourceCode
+export class Code implements SourceCode, HtmlElement
     function tag(): string
         return "code"
     end
@@ -1255,6 +1253,3 @@ export class CodeBlock implements SourceCode
         out:write("</code></pre>")
     end
 end
-
-Component.register(CodeBlock)
-Element.register_class(Code)

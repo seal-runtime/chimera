@@ -6,25 +6,15 @@ const markup = require("@core/markup")
 const .{ Element, Text, Shape } = require("@core/markup")
 const .{ Paragraph, Heading, Strong, Emphasis, Link, LineBreak, HorizontalRule, BlockQuote } = require("@elements/text")
 const .{ UnorderedList, OrderedList, ListItem } = require("@elements/lists")
-const .{ Image, Main } = require("@elements/layout")
+const .{ Image } = require("@elements/layout")
 const .{ Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } = require("@elements/tables")
 const .{ Code, CodeBlock } = require("@components/code")
 const code_module = require("@components/code")
 const .{ Parser } = require("@parse/parser")
-const .{ Document } = require("@document/document")
-const .{ Page } = require("@site/site")
-const fs = require("@std/fs")
 type .{ Markup, Child, Content } = markup
 type .{ Language } = code_module
 
---- A page found in a folder of Markdown files, with what it's sorted by.
-type FolderEntry = {
-    page: Page,
-    order: number,
-    name: string,
-}
-
---- Builds the content for a fenced code block in one language, for [Markdown:fence].
+--- Builds the content for a fenced code block in one language, for [MarkdownReader:fence].
 export type FenceBuilder = (source: string, info: string) -> Content
 
 --- What a Markdown file's front matter says: `title`, `description` and any other `key: value` lines.
@@ -300,13 +290,20 @@ end
 
     [markup = require("@core/markup")]
 
+    Most code reads Markdown through [Document.from_markdown][document.Document.from_markdown],
+    [Page.from_markdown][site.Page.from_markdown] or [Site:add_markdown][site.Site.add_markdown]. Make a reader to
+    change how they read, and pass it to them.
+
+    [document = require("@document/document")]
+    [site = require("@site/site")]
+
     ```luwu
-    const markdown = Markdown()
-    const nodes = markdown:parse(fs.readfile("README.md"))
-    const page = markdown:parse_document(fs.readfile("install.md"))
+    const reader = MarkdownReader():code_language("luau")
+    const nodes = reader:parse(fs.readfile("README.md"))
+    const page = Document.from_markdown(fs.readfile("install.md"), reader)
     ```
 ]=]
-export class Markdown
+export class MarkdownReader
     --- Problems that didn't stop reading, like HTML the parser couldn't place.
     public warnings: { string } = {}
     private fences: { [string]: FenceBuilder? } = {}
@@ -321,12 +318,12 @@ export class Markdown
         ## Usage
 
         ```luwu
-        Markdown():fence("mermaid", function(source)
+        MarkdownReader():fence("mermaid", function(source)
             return Diagram(source)
         end)
         ```
     ]=]
-    public function fence(self, language: string, build: FenceBuilder): Markdown
+    public function fence(self, language: string, build: FenceBuilder): MarkdownReader
         self.fences[string.lower(language)] = build
         return self
     end
@@ -339,10 +336,10 @@ export class Markdown
         ## Usage
 
         ```luwu
-        Markdown():recognize_shapes(false):parse(text)
+        MarkdownReader():recognize_shapes(false):parse(text)
         ```
     ]=]
-    public function recognize_shapes(self, on: boolean): Markdown
+    public function recognize_shapes(self, on: boolean): MarkdownReader
         self.shapes = on
         return self
     end
@@ -354,10 +351,10 @@ export class Markdown
         ## Usage
 
         ```luwu
-        Markdown():md_links(false)
+        MarkdownReader():md_links(false)
         ```
     ]=]
-    public function md_links(self, on: boolean): Markdown
+    public function md_links(self, on: boolean): MarkdownReader
         self.md_targets = on
         return self
     end
@@ -369,10 +366,10 @@ export class Markdown
         ## Usage
 
         ```luwu
-        Markdown():code_language("plaintext")
+        MarkdownReader():code_language("plaintext")
         ```
     ]=]
-    public function code_language(self, language: Language): Markdown
+    public function code_language(self, language: Language): MarkdownReader
         self.inline_language = language
         return self
     end
@@ -384,7 +381,7 @@ export class Markdown
         ## Usage
 
         ```luwu
-        const meta, body = Markdown.front_matter("---\ntitle: Install\n---\n# Install")
+        const meta, body = MarkdownReader.front_matter("---\ntitle: Install\n---\n# Install")
         ```
     ]=]
     public function front_matter(text: string): (FrontMatter, string)
@@ -409,7 +406,7 @@ export class Markdown
         ## Usage
 
         ```luwu
-        for _, node in Markdown():parse("# Hi\n\nSome *text*.") do
+        for _, node in MarkdownReader():parse("# Hi\n\nSome *text*.") do
             print(node)
         end
         ```
@@ -424,129 +421,12 @@ export class Markdown
     end
 
     --[=[
-        Reads a Markdown file into a whole page. Its title comes from the front matter's `title`, or else its first
-        level 1 heading. Its description comes from the front matter's `description`. The content goes in the
-        body's `<main>`.
-
-        ## Usage
-
-        ```luwu
-        const page = Markdown():parse_document(fs.readfile("install.md"))
-        fs.writefile("install.html", page:to_html(true))
-        ```
-    ]=]
-    public function parse_document(self, text: string): Document
-        const meta, body = Markdown.front_matter(text)
-        const nodes = self:parse(body)
-        const document = Document(meta.title or Markdown.title_of(nodes))
-        if const description = meta.description then
-            document:describe(description)
-        end
-        return document:add(self:holding(Main(), nodes))
-    end
-
-    --[=[
-        A site page read from a Markdown file's text. Its title comes from the front matter's `title`, then its
-        first level 1 heading, then `file`. Its description comes from the front matter's `description`. `file` is
-        where the page goes, like `"install.html"`.
-
-        ## Usage
-
-        ```luwu
-        site:add_page(Markdown():page(fs.readfile("docs/install.md"), "install.html"))
-        ```
-    ]=]
-    public function page(self, text: string, file: string?): Page
-        const meta, body = Markdown.front_matter(text)
-        const nodes = self:parse(body)
-        const fallback = if file then string.match(file, "([^/]+)%.html$") else nil
-        const page = Page(meta.title or Markdown.title_of(nodes) or fallback or "Untitled", nil, file)
-        self:holding(page.main, nodes)
-        if const description = meta.description then
-            page:describe(description)
-        end
-        return page
-    end
-
-    --[=[
-        Site pages for every Markdown file in `folder`, for [Site:add_pages][site.Site.add_pages]. `index.md`
-        becomes `index.html` and `install.md` becomes `install.html`. A subfolder's files become pages under the page
-        of the same name: `guide.md` gets the pages in `guide/`, or `guide/index.md` is that page when there's no
-        `guide.md`. Pages come in the order their front matter's `order` gives, then by file name, with `index.md`
-        first. Links between the files point at the pages built from them.
-
-        [site = require("@site/site")]
-
-        ## Usage
-
-        ```luwu
-        Site("Docs")
-            :add_pages(Markdown():pages("docs"))
-            :build("site")
-        ```
-    ]=]
-    public function pages(self, folder: string): { Page }
-        return self:folder_pages(folder, true)
-    end
-
-    private function folder_pages(self, folder: string, top: boolean): { Page }
-        const entries: { FolderEntry } = {}
-        const by_name: { [string]: Page? } = {}
-        const folders: { string } = {}
-        for _, path in fs.listdir(folder) do
-            const name = fs.path.child(path) or path
-            if fs.is(path) == "Directory" then
-                table.insert(folders, path)
-            elseif const stem = string.match(name, "^(.+)%.md$") when top or stem ~= "index" then
-                const text = fs.readfile(path)
-                const meta = Markdown.front_matter(text)
-                const page = self:page(text, `{stem}.html`)
-                by_name[stem] = page
-                table.insert(entries, {
-                    page = page,
-                    order = tonumber(meta.order) or math.huge,
-                    name = if stem == "index" then "" else stem,
-                })
-            end
-        end
-        for _, path in folders do
-            const name = fs.path.child(path) or path
-            const children = self:folder_pages(path, false)
-            if const parent = by_name[name] then
-                parent:add_page(table.unpack(children))
-                continue
-            end
-            const index = fs.path.join(path, "index.md")
-            const has_index = fs.path.exists(index)
-            if not has_index and #children == 0 then
-                continue
-            end
-            const text = if has_index then fs.readfile(index) else `# {name}`
-            const meta = Markdown.front_matter(text)
-            table.insert(entries, {
-                page = self
-                    :page(text, `{name}/index.html`)
-                    :add_page(table.unpack(children)),
-                order = tonumber(meta.order) or math.huge,
-                name = name,
-            })
-        end
-        table.sort(entries, function(a: FolderEntry, b: FolderEntry)
-            if a.order ~= b.order then
-                return a.order < b.order
-            end
-            return a.name < b.name
-        end)
-        return { for _, entry in entries give entry.page }
-    end
-
-    --[=[
         The text of the first level 1 heading in `nodes`, the title Markdown files usually start with.
 
         ## Usage
 
         ```luwu
-        Markdown.title_of(Markdown():parse("# Install\n\nRun it."))
+        MarkdownReader.title_of(MarkdownReader():parse("# Install\n\nRun it."))
         ```
     ]=]
     public function title_of(nodes: { read Markup }): string?
@@ -1127,11 +1007,4 @@ export class Markdown
         flush()
         return result
     end
-end
-
---- Turns nodes into Markdown, the way [Markup:to_markdown][markup.Markup.to_markdown] does for one node.
----
---- [markup = require("@core/markup")]
-export function to_markdown(nodes: { read Markup }): string
-    return markup.MarkdownWriter():blocks(nodes)
 end

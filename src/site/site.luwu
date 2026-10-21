@@ -12,6 +12,7 @@ const .{ Rule } = style_module
 const theme_module = require("@style/theme")
 const document_module = require("@document/document")
 const search_module = require("@site/search")
+const .{ MarkdownReader } = require("@formats/markdown")
 const .{ Search, SearchIndex, contains_search } = search_module
 const .{ Document } = document_module
 type .{ Content, Markup, Writer, HeadingEntry, PageEntry } = markup
@@ -159,6 +160,31 @@ export class Page
             return ""
         end
         return string.match(path, "^(.*/)index%.html$") or (string.gsub(path, "%.html$", "") .. "/")
+    end
+
+    --[=[
+        A page read from a Markdown file's text. Its title comes from the front matter's `title`, then its first
+        level 1 heading, then `file`. Its description comes from the front matter's `description`. `file` is where
+        the page goes, like `"install.html"`. Pass a [MarkdownReader] to change how it reads.
+
+        ## Usage
+
+        ```luwu
+        site:add_page(Page.from_markdown(fs.readfile("docs/install.md"), "install.html"))
+        ```
+    ]=]
+    function from_markdown(text: string, file: string?, reader: MarkdownReader?): Page
+        const meta, body = MarkdownReader.front_matter(text)
+        const nodes = (reader or MarkdownReader()):parse(body)
+        const fallback = if file then string.match(file, "([^/]+)%.html$") else nil
+        const page = Page(meta.title or MarkdownReader.title_of(nodes) or fallback or "Untitled", nil, file)
+        for _, node in nodes do
+            page.main:adopt(node)
+        end
+        if const description = meta.description then
+            page:describe(description)
+        end
+        return page
     end
 
     --[=[
@@ -467,9 +493,6 @@ export class SiteLayout implements Component, Container
     end
 end
 
-for _, cls in { PageLink, TableOfContents, Breadcrumbs, SiteLayout } do
-    Component.register(cls)
-end
 
 --[=[
     A whole website: its [Page]s, and everything they share. That's the themes, a header, footer and sidebar
@@ -492,6 +515,63 @@ end
         :build("site")
     ```
 ]=]
+--- A page found in a folder of Markdown files, with what it's sorted by.
+type FolderEntry = {
+    page: Page,
+    order: number,
+    name: string,
+}
+
+--- Pages for the Markdown files in `folder`, with subfolders nested under their pages.
+const function markdown_pages(folder: string, reader: MarkdownReader, top: boolean): { Page }
+    const entries: { FolderEntry } = {}
+    const by_name: { [string]: Page? } = {}
+    const folders: { string } = {}
+    for _, path in fs.listdir(folder) do
+        const name = base_name(path)
+        if fs.is(path) == "Directory" then
+            table.insert(folders, path)
+        elseif const stem = string.match(name, "^(.+)%.md$") when top or stem ~= "index" then
+            const text = fs.readfile(path)
+            const meta = MarkdownReader.front_matter(text)
+            const page = Page.from_markdown(text, `{stem}.html`, reader)
+            by_name[stem] = page
+            table.insert(entries, {
+                page = page,
+                order = tonumber(meta.order) or math.huge,
+                name = if stem == "index" then "" else stem,
+            })
+        end
+    end
+    for _, path in folders do
+        const name = base_name(path)
+        const children = markdown_pages(path, reader, false)
+        if const parent = by_name[name] then
+            parent:add_page(table.unpack(children))
+            continue
+        end
+        const index = fs.path.join(path, "index.md")
+        const has_index = fs.path.exists(index)
+        if not has_index and #children == 0 then
+            continue
+        end
+        const text = if has_index then fs.readfile(index) else `# {name}`
+        const meta = MarkdownReader.front_matter(text)
+        table.insert(entries, {
+            page = Page.from_markdown(text, `{name}/index.html`, reader):add_page(table.unpack(children)),
+            order = tonumber(meta.order) or math.huge,
+            name = name,
+        })
+    end
+    table.sort(entries, function(a: FolderEntry, b: FolderEntry)
+        if a.order ~= b.order then
+            return a.order < b.order
+        end
+        return a.name < b.name
+    end)
+    return { for _, entry in entries give entry.page }
+end
+
 export class Site(const name: string)
     light_theme: class<Theme>? = nil
     dark_theme: class<Theme>? = nil
@@ -790,19 +870,23 @@ export class Site(const name: string)
     end
 
     --[=[
-        Adds top-level pages from a list, like the pages [Markdown:pages][markdown.Markdown.pages] reads from a
-        folder.
-
-        [markdown = require("@serde/markdown")]
+        Adds a page for every Markdown file in `folder`. `index.md` becomes `index.html` and `install.md` becomes
+        `install.html`. A subfolder's files become pages under the page of the same name: `guide.md` gets the pages
+        in `guide/`, or `guide/index.md` is that page when there's no `guide.md`. Pages come in the order their front
+        matter's `order` gives, then by file name, with `index.md` first. Links between the files point at the pages
+        built from them. Pass a [MarkdownReader] to change how they're read.
 
         ## Usage
 
         ```luwu
-        site:add_pages(Markdown():pages("docs"))
+        Site("Docs")
+            :search()
+            :add_markdown("docs")
+            :build("site")
         ```
     ]=]
-    function add_pages(self, pages: { Page }): Site
-        for _, page in pages do
+    function add_markdown(self, folder: string, reader: MarkdownReader?): Site
+        for _, page in markdown_pages(folder, reader or MarkdownReader(), true) do
             table.insert(self.top_pages, page)
         end
         return self

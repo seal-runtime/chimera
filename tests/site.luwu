@@ -6,7 +6,7 @@ const fs = require("@std/fs")
 const .{ equal, contains, excludes, truthy } = require("./assert")
 const chimera = require("@chimera")
 const .{
-    Parser,
+    Document,
     core.{ Writer },
     elements.{ Header, Paragraph, Heading, Link },
     components.{ Menu, SiteFooter, Card },
@@ -255,7 +255,7 @@ const tests: { [string]: () -> () } = {
         contains(html, `<h2 id="plain">Plain<a class="chimera-heading-link" href="#plain"`)
         contains(html, `onclick="chimera.copyLink(this)"`)
         excludes(html, `<h1 id=`)
-        const _, links = string.gsub(Parser():parse_document(html):to_html(), "chimera%-heading%-link", "")
+        const _, links = string.gsub(Document.from_html(html):to_html(), "chimera%-heading%-link", "")
         const _, expected = string.gsub(html, "chimera%-heading%-link", "")
         equal(links, expected)
         const unlinked = sample()
@@ -274,7 +274,7 @@ const tests: { [string]: () -> () } = {
         const html = site
             :document(install)
             :to_html()
-        const parsed = Parser():parse_document(html)
+        const parsed = Document.from_html(html)
         parsed.location = "docs/install.html"
         parsed.site_pages = site:document(install).site_pages
         equal(parsed:to_html(), html)

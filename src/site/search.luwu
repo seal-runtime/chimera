@@ -516,7 +516,7 @@ const matchers: { [string]: class<Matcher>? } = {}
 
     chimera's matchers run in the reader's browser: [Exact], [Prefix], [Words], [Initials], [Substring], [Typos]
     and [FullText]. Implement the trait for your own, with [Matcher:source] returning the JavaScript that scores a
-    term, and register the class so parsed pages find it again.
+    term. Parsed pages find the class again by its name.
 
     ## Usage
 
@@ -526,7 +526,6 @@ const matchers: { [string]: class<Matcher>? } = {}
             return "function (term, field) { return field.lower.endsWith(term.lower) ? 1 : 0; }"
         end
     end
-    Matcher.register(Suffix)
 
     Search():matchers({ Exact(), Prefix(), Suffix() })
     ```
@@ -586,22 +585,14 @@ export trait Matcher
         return false
     end
 
-    --[=[
-        Makes parsed pages rebuild `cls` from the name [Search] stores it under, its class name.
-
-        ## Usage
-
-        ```luwu
-        Matcher.register(Suffix)
-        ```
-    ]=]
-    final function register(cls: class<Matcher>)
+    --- Parsed pages rebuild each matcher class from the name [Search] stores it under, its class name.
+    final function __implemented(cls: class<Matcher>)
         matchers[class.name(cls)] = cls
     end
 
     --[=[
         The matcher a [Search] stored as `text`, like `"Typos:25:2"`: the class name, the weight, then the
-        [Matcher:options]. Nil for a class that isn't registered.
+        [Matcher:options]. Nil for a name no matcher class has.
 
         ## Usage
 
@@ -740,13 +731,6 @@ export class FullText(weight: number = 15) implements Matcher
     end
 end
 
-Matcher.register(Exact)
-Matcher.register(Prefix)
-Matcher.register(Words)
-Matcher.register(Initials)
-Matcher.register(Substring)
-Matcher.register(Typos)
-Matcher.register(FullText)
 
 --- The weight of each part of an entry, for [Search:weigh].
 export type FieldWeights = {
@@ -1058,7 +1042,6 @@ export class Search implements Component
     end
 end
 
-Component.register(Search)
 
 --[=[
     Whether `node` or anything inside it is a [Search], so a site knows to write its index.

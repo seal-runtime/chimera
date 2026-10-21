@@ -3,11 +3,11 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container, Child } = require("@core/markup")
+const .{ Component, Container, Child, HtmlElement } = require("@core/markup")
 type .{ Content, Markup } = markup
 
 --- A `"summary"` element that heads a [Details], visible while its content is hidden.
-export class Summary implements Container
+export class Summary implements Container, HtmlElement
     function tag(): string
         return "summary"
     end
@@ -24,7 +24,7 @@ end
     Details("What does it cost?", Paragraph("Nothing.")):open()
     ```
 ]=]
-export class Details implements Component, Container
+export class Details implements Component, Container, HtmlElement
     function tag(): string
         return "details"
     end
@@ -82,8 +82,4 @@ export class Details implements Component, Container
         end
         return nodes
     end
-end
-
-for _, cls in { Summary, Details } do
-    Element.register_class(cls)
 end

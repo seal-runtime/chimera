@@ -5,15 +5,15 @@
 const chimera = require("@chimera")
 const .{
     Parser,
-    Component,
     Container,
-    core.{ Shape, Text, MarkdownWriter },
+    MarkdownReader,
+    Json,
+    core.{ Shape, Text, MarkdownWriter, Element },
     elements.{ Heading, Paragraph, Strong, BlockQuote, Div, UnorderedList },
     components.{ Code, CodeBlock, Card },
-    serde.{ Markdown, Json },
     site.{ Page, PageLink, TableOfContents },
 } = chimera
-type .{ Content, Markup, Element } = chimera.core
+type .{ Content, Markup, Writer, JsonNode } = chimera.core
 const .{ examples_in } = require("./example")
 const .{ h1, h2, h3 } = Heading
 
@@ -26,7 +26,7 @@ const function printed(nodes: { read Markup }): string
 end
 
 --@ read
-const nodes = Markdown():parse(CodeBlock.dedent([==[
+const nodes = MarkdownReader():parse(CodeBlock.dedent([==[
     # Install
 
     Run `seal setup`, then read the [guide](guide.md).
@@ -50,7 +50,7 @@ const SEAL_STYLE = CodeBlock.dedent([==[
     </details>
 ]==])
 
-const seal_nodes = Markdown():parse(SEAL_STYLE)
+const seal_nodes = MarkdownReader():parse(SEAL_STYLE)
 
 --@ write
 const card = Card("Fast", {
@@ -61,8 +61,38 @@ const markdown = card:to_markdown()
 --@ end
 
 --@ json
-const text = Json.encode(Paragraph({ "Hi ", Strong("there") }), true)
-const again = Json.decode(text)
+const text = Paragraph({ "Hi ", Strong("there") }):to_json(true)
+const again = Element.nodes_from_json(text)
+--@ end
+
+--@ badge
+class Badge implements Json
+    function tag(): string
+        return "span"
+    end
+    function __init(self, label: string?)
+        self:attr("data-label", label)
+    end
+    function label(self): string
+        return tostring(self:get_attr("data-label") or "")
+    end
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write(`{Text.escape(self:label())}</span>`)
+    end
+    -- The text comes from the label, so parsed text is dropped.
+    function adopt(self, node: Markup): boolean
+        return true
+    end
+    function json(self): JsonNode
+        return { label = self:label() }
+    end
+    function from_json(data: JsonNode): Json?
+        return if type(data.label) == "string" then Badge(data.label) else nil
+    end
+end
+
+const status = Paragraph({ "Status: ", Badge("Beta") }):to_json(true)
 --@ end
 
 --- The plain text of a node, for checking what a shape matched.
@@ -107,14 +137,12 @@ class Callout implements Shape, Container
         return nil
     end
     function markdown(self, out: MarkdownWriter): string
-        const text = `**Note:** {out:blocks(self.children)}`
-        return "> " .. string.gsub(text, "\n", "\n> ")
+        const quoted = `**Note:** {out:blocks(self.children)}`
+        return "> " .. string.gsub(quoted, "\n", "\n> ")
     end
 end
-Component.register(Callout)
-Shape.register_shape(Callout)
 
-const from_markdown = Markdown():parse("> **Note:** Back up first.")
+const from_markdown = MarkdownReader():parse("> **Note:** Back up first.")
 const from_html = Parser():parse(`<div class="alert"><p>Careful.</p></div>`)
 --@ end
 
@@ -130,39 +158,41 @@ return Page("Markdown and JSON", {
 
     h2("Reading Markdown"),
     Paragraph({
-        Code("Markdown():parse"), " returns one node per block. It reads headings, paragraphs, emphasis, links, ",
-        "images, lists, quotes, code, tables and HTML:",
+        Code("Document.from_markdown"), " reads a Markdown file into a whole page. Its title comes from the front ",
+        "matter's ", Code("title", "plaintext"), " or else the first level 1 heading, and its description from ",
+        Code("description", "plaintext"), ":",
+    }),
+    CodeBlock([====[
+        const page = Document.from_markdown(fs.readfile("install.md"))
+        fs.writefile("install.html", page:to_html(true))
+    ]====]),
+    Paragraph({
+        "For the nodes alone, a ", Code("MarkdownReader"), " parses Markdown into one node per block. It reads ",
+        "headings, paragraphs, emphasis, links, images, lists, quotes, code, tables and HTML:",
     }),
     example("read", CodeBlock(printed(nodes), "plaintext")),
     Paragraph({
-        "Inline code is Luwu unless you set ", Code("code_language"), ". Fenced code takes the language after the ",
-        "fence, and ", Code("copyable", "plaintext"), " or ", Code("line-numbers", "plaintext"),
+        "Inline code is Luwu unless the reader's ", Code("code_language"), " says otherwise. Fenced code takes the ",
+        "language after the fence, and ", Code("copyable", "plaintext"), " or ", Code("line-numbers", "plaintext"),
         " after that turn on those settings. Links to ", Code(".md", "plaintext"), " files point at the ",
         Code(".html", "plaintext"), " pages built from them, so the guide link above goes to ",
         Code("guide.html", "plaintext"), ". Problems that don't stop reading, like HTML the parser can't place, ",
-        "end up in the reader's ", Code("warnings"), ".",
+        "end up in the reader's ", Code("warnings"), ". Pass a configured reader to ", Code("from_markdown"),
+        " to read a page its way.",
     }),
-    Paragraph({
-        Code("parse_document"), " reads a whole file into a ", Code("Document"), ". Its title comes from the ",
-        "front matter's ", Code("title", "plaintext"), " or else the first level 1 heading, and its description ",
-        "from ", Code("description", "plaintext"), ":",
-    }),
-    CodeBlock([====[
-        const page = Markdown():parse_document(fs.readfile("install.md"))
-        fs.writefile("install.html", page:to_html(true))
-    ]====]),
 
     h3("A folder of Markdown"),
     Paragraph({
-        Code("pages"), " reads every Markdown file in a folder into site pages. ", Code("index.md", "plaintext"),
+        Code("add_markdown"), " adds a page for every Markdown file in a folder. ", Code("index.md", "plaintext"),
         " becomes ", Code("index.html", "plaintext"), " and a subfolder's files become pages under the page of the ",
         "same name, so ", Code("guide.md", "plaintext"), " gets the pages in ", Code("guide/", "plaintext"),
-        ". Pages sort by their front matter's ", Code("order", "plaintext"), ", then by name:",
+        ". Pages sort by their front matter's ", Code("order", "plaintext"), ", then by name. ",
+        Code("Page.from_markdown"), " reads a single page:",
     }),
     CodeBlock([====[
         Site("My docs")
             :search()
-            :add_pages(Markdown():pages("docs"))
+            :add_markdown("docs")
             :build("site")
     ]====]),
 
@@ -187,20 +217,36 @@ return Page("Markdown and JSON", {
     Paragraph({
         "Your own elements write Markdown in a ", Code("markdown"), " method. It gets a ", Code("MarkdownWriter"),
         " for its children: ", Code("out:inline(...)"), " for text inside a line and ", Code("out:blocks(...)"),
-        " for blocks. The callout below writes itself as a quote.",
+        " for blocks. The callout further down writes itself as a quote.",
     }),
 
     h2("JSON"),
     Paragraph({
-        Code("Json.encode"), " writes any node as the tree its HTML has, and ", Code("Json.decode"),
-        " reads it back into the same nodes, components included. ", Code("Json.tree"), " gives the tree as tables ",
-        "for tools written in Luwu:",
+        "Every node also has ", Code("to_json"), ". It writes the tree the node's HTML has, and ",
+        Code("Element.nodes_from_json"), " reads it back into the same nodes, components included. ",
+        Code("json_tree"), " gives the tree as tables for tools written in Luwu, and ", Code("Document.from_json"),
+        " reads a whole page:",
     }),
     example("json", CodeBlock(text, "json")),
     Paragraph({
         "Each element has its ", Code("tag", "plaintext"), ", its component in ", Code("element", "plaintext"),
-        " and its attributes in the order it renders them. Encoding a page and decoding it gives the same HTML: ",
+        " and its attributes in the order it renders them. Reading the JSON back gives the same HTML: ",
         Code(tostring(again[1]:to_html() == Paragraph({ "Hi ", Strong("there") }):to_html()), "plaintext"), ".",
+    }),
+
+    h3("Components with their own JSON"),
+    Paragraph({
+        "A tree of tags is exact, but it says little about what a component means. A component that implements ",
+        Code("Json"), " writes the fields that describe it in ", Code("json"), " and reads them back in its own ",
+        Code("from_json"), ". ", Code("to_json"), " asks it wherever it appears, and reading calls its ",
+        Code("from_json"), " for every node that names its class:",
+    }),
+    example("badge", CodeBlock(status, "json")),
+    Paragraph({
+        "chimera adds the ", Code("element", "plaintext"), " name for you. ", Code("Badge.from_json"),
+        " also works on its own, and returning nil tells the reader to treat the JSON as a plain tree. A ",
+        Code("Json"), " component still needs HTML that parses back as itself, which is why ", Code("Badge"),
+        " keeps its label in an attribute.",
     }),
 
     h2("Recognizing your components"),
@@ -209,7 +255,7 @@ return Page("Markdown and JSON", {
         Code("**Note:**", "plaintext"), " is a callout to you and a plain quote to the Markdown reader. A ",
         Code("Shape"), " is a component that recognizes itself in what the readers read. Its ", Code("recognize"),
         " gets each parsed element, children first, and returns the component that element stands for. ",
-        "Markdown, HTML and JSON all try every registered shape:",
+        "Markdown, HTML and JSON all try every shape:",
     }),
     example("shape", CodeBlock(printed({ from_markdown[1], from_html[1] }), "plaintext")),
     Paragraph({
@@ -217,15 +263,14 @@ return Page("Markdown and JSON", {
         "survives a trip through Markdown: ", Code(from_markdown[1]:to_markdown(), "plaintext"), ".",
     }),
     Paragraph({
-        "Fenced code blocks can become components too. ", Code("fence"), " takes a language and a function that ",
-        "builds the content for each block in it:",
+        "Fenced code blocks can become components too. A reader's ", Code("fence"), " takes a language and a ",
+        "function that builds the content for each block in it:",
     }),
     CodeBlock([====[
-        Markdown()
-            :fence("mermaid", function(source)
-                return Diagram(source)
-            end)
-            :parse(fs.readfile("design.md"))
+        const reader = MarkdownReader():fence("mermaid", function(source)
+            return Diagram(source)
+        end)
+        const page = Document.from_markdown(fs.readfile("design.md"), reader)
     ]====]),
     Paragraph({
         "For whole pages of HTML, see ", PageLink("guide/parsing-html.html", "Parsing HTML"), ".",

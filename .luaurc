@@ -13,6 +13,6 @@
     "document": "./src/document/",
     "components": "./src/components/",
     "parse": "./src/parse/",
-    "serde": "./src/serde/"
+    "formats": "./src/formats/"
   }
 }

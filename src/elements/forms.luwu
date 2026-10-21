@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container, Text } = require("@core/markup")
+const .{ Element, Component, Container, Text, HtmlElement } = require("@core/markup")
 type .{ Content, Markup, Writer, AttributeValue } = markup
 
 const ESCAPES: { [string]: string } = {
@@ -19,7 +19,7 @@ const ESCAPES: { [string]: string } = {
     Form({ Label("Email", "email"), Input("email", "email"), Button("Subscribe", "submit") }, "/subscribe", "post")
     ```
 ]=]
-export class Form implements Component, Container
+export class Form implements Component, Container, HtmlElement
     function tag(): string
         return "form"
     end
@@ -33,7 +33,7 @@ export class Form implements Component, Container
 end
 
 --- A `"label"` element that captions the form field whose id is `for_id`.
-export class Label implements Component, Container
+export class Label implements Component, Container, HtmlElement
     function tag(): string
         return "label"
     end
@@ -54,7 +54,7 @@ end
     Button("Send", "submit")
     ```
 ]=]
-export class Button implements Component, Container
+export class Button implements Component, Container, HtmlElement
     function tag(): string
         return "button"
     end
@@ -95,7 +95,7 @@ end
         :required()
     ```
 ]=]
-export class Input implements Component
+export class Input implements Component, HtmlElement
     function tag(): string
         return "input"
     end
@@ -204,7 +204,7 @@ export class Input implements Component
 end
 
 --- A `"textarea"` element that takes multi-line text input.
-export class TextArea implements Component
+export class TextArea implements Component, HtmlElement
     function tag(): string
         return "textarea"
     end
@@ -236,7 +236,7 @@ export class TextArea implements Component
 end
 
 --- An `"option"` element that offers one choice in a [Select].
-export class Option implements Element
+export class Option implements Element, HtmlElement
     function tag(): string
         return "option"
     end
@@ -298,7 +298,7 @@ end
     Select("size", { "Small", "Medium", Option("Large", "lg") }):select("Medium")
     ```
 ]=]
-export class Select implements Component
+export class Select implements Component, HtmlElement
     function tag(): string
         return "select"
     end
@@ -374,8 +374,4 @@ export class Select implements Component
     function child_nodes(self): { read Markup }
         return self.options
     end
-end
-
-for _, cls in { Form, Label, Button, Input, TextArea, Option, Select } do
-    Element.register_class(cls)
 end

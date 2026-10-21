@@ -202,7 +202,3 @@ export class Mocha() implements Flavor
     const name = "catppuccin-mocha"
     const mode = "Dark"
 end
-
-for _, cls in { Latte, Frappe, Macchiato, Mocha } do
-    Theme.register(cls)
-end

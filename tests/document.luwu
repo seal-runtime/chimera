@@ -54,8 +54,6 @@ class Callout implements Component, Container
     end
 end
 
-Component.register(Callout)
-Theme.register(Sepia)
 
 const tests: { [string]: () -> () } = {
     ["documents start with charset, viewport and title"] = function()

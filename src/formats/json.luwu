@@ -1,0 +1,138 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Text, Comment, Tag, Shape, Json } = require("@core/markup")
+const .{ Parser } = require("@parse/parser")
+type .{ Markup, JsonNode, JsonAttribute, JsonFormat } = markup
+
+--- A component's own JSON, with its class name filled in so readers find the class again.
+const function component_json(component: Json): JsonNode
+    const data = component:json()
+    if data.element == nil then
+        const name: string = class.name(component)
+        data.element = name
+    end
+    return data
+end
+
+const function build_node(data: JsonNode, warnings: { string }, components: boolean): Markup?
+    if const text = data.text then
+        return Text(text)
+    elseif const comment = data.comment then
+        return Comment(comment)
+    end
+    if
+        components
+        when const name = data.element
+        when const cls = Json.find(name)
+        when const component = cls.from_json(data)
+    then
+        return component
+    end
+    const tag = data.tag or do
+        table.insert(warnings, `a node has no tag, text or comment; dropped it`)
+        give nil
+    if not tag then
+        return nil
+    end
+    const element = Element.create(tag, data.element):reset()
+    for _, attribute in data.attributes or {} do
+        element:attr(attribute.name, attribute.value)
+    end
+    for _, child in data.children or {} do
+        if const node = build_node(child, warnings, components) when not element:adopt(node) then
+            table.insert(warnings, `{class.name(element)} can't hold {node:outline()}; dropped it`)
+        end
+    end
+    return element
+end
+
+const function tree_of(node: Markup): JsonNode
+    if class.isinstance(node, Text) then
+        return { text = node.content }
+    elseif class.isinstance(node, Comment) then
+        return { comment = node.text }
+    elseif not class.isinstance(node, Tag) then
+        return { text = node:to_html() }
+    end
+    const attributes: { JsonAttribute } = {}
+    local element: string? = nil
+    for _, name in node.attributes.names do
+        const value = node.attributes.values[name]
+        if name == "data-element" and type(value) == "string" then
+            element = value
+        elseif value ~= nil then
+            table.insert(attributes, {
+                name = name,
+                value = value,
+            })
+        end
+    end
+    for _, name in { "class", "style" } do
+        if const value = node:get_attr(name) then
+            table.insert(attributes, {
+                name = name,
+                value = value,
+            })
+        end
+    end
+    const children = { for _, child in node:child_nodes() give tree_of(child) }
+    const tree: JsonNode = {
+        tag = node:current_tag(),
+        element = element,
+        attributes = if #attributes > 0 then attributes else nil,
+        children = if #children > 0 then children else nil,
+    }
+    -- A Json component inside writes its own JSON. Rebuild it from its HTML's tree to ask it.
+    if
+        const name = element
+        when Json.find(name)
+        when const rebuilt = build_node(tree, {}, false)
+        when class.implements(rebuilt, Json)
+    then
+        return component_json(rebuilt)
+    end
+    return tree
+end
+
+const function tree(node: Markup): JsonNode
+    if class.implements(node, Json) then
+        return component_json(node)
+    end
+    const roots = Parser():parse_tree(node:to_html())
+    if #roots == 1 then
+        return tree_of(roots[1])
+    end
+    return {
+        tag = "#fragment",
+        children = { for _, root in roots give tree_of(root) },
+    }
+end
+
+const function build(data: JsonNode | { JsonNode }, recognize_shapes: boolean): ({ Markup }, { string })
+    const warnings: { string } = {}
+    const single = data :: JsonNode
+    const list: { JsonNode } = if single.tag == "#fragment"
+        then single.children or {}
+        elseif single.tag or single.text or single.comment or single.element then { single }
+        else data :: { JsonNode }
+    const nodes = {
+        for _, item in list
+        when const node = build_node(item, warnings, true)
+        give if recognize_shapes then Shape.recognize_all(node) else node
+    }
+    return nodes, warnings
+end
+
+--- chimera's JSON format. Requiring this module gives core [Markup:to_json][markup.Markup.to_json] and
+--- [Element.nodes_from_json][markup.Element.nodes_from_json].
+---
+--- [markup = require("@core/markup")]
+export const format: JsonFormat = {
+    tree = tree,
+    build = build,
+}
+
+markup.use_json_format(format)

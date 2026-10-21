@@ -463,7 +463,3 @@ export class Tabs implements Component, Container
         out:write("</div>")
     end
 end
-
-for _, cls in { Menu, Dropdown, Toggle, ThemeSwitcher, Card, SiteFooter, Tab, Tabs } do
-    Component.register(cls)
-end

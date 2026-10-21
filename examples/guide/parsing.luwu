@@ -49,8 +49,8 @@ return Page("Parsing HTML", {
     }),
 
     h2("Whole pages"),
-    Paragraph({ "To edit a whole page, ", Code("parse_document"), " reads it into a ", Code("Document"), ":" }),
-    CodeBlock([====[const page = Parser():parse_document(fs.readfile("out/index.html"))
+    Paragraph({ "To edit a whole page, ", Code("Document.from_html"), " reads it into a ", Code("Document"), ":" }),
+    CodeBlock([====[const page = Document.from_html(fs.readfile("out/index.html"))
 page:style_every(Card, { padding = "2rem" })
 fs.writefile("out/index.html", page:to_html(true))]====]),
     Paragraph({
@@ -71,8 +71,8 @@ print(parser.warnings[1])]====]),
 
     h2("Your own components"),
     Paragraph({
-        "Components you write parse back as themselves once you register them with ",
-        Code("Component.register"), ". Their ", Code("adopt"), " method decides which parsed children they keep ",
+        "Components you write parse back as themselves because implementing ", Code("Component"),
+        " registers them by name. Their ", Code("adopt"), " method decides which parsed children they keep ",
         "(see ", PageLink("guide/custom-components.html", "Custom components"), ").",
     }),
     Paragraph({

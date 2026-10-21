@@ -8,7 +8,7 @@ const .{ equal, contains, excludes, truthy } = require("./assert")
 const .{ Browser } = require("./browser")
 const chimera = require("@chimera")
 const .{
-    Parser,
+    Document,
     Component,
     core.{ Text },
     elements.{ Paragraph, Heading },
@@ -49,7 +49,6 @@ class ApiFunction implements Component
         }
     end
 end
-Component.register(ApiFunction)
 
 const function sample(search: Search?): Site
     const fs_page = Page("fs", {
@@ -198,7 +197,7 @@ const tests: { [string]: () -> () } = {
         contains(html, `data-matchers="Exact:200 Typos:10:1" data-fields="page:0" data-limit="5"`)
         contains(html, `data-kinds="function"`)
         contains(html, `placeholder="Find an API"`)
-        const parsed = Parser():parse_document(html)
+        const parsed = Document.from_html(html)
         parsed.location = "guide/deep.html"
         parsed.site_pages = site:document(nested).site_pages
         equal(parsed:to_html(), html)
@@ -342,6 +341,5 @@ class EndsWith(weight: number = 30) implements Matcher
         return "function (term, field) { return field.lower.endsWith(term.lower) ? 1 : 0; }"
     end
 end
-Matcher.register(EndsWith)
 
 return tests

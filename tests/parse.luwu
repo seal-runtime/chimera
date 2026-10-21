@@ -6,6 +6,7 @@ const .{ equal, contains, truthy } = require("./assert")
 const chimera = require("@chimera")
 const .{
     Parser,
+    Document,
     core.{ Tag, Text, Comment },
     elements.{ Div, Heading, Paragraph, UnorderedList, Script },
     components.{ Card },
@@ -125,7 +126,7 @@ const tests: { [string]: () -> () } = {
     end,
 
     ["documents parse, loose content goes in the body"] = function()
-        const document = Parser():parse_document("<h1>Hi</h1>")
+        const document = Document.from_html("<h1>Hi</h1>")
         contains(document:to_html(), "<body><h1>Hi</h1></body>")
     end,
 }

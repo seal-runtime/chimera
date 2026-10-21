@@ -76,7 +76,6 @@ class Intro implements Component, Container
     end
 end
 
-Component.register(Intro)
 
 const SOURCE = "https://github.com/seal-runtime/chimera"
 const example = examples_in("examples/site.luwu")

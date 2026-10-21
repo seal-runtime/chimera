@@ -3,11 +3,11 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container } = require("@core/markup")
+const .{ Element, Component, Container, HtmlElement } = require("@core/markup")
 type .{ Content, Markup, MarkdownWriter } = markup
 
 --- A `"li"` element that holds one item of an [UnorderedList] or [OrderedList].
-export class ListItem implements Container
+export class ListItem implements Container, HtmlElement
     function tag(): string
         return "li"
     end
@@ -162,7 +162,7 @@ export trait List needs Element
 end
 
 --- A `"ul"` element that lists items with bullets.
-export class UnorderedList implements Component, List
+export class UnorderedList implements Component, List, HtmlElement
     function tag(): string
         return "ul"
     end
@@ -181,7 +181,7 @@ export class UnorderedList implements Component, List
 end
 
 --- An `"ol"` element that lists items with numbers.
-export class OrderedList implements Component, List
+export class OrderedList implements Component, List, HtmlElement
     function tag(): string
         return "ol"
     end
@@ -217,8 +217,4 @@ export class OrderedList implements Component, List
     function start(self, first: number): OrderedList
         return self:attr("start", first)
     end
-end
-
-for _, cls in { ListItem, UnorderedList, OrderedList } do
-    Element.register_class(cls)
 end

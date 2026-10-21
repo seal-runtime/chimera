@@ -601,7 +601,8 @@ return Page("Classes and Traits", {
     }),
     Paragraph({
         "This ", Code("Component"), " trait keeps a registry of ", Code("class<Component>"), " values by class ",
-        "name. Each component class is registered once with ", Code("Component.register"), ", and ",
+        "name. Its ", Code("__implemented"), " function runs once for every class that implements the trait, as ",
+        "soon as the class is defined, so a component is registered without anyone remembering to do it. ",
         Code("Component(\"Button\")"), " then builds a ", Code("Button"), ":",
     }),
     luwu([====[
@@ -614,7 +615,7 @@ return Page("Classes and Traits", {
                 const cls = components[name] or error(`no component called {name}`, 2)
                 return cls()
             end
-            final function register(cls: class<Component>)
+            final function __implemented(cls: class<Component>)
                 components[class.name(cls)] = cls
             end
         end
@@ -631,14 +632,17 @@ return Page("Classes and Traits", {
             end
         end
 
-        Component.register(Button)
-        Component.register(Spinner)
-
         -- names a parser found in the page's data-element attributes
         for _, name in { "Spinner", "Button" } do
             print(Component(name):render())
         end
     ]====]),
+    Paragraph({
+        Code("__implemented"), " is always ", Code("final"), " and takes the class rather than ", Code("self"),
+        ". It also runs for classes that implement the trait through another trait's ", Code("needs"),
+        ", once per class even when several traits lead to it, and the hooks of the traits a trait needs run ",
+        "first. A trait holds no state of its own, so the registry lives in the module beside it.",
+    }),
     Paragraph({
         "Only traits that define ", Code("__create"), " can be called. Calling the ", Code("Animal"),
         " trait from earlier raises ", Code("trait 'Animal' can't be called: it has no '__create'", "plaintext"), ".",

@@ -7,9 +7,8 @@ const .{ equal, contains, excludes, truthy } = require("./assert")
 const chimera = require("@chimera")
 const .{
     Parser,
-    Component,
     Container,
-    core.{ Shape, Text, MarkdownWriter },
+    core.{ Shape, Text, MarkdownWriter, Element },
     elements.{
         Paragraph,
         Heading,
@@ -29,11 +28,12 @@ const .{
         Table,
     },
     components.{ Code, CodeBlock, Card },
-    serde.{ Markdown, Json },
+    Document,
+    MarkdownReader,
+    Json,
     site.{ Site },
 } = chimera
-type .{ Content, Markup } = chimera.core
-type .{ Element } = chimera.core
+type .{ Content, Markup, Writer, JsonNode } = chimera.core
 const .{ h1, h2 } = Heading
 
 --- The plain text of a node, for checking what a shape matched.
@@ -84,11 +84,42 @@ class Callout implements Shape, Container
         return table.concat({ for _, line in lines give if line == "" then ">" else `> {line}` }, "\n")
     end
 end
-Component.register(Callout)
-Shape.register_shape(Callout)
+
+--- A label with JSON of its own, `{ "element": "Badge", "label": "New" }`, instead of its HTML's tree.
+class Badge implements Json
+    function tag(): string
+        return "span"
+    end
+
+    function __init(self, label: string?)
+        self:attr("data-label", label)
+    end
+
+    function label(self): string
+        return tostring(self:get_attr("data-label") or "")
+    end
+
+    function render(self, out: Writer)
+        self:render_open(out)
+        out:write(`{Text.escape(self:label())}</span>`)
+    end
+
+    --- Its text comes from its label, so parsed text is dropped.
+    function adopt(self, node: Markup): boolean
+        return true
+    end
+
+    function json(self): JsonNode
+        return { label = self:label() }
+    end
+
+    function from_json(data: JsonNode): Json?
+        return if type(data.label) == "string" then Badge(data.label) else nil
+    end
+end
 
 const function read(text: string): { Markup }
-    return Markdown():parse(text)
+    return MarkdownReader():parse(text)
 end
 
 const function html_of(nodes: { read Markup }): string
@@ -226,7 +257,7 @@ const tests: { [string]: () -> () } = {
     end,
 
     ["html tags in markdown wrap markdown, like seal's docs"] = function()
-        const reader = Markdown()
+        const reader = MarkdownReader()
         const nodes = reader:parse(SEAL_STYLE)
         equal(#reader.warnings, 0, table.concat(reader.warnings, "\n"))
         const details = nodes[3]
@@ -243,17 +274,17 @@ const tests: { [string]: () -> () } = {
     end,
 
     ["front matter sets a page's title and description"] = function()
-        const document = Markdown():parse_document(
+        const document = Document.from_markdown(
             "---\ntitle: \"Install: fast\"\ndescription: Get going\n---\n\n# Ignored"
         )
         equal(document:get_title(), "Install: fast")
         equal(document:get_description(), "Get going")
         contains(document:to_markdown(), "---\ntitle: \"Install: fast\"\ndescription: Get going\n---\n\n# Ignored")
-        equal(Markdown():parse_document("# From the heading"):get_title(), "From the heading")
+        equal(Document.from_markdown("# From the heading"):get_title(), "From the heading")
     end,
 
     ["custom fences build components"] = function()
-        const nodes = Markdown()
+        const nodes = MarkdownReader()
             :fence("note", function(source)
                 return Callout(Paragraph(source))
             end)
@@ -274,7 +305,7 @@ const tests: { [string]: () -> () } = {
         const nested = read("- item\n\n  > **Note:** inside a list")
         contains(html_of(nested), `<aside data-element="Callout" class="callout"><p>inside a list</p></aside>`)
 
-        const untouched = Markdown()
+        const untouched = MarkdownReader()
             :recognize_shapes(false)
             :parse("> **Note:** stays a quote")
         truthy(class.isinstance(untouched[1], BlockQuote))
@@ -282,32 +313,56 @@ const tests: { [string]: () -> () } = {
 
     ["json round trips any node"] = function()
         const card = Card("Fast", { Paragraph({ "Quick ", Strong("and"), " small." }), CodeBlock("print(1)") })
-        const tree = Json.tree(card)
+        const tree = card:json_tree()
         equal(tree.tag, "div")
         equal(tree.element, "Card")
         const attributes = tree.attributes or error("no attributes")
         equal(attributes[1].name, "class")
         equal(attributes[1].value, "chimera-card")
-        const nodes, warnings = Json.decode(Json.encode(card, true))
+        const nodes, warnings = Element.nodes_from_json(card:to_json(true))
         equal(#warnings, 0)
         truthy(class.isinstance(nodes[1], Card))
         equal(nodes[1]:to_html(), card:to_html())
 
-        const page = Site("docs"):add_page(chimera.site.Page("Home", h1("Home"), "index.html"))
-        const document = page:document(page:pages()[1])
-        const decoded = Json.decode_document(Json.encode(document))
+        const site = Site("docs"):add_page(chimera.site.Page("Home", h1("Home"), "index.html"))
+        const document = site:document(site:pages()[1])
+        const decoded = Document.from_json(document:to_json())
         decoded.location = document.location
         decoded.site_pages = document.site_pages
         equal(decoded:to_html(), document:to_html())
     end,
 
+    ["json components write and read their own fields"] = function()
+        const badge = Badge("New")
+        const own = badge:json_tree()
+        equal(own.element, "Badge")
+        equal(own.label, "New")
+        equal(own.tag, nil, "a Json component's own JSON replaces its tree")
+
+        const status = Div { Paragraph({ "Status: ", Badge("Beta") }) }
+        const tree = status:json_tree()
+        const paragraph = (tree.children or {})[1] or error("no paragraph")
+        const nested = (paragraph.children or {})[2] or error("no badge")
+        equal(nested.element, "Badge")
+        equal(nested.label, "Beta")
+
+        const nodes = Element.nodes_from_json(status:to_json())
+        equal(nodes[1]:to_html(), status:to_html())
+        const direct = Badge.from_json({ label = "Direct" }) or error("from_json gave nothing")
+        equal(direct:to_html(), Badge("Direct"):to_html())
+    end,
+
     ["json from other tools is recognized too"] = function()
-        const nodes = Json.build({
+        const from_tool: JsonNode = {
             tag = "div",
             attributes = { { name = "class", value = "alert" } },
             children = { { tag = "p", children = { { text = "From a tool." } } } },
-        })
+        }
+        const nodes = Element.nodes_from_json(from_tool)
         truthy(class.isinstance(nodes[1], Callout), nodes[1]:outline())
+        const badge_from_tool: JsonNode = { element = "Badge", label = "From a tool" }
+        const badges = Element.nodes_from_json(badge_from_tool)
+        truthy(class.isinstance(badges[1], Badge), badges[1]:outline())
     end,
 
     ["a folder of markdown becomes a site"] = function()
@@ -325,9 +380,8 @@ const tests: { [string]: () -> () } = {
         for name, text in files do
             fs.writefile(fs.path.join(folder, name), text)
         end
-        const pages = Markdown():pages(folder)
-        equal(table.concat({ for _, page in pages give page.title }, ", "), "Install, Home, Guide, Reference")
-        const site = Site("docs"):add_pages(pages)
+        const site = Site("docs"):add_markdown(folder)
+        equal(table.concat({ for _, page in site:pages() give page.title }, ", "), "Install, Home, Guide, Reference")
         const paths = { for _, page in site:all_pages() give page:path() }
         table.sort(paths)
         equal(

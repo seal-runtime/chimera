@@ -40,7 +40,6 @@ class Callout implements Component, Container
     end
 end
 
-Component.register(Callout)
 
 const warning = Callout("Heads up", Paragraph("Saves from version 1 don't load in version 2."))
 --@ end
@@ -66,11 +65,13 @@ return Page("Custom components", {
         "Rules built on it only ever match your component.",
     }),
 
-    h2("Registering it"),
+    h2("Parsing it back"),
     Paragraph({
-        Code("Component.register(Callout)"), " records the class under its name. Its elements then render with ",
-        Code("data-element=\"Callout\"", "html"), ", and the parser uses that attribute to rebuild them as ",
-        Code("Callout"), "s (see ", PageLink("guide/parsing-html.html", "Parsing HTML"), ").",
+        "Implementing ", Code("Component"), " records the class under its name as soon as the class is defined. ",
+        "Its elements render with ", Code("data-element=\"Callout\"", "html"), ", and the parser uses that ",
+        "attribute to rebuild them as ", Code("Callout"), "s (see ",
+        PageLink("guide/parsing-html.html", "Parsing HTML"), "). A class that should own a plain tag, so every ",
+        Code("<meter>", "html"), " parses as it, implements ", Code("HtmlElement"), " as well.",
     }),
 
     h2("Arranging children"),
