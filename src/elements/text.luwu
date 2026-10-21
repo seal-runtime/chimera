@@ -3,8 +3,35 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container } = require("@core/markup")
-type .{ Content, Markup, Writer } = markup
+const .{ Element, Component, Container, Text } = require("@core/markup")
+type .{ Content, Markup, Writer, MarkdownWriter } = markup
+
+--- The text of `nodes` without markup, for comparing a heading with the id a document gives it.
+const function plain_text(nodes: { read Markup }): string
+    const parts: { string } = {}
+    for _, node in nodes do
+        if class.isinstance(node, Text) then
+            table.insert(parts, node.content)
+        else
+            table.insert(parts, plain_text(node:child_nodes()))
+        end
+    end
+    return table.concat(parts)
+end
+
+--- Whether `id` is the one a document would generate from `text`, so Markdown can leave it out.
+const function is_generated_id(id: string, text: string): boolean
+    const dashed = string.gsub(string.lower(text), "[^%w]+", "-")
+    return id == (string.match(dashed, "^%-*(.-)%-*$") or "")
+end
+
+--- Markdown for inline content wrapped in `marker`, or the element's HTML when it has attributes.
+const function wrapped(element: Element, children: { read Markup }, marker: string, out: MarkdownWriter): string
+    if not element:only_attributes() then
+        return element:to_html()
+    end
+    return marker .. out:inline(children) .. marker
+end
 
 const LINK_ICON = [=[<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" ]=]
     .. [=[stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 ]=]
@@ -14,6 +41,13 @@ const LINK_ICON = [=[<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden
 export class Paragraph implements Component, Container
     function tag(): string
         return "p"
+    end
+
+    function markdown(self, out: MarkdownWriter): string
+        if not self:only_attributes() then
+            return self:to_html()
+        end
+        return out:inline(self.children)
     end
 
     function __init(self, content: Content?)
@@ -53,6 +87,16 @@ export class Heading implements Component, Container
 
     function current_tag(self): string
         return `h{self.level}`
+    end
+
+    --- A heading whose only attribute is the id a document would give it anyway writes as `#` Markdown.
+    function markdown(self, out: MarkdownWriter): string
+        const id = self:get_id()
+        const generated = id == nil or is_generated_id(id, plain_text(self.children))
+        if not generated or not self:only_attributes("id") then
+            return self:to_html()
+        end
+        return `{string.rep("#", self.level)} {out:inline(self.children)}`
     end
 
     --[=[
@@ -180,6 +224,10 @@ export class Strong implements Component, Container
         return "strong"
     end
 
+    function markdown(self, out: MarkdownWriter): string
+        return wrapped(self, self.children, "**", out)
+    end
+
     function __init(self, content: Content?)
         self:add(content)
     end
@@ -189,6 +237,10 @@ end
 export class Emphasis implements Component, Container
     function tag(): string
         return "em"
+    end
+
+    function markdown(self, out: MarkdownWriter): string
+        return wrapped(self, self.children, "*", out)
     end
 
     function __init(self, content: Content?)
@@ -222,6 +274,14 @@ end
 export class BlockQuote implements Component, Container
     function tag(): string
         return "blockquote"
+    end
+
+    function markdown(self, out: MarkdownWriter): string
+        if not self:only_attributes() then
+            return self:to_html()
+        end
+        const lines = string.split(out:blocks(self.children), "\n")
+        return table.concat({ for _, line in lines give if line == "" then ">" else `> {line}` }, "\n")
     end
 
     function __init(self, content: Content?)
@@ -287,6 +347,17 @@ export class Link implements Component, Container
             :attr("target", "_blank")
             :attr("rel", "noopener noreferrer")
     end
+
+    function markdown(self, out: MarkdownWriter): string
+        const href = self:get_attr("href")
+        if type(href) ~= "string" or not self:only_attributes("href", "title") then
+            return self:to_html()
+        end
+        const title = self:get_attr("title")
+        const quoted = if type(title) == "string" then ` "{string.gsub(title, "\"", "\\\"")}"` else ""
+        const target = string.gsub(string.gsub(href, " ", "%%20"), "%)", "%%29")
+        return `[{out:inline(self.children)}]({target}{quoted})`
+    end
 end
 
 --- A `"br"` element that breaks a line of text.
@@ -296,6 +367,10 @@ export class LineBreak implements Component
     end
 
     function __init(self) end
+
+    function markdown(self, out: MarkdownWriter): string
+        return if self:only_attributes() then "\\\n" else self:to_html()
+    end
 end
 
 --- A `"hr"` element that marks a thematic break, drawn as a horizontal rule.
@@ -305,6 +380,10 @@ export class HorizontalRule implements Component
     end
 
     function __init(self) end
+
+    function markdown(self, out: MarkdownWriter): string
+        return if self:only_attributes() then "---" else self:to_html()
+    end
 end
 
 const classes = {

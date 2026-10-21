@@ -7,7 +7,37 @@ const .{ Element, Component, Text, Fragment, Tag } = require("@core/markup")
 const .{ Script } = require("@elements/head")
 const .{ Color } = require("@style/color")
 const .{ Token, token } = require("@style/token")
-type .{ Markup, Metadata, Writer, AttributeValue, Content } = markup
+type .{ Markup, Metadata, Writer, AttributeValue, Content, MarkdownWriter } = markup
+
+--[=[
+    Whether `code` holds nothing Markdown would lose: no hovers, no style classes but the ones rendering adds, and no
+    attributes but `allowed` and the ones rendering adds. Rendering sets the inline style, so it doesn't count.
+]=]
+const function fits_markdown(code: Element, hovers: number, allowed: { [string]: boolean }): boolean
+    if hovers > 0 or code.inside_rules then
+        return false
+    end
+    for _, name in code.style_classes do
+        if not string.find(name, "^chimera%-code") and not string.find(name, "^language%-") then
+            return false
+        end
+    end
+    for _, name in code.attributes.names do
+        if not allowed[name] and name ~= "data-highlighted" then
+            return false
+        end
+    end
+    return true
+end
+
+--- A run of backticks longer than any in `source`, at least `shortest` long, to fence it in Markdown.
+const function fence_for(source: string, shortest: number): string
+    local longest = 0
+    for run in string.gmatch(source, "`+") do
+        longest = math.max(longest, #run)
+    end
+    return string.rep("`", math.max(shortest, longest + 1))
+end
 
 --[=[
     A language a [CodeBlock] or [Code] can highlight. `"luwu"`, `"luau"` and `"lua"` are highlighted when the
@@ -1006,6 +1036,21 @@ export class Code implements SourceCode
         return true
     end
 
+    --- Inline code in the writer's language writes as backticks. Code in another language keeps its HTML.
+    function markdown(self, out: MarkdownWriter): string
+        if
+            self:language() ~= out.code_language
+            or not fits_markdown(self, #self.hovers, { ["data-language"] = true })
+        then
+            return self:to_html()
+        end
+        const fence = fence_for(self.source, 1)
+        const padded = if string.find(self.source, "^`") or string.find(self.source, "`$")
+            then ` {self.source} `
+            else self.source
+        return fence .. padded .. fence
+    end
+
     function render(self, out: Writer)
         if self:highlighted_here() then
             self:attr("data-highlighted", "yes")
@@ -1160,6 +1205,30 @@ export class CodeBlock implements SourceCode
             longest = math.max(longest, utf8.len(line) or #line)
         end
         return longest
+    end
+
+    --[=[
+        Writes as a fenced code block. Its language and its [CodeBlock:copyable], [CodeBlock:line_numbers] and
+        [SourceCode:plain] settings follow the opening fence, like ```` ```luwu copyable ````.
+    ]=]
+    function markdown(self, out: MarkdownWriter): string
+        const allowed = {
+            ["data-language"] = true,
+            ["data-copyable"] = true,
+            ["data-line-numbers"] = true,
+            ["data-plain"] = true,
+        }
+        if not fits_markdown(self, #self.hovers, allowed) then
+            return self:to_html()
+        end
+        const info: { string } = { self:language() }
+        for _, setting in { "copyable", "line-numbers", "plain" } do
+            if self:get_attr(`data-{setting}`) then
+                table.insert(info, setting)
+            end
+        end
+        const fence = fence_for(self.source, 3)
+        return `{fence}{table.concat(info, " ")}\n{self.source}\n{fence}`
     end
 
     function render(self, out: Writer)

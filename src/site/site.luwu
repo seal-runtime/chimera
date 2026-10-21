@@ -790,6 +790,25 @@ export class Site(const name: string)
     end
 
     --[=[
+        Adds top-level pages from a list, like the pages [Markdown:pages][markdown.Markdown.pages] reads from a
+        folder.
+
+        [markdown = require("@serde/markdown")]
+
+        ## Usage
+
+        ```luwu
+        site:add_pages(Markdown():pages("docs"))
+        ```
+    ]=]
+    function add_pages(self, pages: { Page }): Site
+        for _, page in pages do
+            table.insert(self.top_pages, page)
+        end
+        return self
+    end
+
+    --[=[
         The site's top-level pages.
 
         ## Usage

@@ -1,0 +1,1137 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const markup = require("@core/markup")
+const .{ Element, Text, Shape } = require("@core/markup")
+const .{ Paragraph, Heading, Strong, Emphasis, Link, LineBreak, HorizontalRule, BlockQuote } = require("@elements/text")
+const .{ UnorderedList, OrderedList, ListItem } = require("@elements/lists")
+const .{ Image, Main } = require("@elements/layout")
+const .{ Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } = require("@elements/tables")
+const .{ Code, CodeBlock } = require("@components/code")
+const code_module = require("@components/code")
+const .{ Parser } = require("@parse/parser")
+const .{ Document } = require("@document/document")
+const .{ Page } = require("@site/site")
+const fs = require("@std/fs")
+type .{ Markup, Child, Content } = markup
+type .{ Language } = code_module
+
+--- A page found in a folder of Markdown files, with what it's sorted by.
+type FolderEntry = {
+    page: Page,
+    order: number,
+    name: string,
+}
+
+--- Builds the content for a fenced code block in one language, for [Markdown:fence].
+export type FenceBuilder = (source: string, info: string) -> Content
+
+--- What a Markdown file's front matter says: `title`, `description` and any other `key: value` lines.
+export type FrontMatter = { [string]: string? }
+
+const LANGUAGE_NAMES: { [string]: Language? } = {
+    luwu = "luwu",
+    luau = "luau",
+    lua = "lua",
+    plaintext = "plaintext",
+    text = "plaintext",
+    txt = "plaintext",
+    bash = "bash",
+    sh = "bash",
+    zsh = "bash",
+    shell = "shell",
+    console = "shell",
+    c = "c",
+    cpp = "cpp",
+    ["c++"] = "cpp",
+    csharp = "csharp",
+    cs = "csharp",
+    css = "css",
+    diff = "diff",
+    go = "go",
+    html = "html",
+    ini = "ini",
+    java = "java",
+    javascript = "javascript",
+    js = "javascript",
+    json = "json",
+    kotlin = "kotlin",
+    markdown = "markdown",
+    md = "markdown",
+    python = "python",
+    py = "python",
+    ruby = "ruby",
+    rust = "rust",
+    rs = "rust",
+    sql = "sql",
+    swift = "swift",
+    toml = "toml",
+    typescript = "typescript",
+    ts = "typescript",
+    xml = "xml",
+    yaml = "yaml",
+    yml = "yaml",
+}
+
+const NAMED_ENTITIES: { [string]: string? } = {
+    amp = "&",
+    lt = "<",
+    gt = ">",
+    quot = "\"",
+    apos = "'",
+    nbsp = "\u{a0}",
+    copy = "©",
+    reg = "®",
+    hellip = "…",
+    mdash = "—",
+    ndash = "–",
+    middot = "·",
+}
+
+--- Tags that never have a closing tag.
+const VOID_TAGS: { [string]: boolean? } = {
+    br = true,
+    hr = true,
+    img = true,
+    input = true,
+    meta = true,
+    link = true,
+    source = true,
+    wbr = true,
+}
+
+--- The columns `line` is indented by, counting a tab as four.
+const function indent_of(line: string): number
+    local columns = 0
+    for index = 1, #line do
+        const char = string.sub(line, index, index)
+        if char == " " then
+            columns += 1
+        elseif char == "\t" then
+            columns += 4 - columns % 4
+        else
+            break
+        end
+    end
+    return columns
+end
+
+--- `line` without its first `columns` columns of indentation.
+const function dedent_by(line: string, columns: number): string
+    local removed = 0
+    local index = 1
+    while removed < columns and index <= #line do
+        const char = string.sub(line, index, index)
+        if char == " " then
+            removed += 1
+        elseif char == "\t" then
+            removed += 4 - removed % 4
+        else
+            break
+        end
+        index += 1
+    end
+    return string.sub(line, index)
+end
+
+const function is_blank(line: string): boolean
+    return string.find(line, "^%s*$") ~= nil
+end
+
+const function trim(text: string): string
+    return string.match(text, "^%s*(.-)%s*$") or ""
+end
+
+const function is_rule(line: string): boolean
+    if indent_of(line) > 3 then
+        return false
+    end
+    const compact = string.gsub(line, "%s", "")
+    return string.find(compact, "^%-%-%-+$") ~= nil
+        or string.find(compact, "^%*%*%*+$") ~= nil
+        or string.find(compact, "^___+$") ~= nil
+end
+
+type ListMarker = {
+    indent: number,
+    ordered: boolean,
+    delimiter: string,
+    number: number,
+    content: number,
+    text: string,
+}
+
+--- The list item marker starting `line`, if it has one.
+const function list_marker(line: string): ListMarker?
+    const indent = indent_of(line)
+    const rest = dedent_by(line, indent)
+    const bullet, gap, text = string.match(rest, "^([%-*+])( +)(.*)$")
+    if bullet and gap and text then
+        return {
+            indent = indent,
+            ordered = false,
+            delimiter = bullet,
+            number = 0,
+            content = indent + 1 + math.min(#gap, 4),
+            text = text,
+        }
+    elseif const lone_bullet = string.match(rest, "^([%-*+])$") then
+        return {
+            indent = indent,
+            ordered = false,
+            delimiter = lone_bullet,
+            number = 0,
+            content = indent + 2,
+            text = "",
+        }
+    end
+    const digits, delimiter, spacing, after = string.match(rest, "^(%d+)([.)])( +)(.*)$")
+    if digits and delimiter and spacing and after and #digits <= 9 then
+        return {
+            indent = indent,
+            ordered = true,
+            delimiter = delimiter,
+            number = tonumber(digits) or 1,
+            content = indent + #digits + 1 + math.min(#spacing, 4),
+            text = after,
+        }
+    end
+    return nil
+end
+
+--- The cells of a table row, split on pipes that aren't escaped or inside code.
+const function table_cells(line: string): { string }
+    local row = trim(line)
+    row = string.gsub(row, "^|", "")
+    if string.sub(row, -1) == "|" and string.sub(row, -2, -2) ~= "\\" then
+        row = string.sub(row, 1, -2)
+    end
+    const cells: { string } = {}
+    local current: { string } = {}
+    local in_code = false
+    local index = 1
+    while index <= #row do
+        const char = string.sub(row, index, index)
+        if char == "\\" and string.sub(row, index + 1, index + 1) == "|" then
+            table.insert(current, "|")
+            index += 2
+            continue
+        elseif char == "`" then
+            in_code = not in_code
+        elseif char == "|" and not in_code then
+            table.insert(cells, trim(table.concat(current)))
+            current = {}
+            index += 1
+            continue
+        end
+        table.insert(current, char)
+        index += 1
+    end
+    table.insert(cells, trim(table.concat(current)))
+    return cells
+end
+
+--- The alignment of each column from a table's separator row, or nil when `line` isn't one.
+const function table_alignments(line: string): { string }?
+    if not string.find(line, "-", 1, true) then
+        return nil
+    end
+    const alignments: { string } = {}
+    for _, cell in table_cells(line) do
+        if not string.find(cell, "^:?%-+:?$") then
+            return nil
+        end
+        const left = string.sub(cell, 1, 1) == ":"
+        const right = string.sub(cell, -1) == ":"
+        const alignment = if left and right then "center" elseif right then "right" elseif left then "left" else ""
+        table.insert(alignments, alignment)
+    end
+    return alignments
+end
+
+--- The tag `line` opens when it holds nothing but an opening tag, like `<details>`; nil otherwise.
+const function lone_opening_tag(line: string): string?
+    const name = string.match(line, "^ ? ? ?<([%a][%w%-]*)[^>]*>%s*$")
+        or return nil
+    const tag = string.lower(name)
+    if VOID_TAGS[tag] or string.find(line, "/>%s*$") then
+        return nil
+    end
+    return tag
+end
+
+const function starts_html(line: string): boolean
+    return string.find(line, "^ ? ? ?</?[%a]") ~= nil or string.find(line, "^ ? ? ?<!%-%-") ~= nil
+end
+
+const function decode_entity(name: string): string?
+    if const hex = string.match(name, "^#[xX](%x+)$") when const code = tonumber(hex, 16) then
+        return utf8.char(code)
+    elseif const decimal = string.match(name, "^#(%d+)$") when const code = tonumber(decimal) then
+        return utf8.char(code)
+    end
+    return NAMED_ENTITIES[name]
+end
+
+--- The plain text of `nodes`, for titles taken from a heading.
+const function text_of(nodes: { read Markup }): string
+    const parts: { string } = {}
+    for _, node in nodes do
+        if class.isinstance(node, Text) then
+            table.insert(parts, node.content)
+        elseif class.isinstance(node, Code) then
+            table.insert(parts, node.source)
+        else
+            table.insert(parts, text_of(node:child_nodes()))
+        end
+    end
+    return table.concat(parts)
+end
+
+--[=[
+    Reads Markdown into chimera elements: headings, paragraphs, emphasis, links, images, lists, block quotes, code,
+    tables and front matter. HTML inside the Markdown goes through the [Parser], so components written as HTML
+    come back as components. An HTML tag alone on its line wraps the Markdown up to its closing tag, the way
+    seal's docs put `<details>` around a function's documentation.
+
+    Registered [Shape][markup.Shape]s are recognized in what it reads. A docs site can turn its own Markdown
+    conventions, like `> **Note:**` quotes, into components that way.
+
+    [markup = require("@core/markup")]
+
+    ```luwu
+    const markdown = Markdown()
+    const nodes = markdown:parse(fs.readfile("README.md"))
+    const page = markdown:parse_document(fs.readfile("install.md"))
+    ```
+]=]
+export class Markdown
+    --- Problems that didn't stop reading, like HTML the parser couldn't place.
+    public warnings: { string } = {}
+    private fences: { [string]: FenceBuilder? } = {}
+    private shapes = true
+    private md_targets = true
+    private inline_language: Language = "luwu"
+
+    --[=[
+        Builds fenced code blocks in `language` with `build` instead of a [CodeBlock]. `build` gets the code and the
+        fence's whole info string. Use it for blocks that are really diagrams, examples or other components.
+
+        ## Usage
+
+        ```luwu
+        Markdown():fence("mermaid", function(source)
+            return Diagram(source)
+        end)
+        ```
+    ]=]
+    public function fence(self, language: string, build: FenceBuilder): Markdown
+        self.fences[string.lower(language)] = build
+        return self
+    end
+
+    --[=[
+        Whether reading recognizes registered [Shape][markup.Shape]s. On by default.
+
+        [markup = require("@core/markup")]
+
+        ## Usage
+
+        ```luwu
+        Markdown():recognize_shapes(false):parse(text)
+        ```
+    ]=]
+    public function recognize_shapes(self, on: boolean): Markdown
+        self.shapes = on
+        return self
+    end
+
+    --[=[
+        Whether relative links to `.md` files become links to the `.html` pages built from them. On by default, so
+        `[Install](install.md)` links to `install.html`.
+
+        ## Usage
+
+        ```luwu
+        Markdown():md_links(false)
+        ```
+    ]=]
+    public function md_links(self, on: boolean): Markdown
+        self.md_targets = on
+        return self
+    end
+
+    --[=[
+        The language of inline code in backticks, `"luwu"` by default. A [Code] in this language writes back as
+        backticks.
+
+        ## Usage
+
+        ```luwu
+        Markdown():code_language("plaintext")
+        ```
+    ]=]
+    public function code_language(self, language: Language): Markdown
+        self.inline_language = language
+        return self
+    end
+
+    --[=[
+        Splits off a Markdown file's front matter: the `key: value` lines between `---` lines at its very start.
+        Returns the values and the Markdown after them.
+
+        ## Usage
+
+        ```luwu
+        const meta, body = Markdown.front_matter("---\ntitle: Install\n---\n# Install")
+        ```
+    ]=]
+    public function front_matter(text: string): (FrontMatter, string)
+        const meta: FrontMatter = {}
+        const block, rest = string.match(text, "^%-%-%-[ \t]*\r?\n(.-)\r?\n%-%-%-[ \t]*\r?\n?(.*)$")
+        if not block or not rest then
+            return meta, text
+        end
+        for line in string.gmatch(block, "[^\n]+") do
+            const key, value = string.match(line, "^%s*([%w_%-]+)%s*:%s*(.-)%s*$")
+            if key and value then
+                const quoted = string.match(value, "^\"(.*)\"$") or string.match(value, "^'(.*)'$")
+                meta[string.lower(key)] = if quoted then (string.gsub(quoted, "\\(.)", "%1")) else value
+            end
+        end
+        return meta, rest
+    end
+
+    --[=[
+        Reads Markdown into the nodes it describes, one per block.
+
+        ## Usage
+
+        ```luwu
+        for _, node in Markdown():parse("# Hi\n\nSome *text*.") do
+            print(node)
+        end
+        ```
+    ]=]
+    public function parse(self, text: string): { Markup }
+        const normalized = string.gsub(text, "\r\n?", "\n")
+        const blocks = self:blocks(string.split(normalized, "\n"))
+        if not self.shapes then
+            return blocks
+        end
+        return { for _, block in blocks give Shape.recognize_all(block) }
+    end
+
+    --[=[
+        Reads a Markdown file into a whole page. Its title comes from the front matter's `title`, or else its first
+        level 1 heading. Its description comes from the front matter's `description`. The content goes in the
+        body's `<main>`.
+
+        ## Usage
+
+        ```luwu
+        const page = Markdown():parse_document(fs.readfile("install.md"))
+        fs.writefile("install.html", page:to_html(true))
+        ```
+    ]=]
+    public function parse_document(self, text: string): Document
+        const meta, body = Markdown.front_matter(text)
+        const nodes = self:parse(body)
+        const document = Document(meta.title or Markdown.title_of(nodes))
+        if const description = meta.description then
+            document:describe(description)
+        end
+        return document:add(self:holding(Main(), nodes))
+    end
+
+    --[=[
+        A site page read from a Markdown file's text. Its title comes from the front matter's `title`, then its
+        first level 1 heading, then `file`. Its description comes from the front matter's `description`. `file` is
+        where the page goes, like `"install.html"`.
+
+        ## Usage
+
+        ```luwu
+        site:add_page(Markdown():page(fs.readfile("docs/install.md"), "install.html"))
+        ```
+    ]=]
+    public function page(self, text: string, file: string?): Page
+        const meta, body = Markdown.front_matter(text)
+        const nodes = self:parse(body)
+        const fallback = if file then string.match(file, "([^/]+)%.html$") else nil
+        const page = Page(meta.title or Markdown.title_of(nodes) or fallback or "Untitled", nil, file)
+        self:holding(page.main, nodes)
+        if const description = meta.description then
+            page:describe(description)
+        end
+        return page
+    end
+
+    --[=[
+        Site pages for every Markdown file in `folder`, for [Site:add_pages][site.Site.add_pages]. `index.md`
+        becomes `index.html` and `install.md` becomes `install.html`. A subfolder's files become pages under the page
+        of the same name: `guide.md` gets the pages in `guide/`, or `guide/index.md` is that page when there's no
+        `guide.md`. Pages come in the order their front matter's `order` gives, then by file name, with `index.md`
+        first. Links between the files point at the pages built from them.
+
+        [site = require("@site/site")]
+
+        ## Usage
+
+        ```luwu
+        Site("Docs")
+            :add_pages(Markdown():pages("docs"))
+            :build("site")
+        ```
+    ]=]
+    public function pages(self, folder: string): { Page }
+        return self:folder_pages(folder, true)
+    end
+
+    private function folder_pages(self, folder: string, top: boolean): { Page }
+        const entries: { FolderEntry } = {}
+        const by_name: { [string]: Page? } = {}
+        const folders: { string } = {}
+        for _, path in fs.listdir(folder) do
+            const name = fs.path.child(path) or path
+            if fs.is(path) == "Directory" then
+                table.insert(folders, path)
+            elseif const stem = string.match(name, "^(.+)%.md$") when top or stem ~= "index" then
+                const text = fs.readfile(path)
+                const meta = Markdown.front_matter(text)
+                const page = self:page(text, `{stem}.html`)
+                by_name[stem] = page
+                table.insert(entries, {
+                    page = page,
+                    order = tonumber(meta.order) or math.huge,
+                    name = if stem == "index" then "" else stem,
+                })
+            end
+        end
+        for _, path in folders do
+            const name = fs.path.child(path) or path
+            const children = self:folder_pages(path, false)
+            if const parent = by_name[name] then
+                parent:add_page(table.unpack(children))
+                continue
+            end
+            const index = fs.path.join(path, "index.md")
+            const has_index = fs.path.exists(index)
+            if not has_index and #children == 0 then
+                continue
+            end
+            const text = if has_index then fs.readfile(index) else `# {name}`
+            const meta = Markdown.front_matter(text)
+            table.insert(entries, {
+                page = self
+                    :page(text, `{name}/index.html`)
+                    :add_page(table.unpack(children)),
+                order = tonumber(meta.order) or math.huge,
+                name = name,
+            })
+        end
+        table.sort(entries, function(a: FolderEntry, b: FolderEntry)
+            if a.order ~= b.order then
+                return a.order < b.order
+            end
+            return a.name < b.name
+        end)
+        return { for _, entry in entries give entry.page }
+    end
+
+    --[=[
+        The text of the first level 1 heading in `nodes`, the title Markdown files usually start with.
+
+        ## Usage
+
+        ```luwu
+        Markdown.title_of(Markdown():parse("# Install\n\nRun it."))
+        ```
+    ]=]
+    public function title_of(nodes: { read Markup }): string?
+        for _, node in nodes do
+            if class.isinstance(node, Heading) when node.level == 1 then
+                return trim(text_of(node.children))
+            end
+        end
+        return nil
+    end
+
+    private function warn(self, message: string)
+        table.insert(self.warnings, message)
+    end
+
+    --- `element` with `nodes` adopted as its children, warning about any it can't hold.
+    private function holding<E>(self, element: E & Element, nodes: { Markup }): E
+        for _, node in nodes do
+            if not element:adopt(node) then
+                self:warn(`{class.name(element)} can't hold {node:outline()}; dropped it`)
+            end
+        end
+        return element
+    end
+
+    --- Parses HTML found in the Markdown, leaving shapes to the end so they see the whole tree.
+    private function html(self, source: string): { Markup }
+        const parser = Parser():recognize_shapes(false)
+        const nodes = parser:parse(source)
+        for _, warning in parser.warnings do
+            self:warn(`HTML in Markdown: {warning}`)
+        end
+        return nodes
+    end
+
+    private function blocks(self, lines: { string }): { Markup }
+        const nodes: { Markup } = {}
+        local index = 1
+        while index <= #lines do
+            const line = lines[index]
+            if is_blank(line) then
+                index += 1
+                continue
+            end
+            index = self:block(lines, index, nodes)
+        end
+        return nodes
+    end
+
+    --- Reads the block starting at `lines[index]` into `nodes` and returns the index after it.
+    private function block(self, lines: { string }, index: number, nodes: { Markup }): number
+        const line = lines[index]
+        const indent = indent_of(line)
+        const rest = dedent_by(line, math.min(indent, 3))
+
+        const backticks, backtick_info = string.match(rest, "^(```+)([^`]*)$")
+        const tildes, tilde_info = string.match(rest, "^(~~~+)(.*)$")
+        const marks, title = string.match(rest, "^(#+)%s+(.-)%s*$")
+        if indent <= 3 and backticks and backtick_info then
+            return self:fenced(lines, index, indent, backticks, trim(backtick_info), nodes)
+        elseif indent <= 3 and tildes and tilde_info then
+            return self:fenced(lines, index, indent, tildes, trim(tilde_info), nodes)
+        elseif indent <= 3 and marks and title and #marks <= 6 then
+            const text = string.gsub(title, "%s+#+$", "")
+            table.insert(nodes, Heading(self:inline(text), #marks))
+            return index + 1
+        elseif indent <= 3 when const bare_marks = string.match(rest, "^(#+)%s*$") when #bare_marks <= 6 then
+            table.insert(nodes, Heading(nil, #bare_marks))
+            return index + 1
+        elseif is_rule(line) then
+            table.insert(nodes, HorizontalRule())
+            return index + 1
+        elseif indent <= 3 and string.sub(rest, 1, 1) == ">" then
+            return self:quote(lines, index, nodes)
+        elseif list_marker(line) then
+            return self:list(lines, index, nodes)
+        elseif indent <= 3 and starts_html(line) then
+            return self:html_block(lines, index, nodes)
+        elseif
+            indent <= 3
+            and string.find(line, "|", 1, true)
+            when const next_line = lines[index + 1]
+            when table_alignments(next_line)
+        then
+            return self:pipe_table(lines, index, nodes)
+        end
+        return self:paragraph(lines, index, nodes)
+    end
+
+    private function fenced(
+        self,
+        lines: { string },
+        index: number,
+        indent: number,
+        fence: string,
+        info: string,
+        nodes: { Markup }
+    ): number
+        const marker = string.sub(fence, 1, 1)
+        const code: { string } = {}
+        local at = index + 1
+        while at <= #lines do
+            const closing = string.match(dedent_by(lines[at], 3), `^({marker}+)%s*$`)
+            if closing and #closing >= #fence and indent_of(lines[at]) <= 3 then
+                at += 1
+                break
+            end
+            table.insert(code, dedent_by(lines[at], indent))
+            at += 1
+        end
+        const source = table.concat(code, "\n")
+        const words = { for word in string.gmatch(info, "%S+") give word }
+        const name = string.lower(words[1] or "")
+        if const build = self.fences[name] then
+            const content = build(source, info)
+            table.insert(nodes, markup.Fragment(content))
+            return at
+        end
+        const block = CodeBlock(source, LANGUAGE_NAMES[name] or "plaintext")
+        for position = 2, #words do
+            const setting = words[position]
+            if setting == "copyable" then
+                block:copyable()
+            elseif setting == "line-numbers" then
+                block:line_numbers()
+            elseif setting == "plain" then
+                block:plain()
+            end
+        end
+        table.insert(nodes, block)
+        return at
+    end
+
+    private function quote(self, lines: { string }, index: number, nodes: { Markup }): number
+        const quoted: { string } = {}
+        local at = index
+        while at <= #lines do
+            const line = lines[at]
+            const stripped = string.match(line, "^ ? ? ?> ?(.*)$")
+            if stripped then
+                table.insert(quoted, stripped)
+            elseif not is_blank(line) and #quoted > 0 and not is_blank(quoted[#quoted]) then
+                table.insert(quoted, line)
+            else
+                break
+            end
+            at += 1
+        end
+        table.insert(nodes, self:holding(BlockQuote(), self:blocks(quoted)))
+        return at
+    end
+
+    private function list(self, lines: { string }, index: number, nodes: { Markup }): number
+        const first = list_marker(lines[index]) or error("expected a list item")
+        const items: { { string } } = {}
+        local loose = false
+        local at = index
+        while at <= #lines do
+            const marker = list_marker(lines[at])
+            if
+                not marker
+                or marker.indent >= first.content
+                or marker.ordered ~= first.ordered
+                or marker.delimiter ~= first.delimiter
+            then
+                break
+            end
+            const item = { marker.text }
+            at += 1
+            while at <= #lines do
+                const line = lines[at]
+                if is_blank(line) then
+                    local next_text = at + 1
+                    while next_text <= #lines and is_blank(lines[next_text]) do
+                        next_text += 1
+                    end
+                    const following = lines[next_text]
+                    if following and indent_of(following) >= marker.content then
+                        table.insert(item, "")
+                        at += 1
+                        continue
+                    end
+                    if following when const sibling = list_marker(following) when sibling.indent == first.indent then
+                        loose = true
+                    end
+                    break
+                elseif indent_of(line) >= marker.content then
+                    table.insert(item, dedent_by(line, marker.content))
+                elseif list_marker(line) or is_rule(line) or starts_html(line) or string.find(line, "^%s*[#>]") then
+                    break
+                elseif not is_blank(item[#item]) then
+                    table.insert(item, trim(line))
+                else
+                    break
+                end
+                at += 1
+            end
+            table.insert(items, item)
+        end
+        const list_items: { ListItem } = {}
+        for _, item in items do
+            for position = 2, #item - 1 do
+                if item[position] == "" and not is_blank(item[position + 1]) then
+                    loose = true
+                end
+            end
+        end
+        for _, item in items do
+            const list_item = ListItem()
+            for _, child in self:blocks(item) do
+                if not loose and class.isinstance(child, Paragraph) then
+                    list_item:add(child.children)
+                else
+                    self:holding(list_item, { child })
+                end
+            end
+            table.insert(list_items, list_item)
+        end
+        if first.ordered then
+            const list = OrderedList(list_items)
+            if first.number ~= 1 then
+                list:attr("start", first.number)
+            end
+            table.insert(nodes, list)
+        else
+            table.insert(nodes, UnorderedList(list_items))
+        end
+        return at
+    end
+
+    private function html_block(self, lines: { string }, index: number, nodes: { Markup }): number
+        if const tag = lone_opening_tag(lines[index]) then
+            local depth = 1
+            for at = index + 1, #lines do
+                const line = lines[at]
+                if lone_opening_tag(line) == tag then
+                    depth += 1
+                elseif string.find(string.lower(line), `^ ? ? ?</{tag}%s*>%s*$`) then
+                    depth -= 1
+                    if depth == 0 then
+                        const wrapper = self:html(`{trim(lines[index])}</{tag}>`)[1]
+                        if wrapper and class.implements(wrapper, Element) then
+                            const inner = { for position = index + 1, at - 1 give lines[position] }
+                            table.insert(nodes, self:holding(wrapper, self:blocks(inner)))
+                            return at + 1
+                        end
+                        break
+                    end
+                end
+            end
+        end
+        const chunk: { string } = {}
+        local at = index
+        while at <= #lines and not is_blank(lines[at]) do
+            table.insert(chunk, lines[at])
+            at += 1
+        end
+        for _, node in self:html(table.concat(chunk, "\n")) do
+            table.insert(nodes, node)
+        end
+        return at
+    end
+
+    private function pipe_table(self, lines: { string }, index: number, nodes: { Markup }): number
+        const alignments = table_alignments(lines[index + 1]) or {}
+        const function cell_of(text: string, column: number, header: boolean): TableHeaderCell | TableCell
+            const cell = if header then TableHeaderCell(self:inline(text)) else TableCell(self:inline(text))
+            const align = alignments[column]
+            if align and align ~= "" then
+                cell:attr("align", align)
+            end
+            return cell
+        end
+        const header_cells = { for column, text in table_cells(lines[index]) give cell_of(text, column, true) }
+        const rows: { TableRow } = {}
+        local at = index + 2
+        while at <= #lines and not is_blank(lines[at]) and string.find(lines[at], "|", 1, true) do
+            const cells = { for column, text in table_cells(lines[at]) give cell_of(text, column, false) }
+            table.insert(rows, TableRow(cells))
+            at += 1
+        end
+        const result = Table()
+        result:adopt(TableHead({ TableRow(header_cells) }))
+        if #rows > 0 then
+            result:adopt(TableBody(rows))
+        end
+        table.insert(nodes, result)
+        return at
+    end
+
+    private function paragraph(self, lines: { string }, index: number, nodes: { Markup }): number
+        const text: { string } = { (string.gsub(lines[index], "^%s+", "")) }
+        local at = index + 1
+        while at <= #lines do
+            const line = lines[at]
+            if is_blank(line) then
+                break
+            elseif string.find(line, "^ ? ? ?=+%s*$") then
+                table.insert(nodes, Heading(self:inline(table.concat(text, "\n")), 1))
+                return at + 1
+            elseif string.find(line, "^ ? ? ?%-+%s*$") then
+                table.insert(nodes, Heading(self:inline(table.concat(text, "\n")), 2))
+                return at + 1
+            elseif
+                is_rule(line)
+                or string.find(line, "^ ? ? ?[#>]")
+                or string.find(line, "^ ? ? ?```")
+                or string.find(line, "^ ? ? ?~~~")
+                or (starts_html(line) and lone_opening_tag(line) ~= nil)
+            then
+                break
+            elseif const marker = list_marker(line) when not marker.ordered or marker.number == 1 then
+                break
+            end
+            -- Keep trailing spaces: two of them end a line with a break.
+            table.insert(text, (string.gsub(line, "^%s+", "")))
+            at += 1
+        end
+        table.insert(nodes, Paragraph(self:inline(table.concat(text, "\n"))))
+        return at
+    end
+
+    --- A link target with `.md` pages pointing at the `.html` pages built from them.
+    private function target(self, href: string): string
+        if not self.md_targets or string.find(href, "^%a[%w+.%-]*:") or string.find(href, "^#") then
+            return href
+        end
+        const path, anchor = string.match(href, "^(.-)(#.*)$")
+        const file = path or href
+        if string.find(file, "%.md$") then
+            return string.gsub(file, "%.md$", ".html") .. (anchor or "")
+        end
+        return href
+    end
+
+    --[=[
+        Reads a link or image's `[text](target "title")` starting at the `[` at `start`. Returns the text, the
+        target, the title and the position after it, or nil when there's no link there.
+    ]=]
+    private function link_parts(self, text: string, start: number): (string?, string, string?, number)
+        local depth = 0
+        local at = start
+        local close: number? = nil
+        while at <= #text do
+            const char = string.sub(text, at, at)
+            if char == "\\" then
+                at += 2
+                continue
+            elseif char == "`" then
+                const run = string.match(text, "^`+", at) or "`"
+                const _, finish = string.find(text, run, at + #run, true)
+                at = if finish then finish + 1 else at + #run
+                continue
+            elseif char == "[" then
+                depth += 1
+            elseif char == "]" then
+                depth -= 1
+                if depth == 0 then
+                    close = at
+                    break
+                end
+            end
+            at += 1
+        end
+        const bracket = close or (return nil, "", nil, start)
+        if string.sub(text, bracket + 1, bracket + 1) ~= "(" then
+            return nil, "", nil, start
+        end
+        const label = string.sub(text, start + 1, bracket - 1)
+        const inside, after = string.match(text, "^%(%s*(.-)%s*%)()", bracket + 1)
+        if not inside or not after then
+            return nil, "", nil, start
+        end
+        const destination, title = string.match(inside, "^(%S+)%s+[\"'](.*)[\"']$")
+        const href = destination or inside
+        const unwrapped = string.match(href, "^<(.*)>$") or href
+        return label, unwrapped, title, after
+    end
+
+    --- The end of the inline HTML starting at `start`: the tag, or the tag through its matching closing tag.
+    private function html_span_end(self, text: string, start: number): number?
+        if string.sub(text, start, start + 3) == "<!--" then
+            const _, finish = string.find(text, "-->", start + 4, true)
+            return finish
+        end
+        const name, tag_end = string.match(text, "^<([%a][%w%-]*)[^>]*>()", start)
+        if not name or not tag_end then
+            return nil
+        end
+        const tag = string.lower(name)
+        if VOID_TAGS[tag] or string.sub(text, tag_end - 2, tag_end - 2) == "/" then
+            return tag_end - 1
+        end
+        local depth = 1
+        local at = tag_end
+        while at <= #text do
+            const open_at = string.find(text, `<{tag}[%s>/]`, at)
+            const close_start, close_end = string.find(text, `</{tag}%s*>`, at)
+            if not close_start or not close_end then
+                return tag_end - 1
+            end
+            if open_at and open_at < close_start then
+                depth += 1
+                at = open_at + 1
+            else
+                depth -= 1
+                at = close_end + 1
+                if depth == 0 then
+                    return close_end
+                end
+            end
+        end
+        return tag_end - 1
+    end
+
+    --- Where an emphasis run of `marker` opened at `start` closes, searching after `from`.
+    private function closing_marker(self, text: string, marker: string, from: number): number?
+        local at = from
+        while at <= #text do
+            const found = string.find(text, marker, at, true) or return nil
+            const before = string.sub(text, found - 1, found - 1)
+            const after = string.sub(text, found + #marker, found + #marker)
+            const escaped = before == "\\"
+            const flanking = not string.find(before, "%s") and before ~= ""
+            const intraword = string.sub(marker, 1, 1) == "_" and string.find(after, "[%w]") ~= nil
+            if flanking and not escaped and not intraword then
+                return found
+            end
+            at = found + 1
+        end
+        return nil
+    end
+
+    --- Reads inline Markdown into the content it describes.
+    private function inline(self, text: string): { string | Child }
+        const result: { string | Child } = {}
+        const pending: { string } = {}
+        const function flush()
+            if #pending > 0 then
+                table.insert(result, table.concat(pending))
+                table.clear(pending)
+            end
+        end
+        local at = 1
+        while at <= #text do
+            const char = string.sub(text, at, at)
+            const next_char = string.sub(text, at + 1, at + 1)
+            if char == "\\" and next_char == "\n" then
+                flush()
+                table.insert(result, LineBreak())
+                at += 2
+                continue
+            elseif char == "\\" and string.find(next_char, "^%p$") then
+                table.insert(pending, next_char)
+                at += 2
+                continue
+            elseif char == "\n" then
+                const before = table.concat(pending)
+                if string.find(before, "  +$") then
+                    table.clear(pending)
+                    table.insert(pending, (string.gsub(before, " +$", "")))
+                    flush()
+                    table.insert(result, LineBreak())
+                else
+                    table.insert(pending, "\n")
+                end
+                at += 1
+                continue
+            elseif char == "`" then
+                const run = string.match(text, "^`+", at) or "`"
+                local search = at + #run
+                local close: number? = nil
+                while search <= #text do
+                    const found_start, found_end = string.find(text, "`+", search)
+                    if not found_start or not found_end then
+                        break
+                    end
+                    if found_end - found_start + 1 == #run then
+                        close = found_start
+                        break
+                    end
+                    search = found_end + 1
+                end
+                if const close_at = close then
+                    flush()
+                    local source = string.gsub(string.sub(text, at + #run, close_at - 1), "\n", " ")
+                    if string.find(source, "^ .* $") and string.find(source, "%S") then
+                        source = string.sub(source, 2, -2)
+                    end
+                    table.insert(result, Code(source, self.inline_language))
+                    at = close_at + #run
+                    continue
+                end
+                table.insert(pending, run)
+                at += #run
+                continue
+            elseif char == "!" and next_char == "[" then
+                const label, href, title, after = self:link_parts(text, at + 1)
+                if label then
+                    flush()
+                    const image = Image(self:target(href), label)
+                    if title then
+                        image:attr("title", title)
+                    end
+                    table.insert(result, image)
+                    at = after
+                    continue
+                end
+            elseif char == "[" then
+                const label, href, title, after = self:link_parts(text, at)
+                if label then
+                    flush()
+                    const link = Link(self:inline(label), self:target(href))
+                    if title then
+                        link:attr("title", title)
+                    end
+                    table.insert(result, link)
+                    at = after
+                    continue
+                end
+            elseif char == "<" then
+                const url, url_end = string.match(text, "^<([%a][%w+.%-]*:[^%s<>]*)>()", at)
+                const email, email_end = string.match(text, "^<([^%s@<>]+@[^%s@<>]+)>()", at)
+                if url and url_end then
+                    flush()
+                    table.insert(result, Link(url, url))
+                    at = url_end
+                    continue
+                elseif email and email_end then
+                    flush()
+                    table.insert(result, Link(email, `mailto:{email}`))
+                    at = email_end
+                    continue
+                elseif const finish = self:html_span_end(text, at) then
+                    flush()
+                    for _, node in self:html(string.sub(text, at, finish)) do
+                        if class.implements(node, markup.Child) then
+                            table.insert(result, node)
+                        end
+                    end
+                    at = finish + 1
+                    continue
+                end
+            elseif char == "&" then
+                const name, after = string.match(text, "^&(#?%w+);()", at)
+                if name and after when const decoded = decode_entity(name) then
+                    table.insert(pending, decoded)
+                    at = after
+                    continue
+                end
+            elseif char == "*" or char == "_" then
+                const run = string.match(text, `^%{char}+`, at) or char
+                const before = string.sub(text, at - 1, at - 1)
+                const after_run = string.sub(text, at + #run, at + #run)
+                const opens = after_run ~= "" and not string.find(after_run, "%s")
+                    and not (char == "_" and string.find(before, "[%w]"))
+                if opens then
+                    const size = math.min(#run, 3)
+                    const marker = string.rep(char, size)
+                    if const close = self:closing_marker(text, marker, at + size + 1) then
+                        flush()
+                        const inner = self:inline(string.sub(text, at + size, close - 1))
+                        table.insert(result, if size == 1
+                            then Emphasis(inner)
+                            elseif size == 2 then Strong(inner)
+                            else Strong({ Emphasis(inner) }))
+                        at = close + size
+                        continue
+                    end
+                end
+                table.insert(pending, run)
+                at += #run
+                continue
+            end
+            table.insert(pending, char)
+            at += 1
+        end
+        flush()
+        return result
+    end
+end
+
+--- Turns nodes into Markdown, the way [Markup:to_markdown][markup.Markup.to_markdown] does for one node.
+---
+--- [markup = require("@core/markup")]
+export function to_markdown(nodes: { read Markup }): string
+    return markup.MarkdownWriter():blocks(nodes)
+end

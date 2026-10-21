@@ -3,9 +3,9 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container } = require("@core/markup")
+const .{ Element, Component, Container, MarkdownWriter } = require("@core/markup")
 const properties = require("@style/properties")
-type .{ Content } = markup
+type .{ Content, MarkdownWriter } = markup
 type .{ Length, ItemAlignment, ContentAlignment } = properties
 
 const ARRANGEMENTS = { "chimera-row", "chimera-column", "chimera-grid" }
@@ -231,6 +231,14 @@ export class Main implements Component, Layout
     function __init(self, content: Content?)
         self:add(content)
     end
+
+    --- A page's content is the whole of a Markdown file, so a plain `main` writes as its children alone.
+    function markdown(self, out: MarkdownWriter): string
+        if not self:only_attributes() then
+            return Container.markdown(self, out)
+        end
+        return out:blocks(self.children)
+    end
 end
 
 --- A `"nav"` element that holds navigation links. See [Menu][components.Menu] for a styled navigation bar.
@@ -283,6 +291,18 @@ export class Image implements Component
         self
             :attr("src", src)
             :attr("alt", alt)
+    end
+
+    function markdown(self, out: MarkdownWriter): string
+        const src = self:get_attr("src")
+        if type(src) ~= "string" or not self:only_attributes("src", "alt", "title") then
+            return self:to_html()
+        end
+        const alt = self:get_attr("alt")
+        const title = self:get_attr("title")
+        const quoted = if type(title) == "string" then ` "{string.gsub(title, "\"", "\\\"")}"` else ""
+        const description = if type(alt) == "string" then MarkdownWriter.escape(alt) else ""
+        return `![{description}]({string.gsub(src, " ", "%%20")}{quoted})`
     end
 end
 

@@ -12,6 +12,7 @@
     "elements": "./src/elements/",
     "document": "./src/document/",
     "components": "./src/components/",
-    "parse": "./src/parse/"
+    "parse": "./src/parse/",
+    "serde": "./src/serde/"
   }
 }

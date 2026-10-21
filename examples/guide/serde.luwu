@@ -1,0 +1,234 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const chimera = require("@chimera")
+const .{
+    Parser,
+    Component,
+    Container,
+    core.{ Shape, Text, MarkdownWriter },
+    elements.{ Heading, Paragraph, Strong, BlockQuote, Div, UnorderedList },
+    components.{ Code, CodeBlock, Card },
+    serde.{ Markdown, Json },
+    site.{ Page, PageLink, TableOfContents },
+} = chimera
+type .{ Content, Markup, Element } = chimera.core
+const .{ examples_in } = require("./example")
+const .{ h1, h2, h3 } = Heading
+
+const example = examples_in("examples/guide/serde.luwu")
+
+--- How `print` shows nodes, without the terminal colors.
+const function printed(nodes: { read Markup }): string
+    const lines = { for _, node in nodes give (string.gsub(node:display(), "\27%[[%d;]*m", "")) }
+    return table.concat(lines, "\n")
+end
+
+--@ read
+const nodes = Markdown():parse(CodeBlock.dedent([==[
+    # Install
+
+    Run `seal setup`, then read the [guide](guide.md).
+
+    - Clone **chimera**
+    - Point an alias at it
+]==]))
+--@ end
+
+const SEAL_STYLE = CodeBlock.dedent([==[
+    <details>
+
+    <summary> See the docs </summary
+
+    Reads the file at `path` to string.
+
+    ## Errors
+
+    - if `path` is not valid utf-8
+
+    </details>
+]==])
+
+const seal_nodes = Markdown():parse(SEAL_STYLE)
+
+--@ write
+const card = Card("Fast", {
+    Paragraph({ "Renders ", Strong("thousands"), " of pages a second." }),
+    UnorderedList({ "No server", "No build step" }),
+})
+const markdown = card:to_markdown()
+--@ end
+
+--@ json
+const text = Json.encode(Paragraph({ "Hi ", Strong("there") }), true)
+const again = Json.decode(text)
+--@ end
+
+--- The plain text of a node, for checking what a shape matched.
+const function text_of(node: Markup): string
+    if class.isinstance(node, Text) then
+        return node.content
+    end
+    return table.concat({ for _, child in node:child_nodes() give text_of(child) })
+end
+
+--@ shape
+class Callout implements Shape, Container
+    function tag(): string
+        return "aside"
+    end
+    function __init(self, content: Content?)
+        self
+            :add_style_class("callout")
+            :add(content)
+    end
+    -- A quote that starts with **Note:**, or another site's <div class="alert">.
+    function recognize(node: Element): Shape?
+        if
+            class.isinstance(node, BlockQuote)
+            when const first = node.children[1]
+            when class.isinstance(first, Paragraph)
+            when const lead = first.children[1]
+            when class.isinstance(lead, Strong)
+            when text_of(lead) == "Note:"
+        then
+            table.remove(first.children, 1)
+            if
+                const rest = first.children[1]
+                when class.isinstance(rest, Text)
+            then
+                rest.content = string.gsub(rest.content, "^%s+", "")
+            end
+            return Callout(node.children)
+        elseif class.isinstance(node, Div) and node:has_style_class("alert") then
+            return Callout(node.children)
+        end
+        return nil
+    end
+    function markdown(self, out: MarkdownWriter): string
+        const text = `**Note:** {out:blocks(self.children)}`
+        return "> " .. string.gsub(text, "\n", "\n> ")
+    end
+end
+Component.register(Callout)
+Shape.register_shape(Callout)
+
+const from_markdown = Markdown():parse("> **Note:** Back up first.")
+const from_html = Parser():parse(`<div class="alert"><p>Careful.</p></div>`)
+--@ end
+
+return Page("Markdown and JSON", {
+    h1("Markdown and JSON"),
+    Paragraph({
+        "A project's docs are often a folder of Markdown files, like seal's API reference. chimera reads Markdown ",
+        "into the same objects it builds pages from, so you can add search, themes and components to those docs ",
+        "and write them back out as HTML, Markdown or JSON. JSON gives other tools the same tree without an HTML ",
+        "parser of their own.",
+    }),
+    TableOfContents(),
+
+    h2("Reading Markdown"),
+    Paragraph({
+        Code("Markdown():parse"), " returns one node per block. It reads headings, paragraphs, emphasis, links, ",
+        "images, lists, quotes, code, tables and HTML:",
+    }),
+    example("read", CodeBlock(printed(nodes), "plaintext")),
+    Paragraph({
+        "Inline code is Luwu unless you set ", Code("code_language"), ". Fenced code takes the language after the ",
+        "fence, and ", Code("copyable", "plaintext"), " or ", Code("line-numbers", "plaintext"),
+        " after that turn on those settings. Links to ", Code(".md", "plaintext"), " files point at the ",
+        Code(".html", "plaintext"), " pages built from them, so the guide link above goes to ",
+        Code("guide.html", "plaintext"), ". Problems that don't stop reading, like HTML the parser can't place, ",
+        "end up in the reader's ", Code("warnings"), ".",
+    }),
+    Paragraph({
+        Code("parse_document"), " reads a whole file into a ", Code("Document"), ". Its title comes from the ",
+        "front matter's ", Code("title", "plaintext"), " or else the first level 1 heading, and its description ",
+        "from ", Code("description", "plaintext"), ":",
+    }),
+    CodeBlock([====[
+        const page = Markdown():parse_document(fs.readfile("install.md"))
+        fs.writefile("install.html", page:to_html(true))
+    ]====]),
+
+    h3("A folder of Markdown"),
+    Paragraph({
+        Code("pages"), " reads every Markdown file in a folder into site pages. ", Code("index.md", "plaintext"),
+        " becomes ", Code("index.html", "plaintext"), " and a subfolder's files become pages under the page of the ",
+        "same name, so ", Code("guide.md", "plaintext"), " gets the pages in ", Code("guide/", "plaintext"),
+        ". Pages sort by their front matter's ", Code("order", "plaintext"), ", then by name:",
+    }),
+    CodeBlock([====[
+        Site("My docs")
+            :search()
+            :add_pages(Markdown():pages("docs"))
+            :build("site")
+    ]====]),
+
+    h3("HTML inside Markdown"),
+    Paragraph({
+        "HTML in Markdown goes through the ", Code("Parser"), ", so components written as HTML come back as ",
+        "components. A tag alone on its line wraps the Markdown up to its closing tag. seal's docs put ",
+        Code("<details>", "html"), " around each function's documentation that way, and even leave a ",
+        Code("</summary", "html"), " unclosed:",
+    }),
+    CodeBlock(SEAL_STYLE, "markdown"),
+    Paragraph("chimera reads it into a Details with its Summary, the way a browser would:"),
+    CodeBlock(printed(seal_nodes), "plaintext"),
+
+    h2("Writing Markdown"),
+    Paragraph({
+        "Every node has ", Code("to_markdown"), ". Parts Markdown has no syntax for, like a component or an ",
+        "element with a style class, keep their HTML. A container of blocks writes its tags on lines of their ",
+        "own with Markdown between them, so the text stays readable and reads back as the same component:",
+    }),
+    example("write", CodeBlock(markdown, "markdown")),
+    Paragraph({
+        "Your own elements write Markdown in a ", Code("markdown"), " method. It gets a ", Code("MarkdownWriter"),
+        " for its children: ", Code("out:inline(...)"), " for text inside a line and ", Code("out:blocks(...)"),
+        " for blocks. The callout below writes itself as a quote.",
+    }),
+
+    h2("JSON"),
+    Paragraph({
+        Code("Json.encode"), " writes any node as the tree its HTML has, and ", Code("Json.decode"),
+        " reads it back into the same nodes, components included. ", Code("Json.tree"), " gives the tree as tables ",
+        "for tools written in Luwu:",
+    }),
+    example("json", CodeBlock(text, "json")),
+    Paragraph({
+        "Each element has its ", Code("tag", "plaintext"), ", its component in ", Code("element", "plaintext"),
+        " and its attributes in the order it renders them. Encoding a page and decoding it gives the same HTML: ",
+        Code(tostring(again[1]:to_html() == Paragraph({ "Hi ", Strong("there") }):to_html()), "plaintext"), ".",
+    }),
+
+    h2("Recognizing your components"),
+    Paragraph({
+        "Markdown from someone else won't say which of your components it means. A quote that starts with ",
+        Code("**Note:**", "plaintext"), " is a callout to you and a plain quote to the Markdown reader. A ",
+        Code("Shape"), " is a component that recognizes itself in what the readers read. Its ", Code("recognize"),
+        " gets each parsed element, children first, and returns the component that element stands for. ",
+        "Markdown, HTML and JSON all try every registered shape:",
+    }),
+    example("shape", CodeBlock(printed({ from_markdown[1], from_html[1] }), "plaintext")),
+    Paragraph({
+        "Both came back as callouts. Its ", Code("markdown"), " method writes the quote again, so a callout ",
+        "survives a trip through Markdown: ", Code(from_markdown[1]:to_markdown(), "plaintext"), ".",
+    }),
+    Paragraph({
+        "Fenced code blocks can become components too. ", Code("fence"), " takes a language and a function that ",
+        "builds the content for each block in it:",
+    }),
+    CodeBlock([====[
+        Markdown()
+            :fence("mermaid", function(source)
+                return Diagram(source)
+            end)
+            :parse(fs.readfile("design.md"))
+    ]====]),
+    Paragraph({
+        "For whole pages of HTML, see ", PageLink("guide/parsing-html.html", "Parsing HTML"), ".",
+    }),
+}, "markdown-and-json.html")
+    :describe("Read and write chimera pages as Markdown and JSON")

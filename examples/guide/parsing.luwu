@@ -75,4 +75,9 @@ print(parser.warnings[1])]====]),
         Code("Component.register"), ". Their ", Code("adopt"), " method decides which parsed children they keep ",
         "(see ", PageLink("guide/custom-components.html", "Custom components"), ").",
     }),
+    Paragraph({
+        "HTML that chimera didn't write, like another site's ", Code("<div class=\"alert\">", "html"),
+        ", can come back as your components too when they're ", Code("Shape"), "s (see ",
+        PageLink("guide/markdown-and-json.html", "Markdown and JSON"), ").",
+    }),
 })

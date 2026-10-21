@@ -1,0 +1,343 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const .{ equal, contains, excludes, truthy } = require("./assert")
+const chimera = require("@chimera")
+const .{
+    Parser,
+    Component,
+    Container,
+    core.{ Shape, Text, MarkdownWriter },
+    elements.{
+        Paragraph,
+        Heading,
+        Strong,
+        Emphasis,
+        Link,
+        Image,
+        Div,
+        Main,
+        BlockQuote,
+        UnorderedList,
+        OrderedList,
+        ListItem,
+        HorizontalRule,
+        Details,
+        Summary,
+        Table,
+    },
+    components.{ Code, CodeBlock, Card },
+    serde.{ Markdown, Json },
+    site.{ Site },
+} = chimera
+type .{ Content, Markup } = chimera.core
+type .{ Element } = chimera.core
+const .{ h1, h2 } = Heading
+
+--- The plain text of a node, for checking what a shape matched.
+const function text_of(node: Markup): string
+    if class.isinstance(node, Text) then
+        return node.content
+    end
+    return table.concat({ for _, child in node:child_nodes() give text_of(child) })
+end
+
+--[=[
+    A note box. In Markdown it's a quote that starts with **Note:**, and in other sites' HTML it's a
+    `<div class="alert">`. Both read back as a Callout.
+]=]
+class Callout implements Shape, Container
+    function tag(): string
+        return "aside"
+    end
+
+    function __init(self, content: Content?)
+        self
+            :add_style_class("callout")
+            :add(content)
+    end
+
+    function recognize(node: Element): Shape?
+        if
+            class.isinstance(node, BlockQuote)
+            when const first = node.children[1]
+            when class.isinstance(first, Paragraph)
+            when const lead = first.children[1]
+            when class.isinstance(lead, Strong)
+            when text_of(lead) == "Note:"
+        then
+            table.remove(first.children, 1)
+            if const space = first.children[1] when class.isinstance(space, Text) then
+                space.content = string.gsub(space.content, "^%s+", "")
+            end
+            return Callout(node.children)
+        elseif class.isinstance(node, Div) and node:has_style_class("alert") then
+            return Callout(node.children)
+        end
+        return nil
+    end
+
+    function markdown(self, out: MarkdownWriter): string
+        const lines = string.split(`**Note:** {out:blocks(self.children)}`, "\n")
+        return table.concat({ for _, line in lines give if line == "" then ">" else `> {line}` }, "\n")
+    end
+end
+Component.register(Callout)
+Shape.register_shape(Callout)
+
+const function read(text: string): { Markup }
+    return Markdown():parse(text)
+end
+
+const function html_of(nodes: { read Markup }): string
+    return table.concat({ for _, node in nodes give node:to_html() })
+end
+
+const SEAL_STYLE = [====[
+# fs
+
+<h4>
+
+```luau
+function fs.readfile(path: string): string
+```
+
+</h4>
+
+<details>
+
+<summary> See the docs </summary
+
+Reads the file at `path` to string.
+
+## Errors
+
+- if `path` is not valid utf-8
+
+</details>
+]====]
+
+const tests: { [string]: () -> () } = {
+    ["elements write as markdown"] = function()
+        equal(
+            Paragraph({ "Pay ", Strong("once"), " and ", Emphasis("relax"), "." }):to_markdown(),
+            "Pay **once** and *relax*."
+        )
+        equal(h2("Pricing"):to_markdown(), "## Pricing")
+        equal(Link("guide", "guide.html"):to_markdown(), "[guide](guide.html)")
+        equal(Image("cat.png", "A cat"):to_markdown(), "![A cat](cat.png)")
+        equal(Code("x + 1"):to_markdown(), "`x + 1`")
+        equal(Code("a `b`"):to_markdown(), "`` a `b` ``")
+        equal(CodeBlock("print(1)", "luau"):copyable():to_markdown(), "```luau copyable\nprint(1)\n```")
+        equal(UnorderedList({ "a", ListItem({ "b", OrderedList({ "c" }) }) }):to_markdown(), "- a\n- b\n  1. c")
+        equal(BlockQuote({ Paragraph("one"), Paragraph("two") }):to_markdown(), "> one\n>\n> two")
+        equal(HorizontalRule():to_markdown(), "---")
+        equal(Paragraph("2 * 3 in my_file"):to_markdown(), "2 \\* 3 in my_file")
+    end,
+
+    ["what markdown can't hold writes as html"] = function()
+        equal(Paragraph("lead"):add_style_class("big"):to_markdown(), "<p class=\"big\">lead</p>")
+        equal(Code("ls", "bash"):to_markdown(), Code("ls", "bash"):to_html())
+        equal(
+            Card("Fast", Paragraph("Quick.")):to_markdown(),
+            "<div data-element=\"Card\" class=\"chimera-card\">\n\n### Fast\n\nQuick.\n\n</div>"
+        )
+        equal(Link("x", "/"):new_tab():to_markdown(), Link("x", "/"):new_tab():to_html())
+    end,
+
+    ["markdown round trips"] = function()
+        const page = Main {
+            h1("Install"),
+            Paragraph({ "Run ", Code("seal setup"), " then see the ", Link("guide", "guide.html"), " in my_file." }),
+            h2("Steps"),
+            OrderedList({
+                "Clone it",
+                ListItem({ "Point ", Strong("an alias"), " at it", UnorderedList({ "a", "b" }) }),
+            }),
+            BlockQuote({ Paragraph("Quoted"), Paragraph({ Emphasis("twice") }) }),
+            CodeBlock("print(\"hi\")\nconst x = `a`"):copyable(),
+            Paragraph({ Image("cat.png", "A cat") }),
+            HorizontalRule(),
+            Card("Fast", Paragraph("Renders quickly.")),
+            Div("inline only"):add_style_class("note"),
+            Paragraph({ "Bash: ", Code("ls -la", "bash") }),
+            Table(Table.header()
+                :column("Name")
+                :column("Age")
+            ):row({ Name = "Taz", Age = "14" }),
+        }
+        const markdown = page:to_markdown()
+        const back = Main(nil)
+        for _, node in read(markdown) do
+            back:adopt(node)
+        end
+        equal(back:to_html(), page:to_html())
+        equal(back:to_markdown(), markdown)
+    end,
+
+    ["markdown reads programmer docs"] = function()
+        const html = html_of(read(table.concat({
+            "Call `fs.readfile` from my_module, *not* from snake_case_names.",
+            "",
+            "See [Install](install.md#setup), <https://example.com> and ![logo](logo.png \"Logo\").",
+            "",
+            "Press <kbd>Ctrl</kbd>+<kbd>K</kbd> &mdash; done  ",
+            "next line\\",
+            "last",
+        }, "\n")))
+        contains(html, "from my_module, <em>not</em> from snake_case_names.")
+        contains(html, `<code data-language="luwu" data-highlighted="yes" class="chimera-code">fs.readfile</code>`)
+        contains(html, `<a href="install.html#setup">Install</a>`)
+        contains(html, `<a href="https://example.com">https://example.com</a>`)
+        contains(html, `<img src="logo.png" alt="logo" title="Logo">`)
+        contains(html, "Press <kbd>Ctrl</kbd>+<kbd>K</kbd> — done<br>next line<br>last")
+    end,
+
+    ["markdown reads lists, tables, fences and headings"] = function()
+        const nodes = read(table.concat({
+            "Title",
+            "=====",
+            "",
+            "3. three",
+            "4. four",
+            "   - nested",
+            "",
+            "| Name | Age |",
+            "| :--- | ---: |",
+            "| Taz | 14 |",
+            "",
+            "```rs line-numbers",
+            "fn main() {}",
+            "```",
+            "",
+            "~~~",
+            "plain ``` inside",
+            "~~~",
+        }, "\n"))
+        const html = html_of(nodes)
+        contains(html, "<h1>Title</h1>")
+        contains(html, `<ol start="3"><li>three</li><li>four<ul><li>nested</li></ul></li></ol>`)
+        contains(html, `<th align="left">Name</th><th align="right">Age</th>`)
+        contains(html, `<td align="left">Taz</td>`)
+        contains(html, `data-language="rust" data-line-numbers`)
+        contains(html, "plain ``` inside")
+    end,
+
+    ["html tags in markdown wrap markdown, like seal's docs"] = function()
+        const reader = Markdown()
+        const nodes = reader:parse(SEAL_STYLE)
+        equal(#reader.warnings, 0, table.concat(reader.warnings, "\n"))
+        const details = nodes[3]
+        truthy(class.isinstance(details, Details), `expected Details, got {details and details:outline()}`)
+        if class.isinstance(details, Details) then
+            const summary = details.summary or error("no summary")
+            truthy(class.isinstance(summary, Summary))
+            equal(text_of(summary), " See the docs ")
+            contains(html_of(details.children), "<h2>Errors</h2><ul><li>if <code")
+        end
+        const signature = nodes[2]
+        truthy(class.isinstance(signature, Heading))
+        contains(signature:to_html(), `<h4><pre data-element="CodeBlock" data-language="luau"`)
+    end,
+
+    ["front matter sets a page's title and description"] = function()
+        const document = Markdown():parse_document(
+            "---\ntitle: \"Install: fast\"\ndescription: Get going\n---\n\n# Ignored"
+        )
+        equal(document:get_title(), "Install: fast")
+        equal(document:get_description(), "Get going")
+        contains(document:to_markdown(), "---\ntitle: \"Install: fast\"\ndescription: Get going\n---\n\n# Ignored")
+        equal(Markdown():parse_document("# From the heading"):get_title(), "From the heading")
+    end,
+
+    ["custom fences build components"] = function()
+        const nodes = Markdown()
+            :fence("note", function(source)
+                return Callout(Paragraph(source))
+            end)
+            :parse("```note\nRemember this.\n```")
+        contains(html_of(nodes), `<aside data-element="Callout" class="callout"><p>Remember this.</p></aside>`)
+    end,
+
+    ["shapes turn plain content into components"] = function()
+        const from_markdown = read("> **Note:** Back up first.")
+        equal(#from_markdown, 1)
+        truthy(class.isinstance(from_markdown[1], Callout), from_markdown[1]:outline())
+        equal(from_markdown[1]:to_markdown(), "> **Note:** Back up first.")
+
+        const from_html = Parser():parse(`<div class="alert"><p>Careful.</p></div>`)
+        truthy(class.isinstance(from_html[1], Callout), from_html[1]:outline())
+        excludes(from_html[1]:to_html(), "alert")
+
+        const nested = read("- item\n\n  > **Note:** inside a list")
+        contains(html_of(nested), `<aside data-element="Callout" class="callout"><p>inside a list</p></aside>`)
+
+        const untouched = Markdown()
+            :recognize_shapes(false)
+            :parse("> **Note:** stays a quote")
+        truthy(class.isinstance(untouched[1], BlockQuote))
+    end,
+
+    ["json round trips any node"] = function()
+        const card = Card("Fast", { Paragraph({ "Quick ", Strong("and"), " small." }), CodeBlock("print(1)") })
+        const tree = Json.tree(card)
+        equal(tree.tag, "div")
+        equal(tree.element, "Card")
+        const attributes = tree.attributes or error("no attributes")
+        equal(attributes[1].name, "class")
+        equal(attributes[1].value, "chimera-card")
+        const nodes, warnings = Json.decode(Json.encode(card, true))
+        equal(#warnings, 0)
+        truthy(class.isinstance(nodes[1], Card))
+        equal(nodes[1]:to_html(), card:to_html())
+
+        const page = Site("docs"):add_page(chimera.site.Page("Home", h1("Home"), "index.html"))
+        const document = page:document(page:pages()[1])
+        const decoded = Json.decode_document(Json.encode(document))
+        decoded.location = document.location
+        decoded.site_pages = document.site_pages
+        equal(decoded:to_html(), document:to_html())
+    end,
+
+    ["json from other tools is recognized too"] = function()
+        const nodes = Json.build({
+            tag = "div",
+            attributes = { { name = "class", value = "alert" } },
+            children = { { tag = "p", children = { { text = "From a tool." } } } },
+        })
+        truthy(class.isinstance(nodes[1], Callout), nodes[1]:outline())
+    end,
+
+    ["a folder of markdown becomes a site"] = function()
+        const folder = fs.path.join(fs.path.cwd(), "tests", ".tmp_markdown_site")
+        const files: { [string]: string? } = {
+            ["index.md"] = "# Home\n\nRead the [guide](guide.md).",
+            ["install.md"] = "---\norder: 1\n---\n# Install",
+            ["guide.md"] = "# Guide",
+            ["guide/first.md"] = "# First steps\n\nBack to [the guide](../guide.md).",
+            ["reference/index.md"] = "# Reference",
+            ["reference/fs.md"] = "# fs",
+        }
+        fs.dir.ensure(fs.path.join(folder, "guide"), true)
+        fs.dir.ensure(fs.path.join(folder, "reference"), true)
+        for name, text in files do
+            fs.writefile(fs.path.join(folder, name), text)
+        end
+        const pages = Markdown():pages(folder)
+        equal(table.concat({ for _, page in pages give page.title }, ", "), "Install, Home, Guide, Reference")
+        const site = Site("docs"):add_pages(pages)
+        const paths = { for _, page in site:all_pages() give page:path() }
+        table.sort(paths)
+        equal(
+            table.concat(paths, " "),
+            "guide.html guide/first.html index.html install.html reference/fs.html reference/index.html"
+        )
+        const first = site:find_page("guide/first.html") or error("no guide/first.html")
+        contains(site:document(first):to_html(), `<a href="../guide.html">the guide</a>`)
+        fs.removetree(folder)
+    end,
+}
+
+return tests

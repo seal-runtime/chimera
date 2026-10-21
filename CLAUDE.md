@@ -138,6 +138,7 @@ src/document/          Document: one page, its head, themes and generated CSS/JS
 src/site/              Site, Page, PageLink, TableOfContents, Breadcrumbs (site.luwu); Search, SearchIndex,
                        Matcher and its classes, the browser search engine (search.luwu)
 src/parse/parser.luwu  HTML back into chimera objects
+src/serde/             Markdown (markdown.luwu) and JSON (json.luwu) readers and writers
 tests/                 run.luwu runs every suite; each suite returns { [name]: () -> () }; browser.luwu drives
                        headless Firefox over WebDriver BiDi so tests can run a page's JavaScript
 examples/site.luwu     the docs site: home page and Site config
@@ -183,6 +184,8 @@ Every node implements `Markup` (`render`, `to_html`, `child_nodes`,
 - `Component needs Element, Child`: a user-facing element;
   `Component.register(cls)` makes it parseable.
 - `Metadata needs Element`: things that go in `<head>`.
+- `Shape needs Component`: a component that recognizes itself in parsed HTML,
+  JSON or Markdown (`recognize(node)`, `Shape.register_shape(cls)`).
 - `Layout needs Container` (`src/elements/layout.luwu`): `row`, `column`,
   `grid`, `gap`, `wrap`, `align`, `justify`. Each arrangement is a theme class
   (`chimera-row`, ...); only explicit overrides are inline style. All built-in
@@ -272,6 +275,24 @@ the code goes. The runtime script clones a hover's template into the
 `.chimera-hover` box. The Better Hovers page (`examples/luwu/hovers/`) shows
 luwu-lsp's real hovers: `capture.luwu` asks the server and writes
 `hovers.json`. Rerun it when luwu-lsp's hovers change.
+
+### Markdown, JSON and shapes
+
+- Every node has `markdown(out: MarkdownWriter)`, defaulting to its HTML. An
+  element overrides it with its Markdown form when `only_attributes(...)`
+  says nothing would be lost, and writes HTML otherwise. A `Container` of
+  blocks writes its tags on lines of their own with Markdown between them,
+  which the reader turns back into the same element (seal's docs wrap
+  `<details>` this way).
+- `Markdown` (`src/serde/markdown.luwu`) builds elements directly. HTML
+  inside it goes through `Parser` with shapes off, and shapes run once over
+  the finished tree. `pages(folder)` turns a folder of `.md` files into
+  `Page`s; it lives in serde because the parser loads the site module.
+- `Json` is the HTML's own tree: `Parser:parse_tree` reads rendered HTML into
+  plain `Tag`s, and decoding builds nodes the parser's way
+  (`Element.create`, `attr`, `adopt`). Round trips give identical HTML.
+- `Shape`s recognize themselves in parsed content, children first; register
+  with `Shape.register_shape` as well as `Component.register`.
 
 ### Luwu bugs
 

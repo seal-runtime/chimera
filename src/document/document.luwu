@@ -22,6 +22,7 @@ type .{
     PageEntry,
     Metadata,
     AttributeValue,
+    MarkdownWriter,
 } = markup
 type .{ Head } = head_module
 type .{ Theme, ThemeMode } = theme_module
@@ -293,6 +294,18 @@ export class Body implements Container
     function __init(self, content: Content?)
         self:add(content)
     end
+
+    function markdown(self, out: MarkdownWriter): string
+        return out:blocks(self.children)
+    end
+end
+
+--- A front matter value: one line, quoted when it would read as something else.
+const function front_matter_value(text: string): string
+    if string.find(text, "^[%w%s%.,!?'()%-]+$") and not string.find(text, "^%s") then
+        return text
+    end
+    return `"{string.gsub(string.gsub(text, "\\", "\\\\"), "\"", "\\\"")}"`
 end
 
 const function lists_headings(node: Markup): boolean
@@ -506,6 +519,54 @@ export class Document implements Element
     ]=]
     function get_title(self): string?
         return if const title = self.head:title() then title.text else nil
+    end
+
+    --- The page's description, from its `description` meta tag, if it has one.
+    function get_description(self): string?
+        for _, item in self.head.items do
+            if class.isinstance(item, Meta) when item:get_attr("name") == "description" then
+                const content = item:get_attr("content")
+                return if type(content) == "string" then content else nil
+            end
+        end
+        return nil
+    end
+
+    --[=[
+        Writes the page's title and description as front matter, then its body. Markdown read back with the
+        `Markdown` reader gives a page with the same title and description.
+
+        ## Usage
+
+        ```luwu
+        Document("Install")
+            :describe("Get chimera running")
+            :add(Main { Heading.h1("Install") })
+            :to_markdown()
+        ```
+
+        ```markdown
+        ---
+        title: Install
+        description: Get chimera running
+        ---
+
+        # Install
+        ```
+    ]=]
+    function markdown(self, out: MarkdownWriter): string
+        const fields: { string } = {}
+        if const title = self:get_title() then
+            table.insert(fields, `title: {front_matter_value(title)}`)
+        end
+        if const description = self:get_description() then
+            table.insert(fields, `description: {front_matter_value(description)}`)
+        end
+        const body = self.body:markdown(out)
+        if #fields == 0 then
+            return body
+        end
+        return `---\n{table.concat(fields, "\n")}\n---\n\n{body}`
     end
 
     --[=[

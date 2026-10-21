@@ -217,6 +217,110 @@ export class Writer(pretty = false, indent = "  ")
     end
 end
 
+const function trim(text: string): string
+    return string.match(text, "^%s*(.-)%s*$") or ""
+end
+
+--[=[
+    Collects Markdown for [Markup:to_markdown]. Each node writes its own Markdown in `markdown`, and asks the writer
+    for its children's: [MarkdownWriter:inline] for text inside a line, [MarkdownWriter:blocks] for paragraphs,
+    lists and other blocks.
+
+    ```luwu
+    class Note implements Component, Container
+        function tag(): string
+            return "aside"
+        end
+
+        function markdown(self, out: MarkdownWriter): string
+            return `> **Note:** {out:inline(self.children)}`
+        end
+    end
+    ```
+]=]
+export class MarkdownWriter
+    --- The language Markdown's inline code is in. A `Code` in another language keeps its HTML so it parses back.
+    code_language = "luwu"
+
+    --[=[
+        The Markdown for nodes that sit inside one line, like a paragraph's text, links and emphasis.
+
+        ## Usage
+
+        ```luwu
+        function markdown(self, out: MarkdownWriter): string
+            return `**{out:inline(self.children)}**`
+        end
+        ```
+    ]=]
+    function inline(self, nodes: { read Markup }): string
+        return table.concat({ for _, node in nodes give node:markdown(self) })
+    end
+
+    --[=[
+        The Markdown for nodes that stack as blocks, separated by blank lines. A run of inline nodes between blocks
+        becomes one paragraph.
+
+        ## Usage
+
+        ```luwu
+        function markdown(self, out: MarkdownWriter): string
+            return out:blocks(self.children)
+        end
+        ```
+    ]=]
+    function blocks(self, nodes: { read Markup }): string
+        const blocks: { string } = {}
+        const run: { string } = {}
+        const function flush()
+            const text = trim(table.concat(run))
+            if text ~= "" then
+                table.insert(blocks, text)
+            end
+            table.clear(run)
+        end
+        for _, node in nodes do
+            if node:is_inline() then
+                table.insert(run, node:markdown(self))
+            else
+                flush()
+                const block = node:markdown(self)
+                if string.find(block, "%S") then
+                    table.insert(blocks, block)
+                end
+            end
+        end
+        flush()
+        return table.concat(blocks, "\n\n")
+    end
+
+    --[=[
+        Escapes the characters that would turn `text` into Markdown syntax, so it reads back as the same text.
+        Underscores inside words stay as they are, since Markdown leaves `snake_case` alone.
+
+        ## Usage
+
+        ```luwu
+        MarkdownWriter.escape("2 * 3 = 6 in my_file")
+        ```
+
+        ```markdown
+        2 \* 3 = 6 in my_file
+        ```
+    ]=]
+    function escape(text: string): string
+        local escaped = string.gsub(text, "([\\`*_%[%]<>|])", "\\%1")
+        for _ = 1, 2 do
+            escaped = string.gsub(escaped, "(%w)\\_(%w)", "%1_%2")
+        end
+        escaped = string.gsub(escaped, "&(#?%w+;)", "\\&%1")
+        escaped = string.gsub(escaped, "^(%s*)([#>+=%-])", "%1\\%2")
+        escaped = string.gsub(escaped, "\n(%s*)([#>+=%-])", "\n%1\\%2")
+        escaped = string.gsub(escaped, "^(%s*%d+)([.)])", "%1\\%2")
+        return (string.gsub(escaped, "\n(%s*%d+)([.)])", "\n%1\\%2"))
+    end
+end
+
 --[=[
     An element's attributes, in order. Classes and inline style have their own methods on [Element].
 
@@ -455,6 +559,43 @@ export trait Markup
         const writer = Writer(pretty == true)
         self:render(writer)
         return writer:finish()
+    end
+
+    --[=[
+        Serializes the node and everything inside it to Markdown. Parts Markdown has no syntax for, like an element
+        with a style class or a component, are written as HTML, which Markdown keeps as it is. Reading the Markdown
+        back gives the same nodes.
+
+        ## Usage
+
+        ```luwu
+        Div { Heading.h2("Pricing"), Paragraph({ "Pay ", Strong("once"), "." }) }:to_markdown()
+        ```
+
+        ```markdown
+        ## Pricing
+
+        Pay **once**.
+        ```
+    ]=]
+    function to_markdown(self): string
+        return MarkdownWriter():blocks({ self })
+    end
+
+    --[=[
+        The node's Markdown, for [Markup:to_markdown]. The default writes the node's HTML. Override it in elements
+        that have a Markdown form, using `out` for their children.
+
+        ## Usage
+
+        ```luwu
+        function markdown(self, out: MarkdownWriter): string
+            return `**{out:inline(self.children)}**`
+        end
+        ```
+    ]=]
+    function markdown(self, out: MarkdownWriter): string
+        return self:to_html()
     end
 
     --[=[
@@ -1085,6 +1226,35 @@ export trait Element needs Markup, Tagged
             :reset() -- <div></div>
         ```
     ]=]
+    --[=[
+        Whether the element has no style classes, inline style or scoped rules, and no attributes but the named
+        ones. An element's `markdown` checks it first: Markdown can't hold the rest, so the element writes its HTML
+        instead.
+
+        ## Usage
+
+        ```luwu
+        function markdown(self, out: MarkdownWriter): string
+            if not self:only_attributes("href", "title") then
+                return self:to_html()
+            end
+            return `[{out:inline(self.children)}]({self:get_attr("href")})`
+        end
+        ```
+    ]=]
+    function only_attributes(self, ...: string): boolean
+        if #self.style_classes > 0 or self.inline_style or self.inside_rules then
+            return false
+        end
+        const allowed = { for _, name in { ... } give [name] = true }
+        for _, name in self.attributes.names do
+            if not allowed[name] then
+                return false
+            end
+        end
+        return true
+    end
+
     final function reset(self): Self
         self.attributes:clear()
         table.clear(self.style_classes)
@@ -1181,7 +1351,6 @@ export trait Element needs Markup, Tagged
     final function register_tag(tag: string, create: () -> Element)
         element_factories[tag] = create
     end
-
 
     --[=[
         Creates an empty element the way the parser does: the class registered for the component name or tag, or a
@@ -1364,6 +1533,43 @@ export trait Container needs Element
     function child_nodes(self): { read Markup }
         return self.children
     end
+
+    --[=[
+        A container that holds blocks writes its opening and closing tags on lines of their own with its children
+        as Markdown between them, the way Markdown documents embed HTML. Reading it back gives the same element
+        with the same children. A container of inline content writes as one line of HTML.
+
+        ## Usage
+
+        ```luwu
+        Card("Fast", Paragraph("Renders thousands of pages a second.")):to_markdown()
+        ```
+
+        ```markdown
+        <div data-element="Card" class="chimera-card">
+
+        ### Fast
+
+        Renders thousands of pages a second.
+
+        </div>
+        ```
+    ]=]
+    function markdown(self, out: MarkdownWriter): string
+        const has_blocks = do
+            for _, child in self.children do
+                if not child:is_inline() then
+                    give true
+                end
+            end
+            give false
+        if self:is_inline() or not has_blocks then
+            return self:to_html()
+        end
+        const opening = Writer()
+        self:render_open(opening)
+        return `{opening:finish()}\n\n{out:blocks(self.children)}\n\n</{self:current_tag()}>`
+    end
 end
 
 --[=[
@@ -1431,6 +1637,95 @@ export trait Component needs Element, Child
     end
 end
 
+const shapes: { class<Shape> } = {}
+
+const function recognize(node: Markup): Markup
+    if class.implements(node, Container) then
+        for index, child in node.children do
+            const found = recognize(child)
+            if not rawequal(found, child) and class.implements(found, Child) then
+                node.children[index] = found
+            end
+        end
+    else
+        for _, child in node:child_nodes() do
+            recognize(child)
+        end
+    end
+    if class.implements(node, Element) then
+        for _, cls in shapes do
+            if const found = cls.recognize(node) when not rawequal(found, node) then
+                return found
+            end
+        end
+    end
+    return node
+end
+
+--[=[
+    A component that recognizes itself in parsed content, so HTML, JSON or Markdown that has its shape comes back as
+    the component rather than as the plain elements it's made of. A docs site might write notes in Markdown as
+    `> **Note:** ...`; a `Callout` shape turns each of those blockquotes into a `Callout` when the Markdown is read.
+
+    Implement `recognize`: given a parsed element, it returns the component that element stands for, or nil.
+    Children are recognized first, so `recognize` sees shapes already found inside. Register the class with
+    [Shape.register_shape] as well as [Component.register]. The [Parser][parser.Parser] and the Markdown and JSON
+    readers then try every registered shape on every element, in the order they were registered.
+
+    [parser = require("@parse/parser")]
+
+    ## Usage
+
+    ```luwu
+    class Callout implements Shape, Container
+        function tag(): string
+            return "aside"
+        end
+
+        function recognize(node: Element): Shape?
+            if class.isinstance(node, BlockQuote) when const first = node.children[1] then
+                -- ...look for a leading **Note:**
+            end
+            return nil
+        end
+    end
+    Component.register(Callout)
+    Shape.register_shape(Callout)
+    ```
+]=]
+export trait Shape needs Component
+    --- The component `node` stands for, or nil when `node` doesn't have this shape.
+    expect function recognize(node: Element): Shape?
+
+    --[=[
+        Makes every parser try `cls` on the elements it reads.
+
+        ## Usage
+
+        ```luwu
+        Shape.register_shape(Callout)
+        ```
+    ]=]
+    final function register_shape(cls: class<Shape>)
+        table.insert(shapes, cls)
+    end
+
+    --[=[
+        `node` with every registered shape recognized inside it, children first. Returns what `node` itself
+        became, which is `node` when no shape matched it. Parsers call it on what they read; call it on a tree you
+        built yourself to do the same.
+
+        ## Usage
+
+        ```luwu
+        const page = Shape.recognize_all(Parser():recognize_shapes(false):parse(html)[1])
+        ```
+    ]=]
+    final function recognize_all(node: Markup): Markup
+        return recognize(node)
+    end
+end
+
 --[=[
     Content for a page's `<head>`: its title, meta tags, resource links, scripts and stylesheets.
 
@@ -1484,6 +1779,10 @@ export class Text(content: string) implements Child
 
     function render(self, out: Writer)
         out:write(escape_text(self.content))
+    end
+
+    function markdown(self, out: MarkdownWriter): string
+        return MarkdownWriter.escape(self.content)
     end
 
     function is_inline(self): boolean
@@ -1563,6 +1862,10 @@ export class Fragment implements Child
 
     function child_nodes(self): { read Markup }
         return self.children
+    end
+
+    function markdown(self, out: MarkdownWriter): string
+        return out:blocks(self.children)
     end
 
     function render(self, out: Writer)

@@ -4,7 +4,13 @@
 
 const markup = require("@core/markup")
 const .{ Element, Component, Container } = require("@core/markup")
-type .{ Content, Markup } = markup
+type .{ Content, Markup, MarkdownWriter } = markup
+
+const ALIGNMENT_RULES: { [string]: string? } = {
+    left = ":---",
+    center = ":---:",
+    right = "---:",
+}
 
 --- A `"td"` element that holds one data cell of a [TableRow].
 export class TableCell implements Container
@@ -501,6 +507,50 @@ export class Table<Headings = ""> implements Component
     function add(self, part: TablePart): Self
         table.insert(self.parts, part)
         return self
+    end
+
+    --[=[
+        Writes as a Markdown table when it has one header row, plain cells of inline content and no caption. A cell's
+        `align` attribute sets its column's alignment. Any other table writes as HTML.
+    ]=]
+    function markdown(self, out: MarkdownWriter): string
+        const head = self.parts[1]
+        if not self:only_attributes() or not class.isinstance(head, TableHead) or #head.rows ~= 1 then
+            return self:to_html()
+        end
+        const rows: { TableRow } = { head.rows[1] }
+        for index = 2, #self.parts do
+            const part = self.parts[index]
+            if class.isinstance(part, TableBody) and part:only_attributes() then
+                for _, row in part.rows do
+                    table.insert(rows, row)
+                end
+            else
+                return self:to_html()
+            end
+        end
+        const lines: { string } = {}
+        for row_index, row in rows do
+            const cells: { string } = {}
+            for _, cell in row.cells do
+                const text = out:inline(cell.children)
+                if not row:only_attributes() or not cell:only_attributes("align") or string.find(text, "\n") then
+                    return self:to_html()
+                end
+                table.insert(cells, text)
+            end
+            table.insert(lines, `| {table.concat(cells, " | ")} |`)
+            if row_index == 1 then
+                const rules = {
+                    for _, cell in row.cells
+                    give do
+                        const align = cell:get_attr("align")
+                        give if type(align) == "string" then ALIGNMENT_RULES[align] or "---" else "---"
+                }
+                table.insert(lines, `| {table.concat(rules, " | ")} |`)
+            end
+        end
+        return table.concat(lines, "\n")
     end
 
     function adopt(self, node: Markup): boolean

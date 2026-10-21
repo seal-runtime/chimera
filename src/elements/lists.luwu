@@ -4,7 +4,7 @@
 
 const markup = require("@core/markup")
 const .{ Element, Component, Container } = require("@core/markup")
-type .{ Content, Markup } = markup
+type .{ Content, Markup, MarkdownWriter } = markup
 
 --- A `"li"` element that holds one item of an [UnorderedList] or [OrderedList].
 export class ListItem implements Container
@@ -15,6 +15,67 @@ export class ListItem implements Container
     function __init(self, content: Content?)
         self:add(content)
     end
+end
+
+--- An item's Markdown. Its text and the lists nested under it stay on adjacent lines, keeping the list tight.
+const function item_markdown(item: ListItem, out: MarkdownWriter): string
+    const parts: { string } = {}
+    local text: { Markup } = {}
+    local tight = true
+    const function flush()
+        if #text > 0 then
+            table.insert(parts, out:blocks(text))
+            text = {}
+        end
+    end
+    for _, child in item.children do
+        if child:is_inline() then
+            table.insert(text, child)
+        else
+            flush()
+            tight = tight and class.implements(child, List)
+            table.insert(parts, child:markdown(out))
+        end
+    end
+    flush()
+    return table.concat(parts, if tight then "\n" else "\n\n")
+end
+
+--[=[
+    Markdown for a list's items, each starting with the marker `marker_of` gives its position. Items that hold several
+    blocks make a loose list, with blank lines between items. A list or item with attributes writes as HTML.
+]=]
+const function list_markdown(
+    list: Element,
+    items: { ListItem },
+    out: MarkdownWriter,
+    marker_of: (number) -> string,
+    ...: string
+): string
+    if not list:only_attributes(...) then
+        return list:to_html()
+    end
+    for _, item in items do
+        if not item:only_attributes() then
+            return list:to_html()
+        end
+    end
+    local loose = false
+    const written = {
+        for index, item in items
+        give do
+            const marker = marker_of(index)
+            const indent = string.rep(" ", #marker + 1)
+            const body = item_markdown(item, out)
+            loose = loose or string.find(body, "\n\n", 1, true) ~= nil
+            const lines = string.split(body, "\n")
+            const indented = {
+                for line_index, line in lines
+                give if line_index == 1 then line elseif line == "" then "" else indent .. line
+            }
+            give string.match(`{marker} {table.concat(indented, "\n")}`, "^(.-)%s*$") or marker
+    }
+    return table.concat(written, if loose then "\n\n" else "\n")
 end
 
 --[=[
@@ -106,6 +167,12 @@ export class UnorderedList implements Component, List
         return "ul"
     end
 
+    function markdown(self, out: MarkdownWriter): string
+        return list_markdown(self, self.items, out, function()
+            return "-"
+        end)
+    end
+
     function __init(self, items: { read ListItem | string }?)
         for _, item in items or {} do
             self:add(item)
@@ -117,6 +184,13 @@ end
 export class OrderedList implements Component, List
     function tag(): string
         return "ol"
+    end
+
+    function markdown(self, out: MarkdownWriter): string
+        const start = tonumber(self:get_attr("start")) or 1
+        return list_markdown(self, self.items, out, function(index: number)
+            return `{start + index - 1}.`
+        end, "start")
     end
 
     function __init(self, items: { read ListItem | string }?)

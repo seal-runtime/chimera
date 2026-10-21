@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Child, Text, Comment } = require("@core/markup")
+const .{ Element, Child, Text, Comment, Tag, Shape } = require("@core/markup")
 const .{ Document } = require("@document/document")
 type .{ Markup, Element } = markup
 
@@ -123,7 +123,8 @@ type Attribute = { name: string, value: string | boolean }
     Turns HTML into chimera objects, using the classes registered for each tag and component.
 
     Problems that don't stop parsing, such as a stray end tag or a child its parent can't hold, are
-    collected in `warnings`.
+    collected in `warnings`. Registered [Shape]s are recognized in what it reads unless
+    [Parser:recognize_shapes] turns that off.
 
     ```luwu
     const parser = Parser()
@@ -138,9 +139,46 @@ export class Parser
     private position = 1
     private stack: { Element } = {}
     private roots: { Markup } = {}
+    private shapes = true
+    --- In tree mode every tag becomes a plain [Tag] that keeps its `data-element`, for [Parser:parse_tree].
+    private tree = false
+
+    --[=[
+        Whether parsing recognizes registered [Shape]s in what it reads. On by default.
+
+        ## Usage
+
+        ```luwu
+        Parser():recognize_shapes(false):parse(html)
+        ```
+    ]=]
+    public function recognize_shapes(self, on: boolean): Parser
+        self.shapes = on
+        return self
+    end
+
+    --[=[
+        Parses HTML into plain [Tag]s, [Text] and [Comment]s without building chimera's classes: the tree exactly as
+        the HTML has it. A component's name stays in its tag's `data-element` attribute. The JSON serializer reads
+        trees this way.
+
+        ## Usage
+
+        ```luwu
+        const tags = Parser():parse_tree(`<div data-element="Card"><h3>Fast</h3></div>`)
+        ```
+    ]=]
+    public function parse_tree(self, html: string): { Markup }
+        return self:read(html, true)
+    end
 
     --- Parses a fragment or a page and returns its top-level nodes.
     public function parse(self, html: string): { Markup }
+        return self:read(html, false)
+    end
+
+    private function read(self, html: string, tree: boolean): { Markup }
+        self.tree = tree
         self.html = html
         self.position = 1
         self.stack = {}
@@ -160,6 +198,9 @@ export class Parser
         end
         while #self.stack > 0 do
             self:close_current()
+        end
+        if self.shapes and not self.tree then
+            return { for _, root in self.roots give Shape.recognize_all(root) }
         end
         return self.roots
     end
@@ -350,9 +391,9 @@ export class Parser
                 end
             end
             give nil
-        const element = Element.create(tag, component):reset()
+        const element: Element = if self.tree then Tag(tag) else Element.create(tag, component):reset()
         for _, attribute in attributes do
-            if attribute.name ~= "data-element" then
+            if self.tree or attribute.name ~= "data-element" then
                 element:attr(attribute.name, attribute.value)
             end
         end

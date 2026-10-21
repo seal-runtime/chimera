@@ -1,0 +1,23 @@
+--!strict
+--!optimize 2
+
+export .{
+    Markdown,
+    to_markdown,
+} = require("@self/markdown")
+
+export .{
+    Json,
+} = require("@self/json")
+
+const markdown = require("@self/markdown")
+export type .{
+    FenceBuilder,
+    FrontMatter,
+} = markdown
+
+const json = require("@self/json")
+export type .{
+    JsonNode,
+    JsonAttribute,
+} = json

@@ -75,6 +75,10 @@ export .{
     Parser,
 } = require("@self/src/parse/parser")
 
+--- Markdown and JSON: [serde.Markdown] reads Markdown into chimera nodes and [serde.Json] reads and writes the JSON
+--- form of any node. Every node writes Markdown with `to_markdown`.
+export serde = require("@self/src/serde")
+
 --- Low-level building blocks: every trait, the [core.Writer], and nodes that aren't tags ([core.Text], [core.Raw],
 --- ...).
 export core = require("@self/src/core/markup")

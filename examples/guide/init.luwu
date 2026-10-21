@@ -19,6 +19,7 @@ const styling_page = require("@self/styling")
 const theming_page = require("@self/theming")
 const custom_page = require("@self/custom")
 const parsing_page = require("@self/parsing")
+const serde_page = require("@self/serde")
 
 const example = examples_in("examples/guide/init.luwu")
 
@@ -128,6 +129,7 @@ return Page("Guide", {
         module(Code("style"), "Typed CSS, colors and theme tokens", PageLink(styling_page)),
         module(Code("themes"), "Light, Dark and the Catppuccin flavors", PageLink(theming_page)),
         module(Code("site"), "Sites, pages and the links between them", PageLink(sites_page)),
+        module(Code("serde"), "Markdown and JSON, in and out", PageLink(serde_page)),
         module("top level", "Traits for your own elements, Document, Parser", {
             PageLink(custom_page), ", ", PageLink(parsing_page),
         }),
@@ -143,5 +145,6 @@ return Page("Guide", {
         styling_page,
         theming_page,
         custom_page,
-        parsing_page
+        parsing_page,
+        serde_page
     )
