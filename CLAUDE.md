@@ -81,7 +81,11 @@ implement Display `display` and `__tostring` as well as To/From Html, which can
 be traits with default impls that can be overriden. This is so we can pretty
 print html containers in terminal w/out needing to html serialize. seal's
 `print` calls `display` method on classes before going to `tostring`, but
-interpolated strings only call `__tostring` on interpolation. Useful traits
+interpolated strings only call `__tostring` on interpolation. A `Child`'s
+`__tostring` returns its embed marker (`Child:embed`), so `{node}` in an
+interpolated string embeds the node when the string is added as content.
+`Markup:debug()` gives the terminal tree as a string, for log lines and
+assertion messages. Useful traits
 users can use to implement their own custom components/help reduce the amt of
 work should be made available to user code using this library.
 
@@ -105,11 +109,13 @@ later.
   Agents' shells lack the alias: call it by path. System `seal` is 0.8.x and
   can't run this code.
 - Tests: `scl test` runs `tests/run.luwu`; `scl test site` runs one suite.
-- Example site: `scl ./examples/site.luwu` writes `examples/out/`. It is checked in, so people without a
-  Luwu-enabled seal can read the docs: rebuild it after any change that affects the site.
+- Docs site (chimera's guide and the Luwu docs, not an example): `scl ./examples/site.luwu` writes `examples/out/`.
+  It is checked in so people without a Luwu-enabled seal can read the docs. Rebuild it after any change that
+  affects the site.
 - Typecheck everything in one call: `~/Repositories/luwu-lsp/build/luwu-lsp
-  analyze --defs=.seal/typedefs/globals.d.luau $(fd -e luwu . src tests
-  examples --exclude out) init.luwu`. One process checks each module once and
+  analyze --settings=.vscode/settings.json --defs=.seal/typedefs/globals.d.luau
+  $(fd -e luwu . src tests examples --exclude out) init.luwu`. `--settings` turns on the Luwu debug flags
+  that `.vscode/settings.json` enables (`DebugLuwuCollections`), as the editor does. One process checks each module once and
   takes under a second. A loop with one process per file re-checks
   `theme.luwu` for every file and takes many seconds. Keep it at zero
   diagnostics, lints included. Lines stay at 120 characters or fewer.
@@ -118,6 +124,14 @@ later.
   features with `~/Repositories/luwu/luwu-analyze`, which takes the same
   `--defs` and file list. Editor errors that the analyzer doesn't show also
   mean luwu-lsp is stale.
+- Dev server: `scl ./.seal/serve.luwu [port]` (chimera and luwu-website each have one; it calls `serve` from
+  `tools/serve.luwu`). It builds the site with `CHIMERA_SOURCES=1` into `.chimera-dev/` (through
+  `Site.output_dir`, which reads `CHIMERA_OUT`), serves it on localhost and rebuilds it when a `.luwu` file
+  changed. A watcher thread (`tools/watch.luwu`) also reruns the build into the checked-in output on every save,
+  since `fs.watch` and the server both block. Every element records the places in user code that made it
+  (`data-chimera-source`). Alt + right-click lists them, and picking one asks the server to run `code -g` (works in
+  VS Code's browser). On `file://` pages the links are `vscode://` instead. Never build the checked-in output with
+  `CHIMERA_SOURCES` set: it writes absolute paths into every page.
 - Visual checks: `firefox --headless --no-remote --profile <scratch>/ffprofile
   --window-size=WxH --screenshot out.png file://...`. Headless renders the light
   defaults; add `?theme=catppuccin-mocha` (any offered theme's name) to the URL
@@ -130,9 +144,9 @@ later.
 init.luwu              consumer entry: Component, Container, Layout, SourceCode, Document, Parser, and the hubs
 src/core/markup.luwu   Writer, Attributes, the core traits, Text/Raw/Comment/Fragment/Tag
 src/elements/          one class per HTML tag: text, layout, lists, forms, tables, disclosure, head
-src/components/        higher-level pieces: Menu, Dropdown, Toggle, ThemeSwitcher, Card, SiteFooter (components.luwu),
-                       Row/Column/Grid (layout.luwu), CodeBlock/Code (code.luwu)
-src/style/             Style, Rule (style.luwu), typed CSS (properties.luwu), Color, Token, Theme/Palette
+src/components/        higher-level pieces: Menu, Dropdown, Toggle, ThemeSwitcher, Card, Panel, Infobox, Chip,
+                       SiteFooter (components.luwu), Row/Column/Grid (layout.luwu), CodeBlock/Code (code.luwu)
+src/style/             Style, Rule (style.luwu), typed CSS (properties.luwu), Token, Theme/Palette; re-exports Color
 src/themes/            ready-made themes: Light, Dark (init.luwu), the Catppuccin flavors (catppuccin.luwu)
 src/document/          Document: one page, its head, themes and generated CSS/JS
 src/site/              Site, Page, PageLink, TableOfContents, Breadcrumbs (site.luwu); Search, SearchIndex,
@@ -147,10 +161,18 @@ examples/guide/        chimera's guide, one module per page; example.luwu cuts `
 examples/luwu/         the Luwu language docs
 ```
 
+`Color` is its own package, color (`~/Repositories/color`, published to ember as `seal-runtime/color`).
+`src/.luaurc` aliases `@color` to `../../color/`, and the `style` hub re-exports it. Its tests are in color's
+`tests/`; only tests of how chimera uses colors (styles, palettes) stay here.
+
 Each directory has an `init.luwu` hub re-exporting its modules (`export .{ ... }
-= require("@self/...")`, types via `export type .{ ... } = module`). `.luaurc`
+= require("@self/...")`, types via `export type .{ ... } = module`). `src/.luaurc`
 has one alias per directory (`@core`, `@elements`, ...); modules require each
-other through those, never `require("..")`. Users import from the hubs:
+other through those, never `require("..")`. The root `.luaurc` only has the seal
+aliases (`@std`, `@interop`, `@extra`) and `@chimera`, for tests and examples. It
+doesn't ship to ember: an installed chimera inherits `@std` from the consumer's
+`seal setup` `.luaurc`, and a shipped `@std` alias would override it with a
+folder that isn't there. Users import from the hubs:
 `chimera.elements`, `chimera.components`, `chimera.style`, `chimera.themes`,
 `chimera.site`, `chimera.core`.
 
@@ -171,7 +193,7 @@ Where a class belongs:
 ### Core model (`src/core/markup.luwu`)
 
 Every node implements `Markup` (`render`, `to_html`, `child_nodes`,
-`display`/`__tostring`). The traits, by `needs`:
+`display`/`debug`/`__tostring`; a `Child`'s `__tostring` embeds it). The traits, by `needs`:
 
 - `Child`: can sit inside a container (text, comments and every element).
 - `Tagged`: `expect function tag(): string`, a static giving the HTML tag.
@@ -179,7 +201,11 @@ Every node implements `Markup` (`render`, `to_html`, `child_nodes`,
   scoped rules (`style_inside`), events, `default_styles` (CSS the class needs
   once per page), `head_elements` (scripts/links it needs), `lists_headings`,
   `adopt` (taking parsed children), `render_open`/`render`. It re-expects
-  `tag()`; see "Luwu bugs" below.
+  `tag()`; see "Luwu bugs" below. `tooltip(content)` gives any element hover
+  content: `render_open` writes it as a `<template data-hover="tooltip">`
+  that the runtime script shows in the `.chimera-hover` box. The parser and
+  readers hand children over through `receive`, which reads that template
+  back before calling `adopt`.
 - `Container needs Element`: holds children (`add`, `insert`, `clear`).
   `Content` is what `add` takes: strings, numbers, children, or arrays of them.
   Arrays may hold `none` for a left-out item.
@@ -200,7 +226,7 @@ Every node implements `Markup` (`render`, `to_html`, `child_nodes`,
 `Writer` collects output and carries page context to render methods: `themes`
 (for `ThemeSwitcher`), `location` (the page's path), `pages` (the site tree),
 `headings` (when something lists them), and `href_to(path)` for relative links.
-Hot render paths live in the class's own module so methods inline.
+Hot render paths go in the class's own module so methods inline.
 
 ### Styling and themes
 
@@ -239,14 +265,21 @@ Hot render paths live in the class's own module so methods inline.
   title get ids from their text and a section link after their text
   (`heading_links`, on by default; the parser drops the link). With a table of
   contents on the page, the title gets an id too. Headings inside an element
-  whose `contributes_headings()` is false (cards) get neither.
+  whose `contributes_headings()` is false (cards) get neither. An element that isn't a heading
+  joins the contents box through `contents_entry()` (a `Panel` lists its title this way) and
+  gets an id the same way.
 - `Site` builds one `Document` per `Page`. Shared parts can't drift. It holds
   the themes, header, footer and sidebar (defaults: a menu of top-level pages
   with a brand link and theme switcher, and a `SiteFooter` with the site's
   copyright; `none` removes either), plus `style_every`, `customize(fn)` and
   breadcrumbs for nested pages. `build(out_dir)` writes every page and errors on
   clashing paths.
-- `Page(title, content?, file?)` owns a `Main`. Child pages live in their
+- Every `Site` page carries link preview tags (`Site:preview_tags`): Open Graph and Twitter card tags with
+  the page's own title and description and a `theme-color` from the default theme's `primary`. `Site:url` adds
+  `og:url`, and with `Site:preview_image` an `og:image`. The root `index.html` previews under the site's name.
+  The description is `Page:summary()`: its `describe` text, else its first paragraph's `plain_text()`, else the
+  site's `describe`. Every node has `plain_text()` (code gives its source): use it instead of walking children.
+- `Page(title, content?, file?)` owns a `Main`. Child pages go in their
   parent's folder (`docs/index.html` → `docs/*`). `PageLink`, `TableOfContents`
   and `Breadcrumbs` resolve links per page through `Writer.href_to`.
 - The page `TableOfContents` is a collapsible box with "On this page" and
@@ -278,7 +311,8 @@ first.
 into a `<template data-hover="N">` inside the code). Both mark `SourceSpan`s,
 two `vector`s of line and column. Implementors call `render_source(out)` where
 the code goes. The runtime script clones a hover's template into the
-`.chimera-hover` box. The Better Hovers page (`examples/luwu/hovers/`) shows
+`.chimera-hover` box. A mouse has to rest on a mark for `HOVER_DELAY` (400ms) first, and a
+tap opens it at once: touch pointers skip the hover handlers. The Better Hovers page (`examples/luwu/hovers/`) shows
 luwu-lsp's real hovers: `capture.luwu` asks the server and writes
 `hovers.json`. Rerun it when luwu-lsp's hovers change.
 
@@ -292,7 +326,7 @@ luwu-lsp's real hovers: `capture.luwu` asks the server and writes
   `<details>` this way).
 - `MarkdownReader` (`src/formats/markdown.luwu`) builds elements directly.
   HTML inside it goes through `Parser` with shapes off, and shapes run once
-  over the finished tree. The API lives on the classes:
+  over the finished tree. The API is on the classes:
   `Document.from_markdown`, `Page.from_markdown`, `Site:add_markdown`.
 - JSON is the HTML's own tree: `Parser:parse_tree` reads rendered HTML into
   plain `Tag`s, and reading builds nodes the parser's way (`Element.create`,
@@ -381,7 +415,7 @@ and the Luwu docs (`examples/luwu/`, also copied to luwu.org).
   - Show real tool output (luwu-analyze, luwu-lsp hovers) instead of writing
     it by hand. Verify every claim about behavior before publishing it.
   - Examples that teach a principle must actually follow it (a class that
-    "protects its invariant" keeps its fields and constructor private).
+    "protects its invariant" makes its fields and constructor private).
 - Example code style: no blank lines between methods; blank lines only
   separate groups (fields from functions, private from public fields).
   Shorten long examples on overview pages with a `-- ...` comment and link the

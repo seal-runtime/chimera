@@ -2,15 +2,19 @@
 --!optimize 2
 --!lint ConstLocal
 
+const fs = require("@std/fs")
+const json = require("@std/json")
 const .{ equal, contains, excludes } = require("./assert")
+const .{ Browser } = require("./browser")
 const chimera = require("@chimera")
 const .{
     Document,
+    core.{ Raw },
     Component,
     Container,
     style.{ Rule, Theme, Palette, Color },
     themes.{ Light, Dark, catppuccin },
-    elements.{ Div, Main, Paragraph, Link, Button },
+    elements.{ Div, Main, Paragraph, Link, Button, Strong },
     components.{ Card, ThemeSwitcher },
 } = chimera
 type .{ Content } = chimera
@@ -36,7 +40,7 @@ class Sepia() implements Theme
 end
 
 --- A user-defined component with its own CSS.
-class Callout implements Component, Container
+class Notice implements Component, Container
     function tag(): string
         return "aside"
     end
@@ -162,7 +166,7 @@ const tests: { [string]: () -> () } = {
 
     ["component styles are included once per class present"] = function()
         const with_callouts = Document()
-            :add(Callout("a"), Callout("b"))
+            :add(Notice("a"), Notice("b"))
             :to_html()
         const _, count = string.gsub(with_callouts, "border%-left: 4px solid orange", "")
         equal(count, 1)
@@ -203,6 +207,105 @@ const tests: { [string]: () -> () } = {
         contains(html, "<!DOCTYPE html>\n<html")
         contains(html, "<title>Pretty</title>")
         contains(html, "\n  <p>hi</p>\n")
+    end,
+    ["a mouse waits on a mark before its hover opens, and a tap opens it at once"] = function()
+        const page = Document("Hovers")
+        page.body:add(Paragraph({
+            Strong("first"):tooltip("First tip"),
+            " and ",
+            Strong("second"):tooltip("Second tip"),
+        }))
+        const file = fs.path.join(fs.path.cwd(), "tests", ".tmp_hover.html")
+        fs.writefile(file, page:to_html())
+        Browser.session(function(browser)
+            browser:open(file)
+            const steps = json.decode(browser:evaluate([==[
+                (async function () {
+                    var marks = document.querySelectorAll("strong[data-hover='tooltip']");
+                    var wait = function (ms) { return new Promise(function (done) { setTimeout(done, ms); }); };
+                    var fire = function (type, mark, pointer, related) {
+                        mark.dispatchEvent(new PointerEvent(type, {
+                            bubbles: true,
+                            pointerType: pointer,
+                            relatedTarget: related || null,
+                        }));
+                    };
+                    var open = function () {
+                        var box = document.querySelector(".chimera-hover");
+                        return box && !box.hidden ? box.textContent.trim() : "closed";
+                    };
+                    var steps = [];
+                    fire("pointerover", marks[0], "mouse");
+                    steps.push(open());
+                    await wait(500);
+                    steps.push(open());
+                    fire("pointerover", marks[1], "mouse");
+                    steps.push(open());
+                    fire("pointerout", marks[1], "mouse", document.body);
+                    await wait(250);
+                    steps.push(open());
+                    fire("pointerover", marks[0], "mouse");
+                    await wait(150);
+                    fire("pointerout", marks[0], "mouse", document.body);
+                    await wait(500);
+                    steps.push(open());
+                    fire("pointerover", marks[0], "touch");
+                    await wait(500);
+                    steps.push(open());
+                    marks[0].click();
+                    steps.push(open());
+                    return JSON.stringify(steps);
+                })()
+            ]==])) :: { string }
+            equal(steps[1], "closed", "a mouse doesn't open the hover at once")
+            equal(steps[2], "First tip", "resting on the mark opens it")
+            equal(steps[3], "Second tip", "an open hover moves to the next mark at once")
+            equal(steps[4], "closed", "leaving the mark closes it")
+            equal(steps[5], "closed", "leaving before the delay cancels it")
+            equal(steps[6], "closed", "a touch pointer doesn't hover")
+            equal(steps[7], "First tip", "a tap opens it at once")
+        end)
+        fs.removefile(file)
+    end,
+    ["alt right-click on a local page lists where an element was made"] = function()
+        const page = Document("Sources")
+        page.body:add(Raw(`<p data-chimera-source="/work/site/page.luwu:12|/work/site/main.luwu:40">Hi</p>`))
+        const file = fs.path.join(fs.path.cwd(), "tests", ".tmp_sources.html")
+        fs.writefile(file, page:to_html())
+        Browser.session(function(browser)
+            browser:open(file)
+            const result = json.decode(browser:evaluate([==[
+                (function () {
+                    var mark = document.querySelector("[data-chimera-source]");
+                    var click = function (alt) {
+                        var event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, altKey: alt });
+                        return !mark.dispatchEvent(event);
+                    };
+                    var plain_blocked = click(false);
+                    var plain_menu = document.querySelector(".chimera-source-menu");
+                    var alt_blocked = click(true);
+                    var menu = document.querySelector(".chimera-source-menu");
+                    var links = Array.prototype.map.call(menu.querySelectorAll("a"), function (link) {
+                        return link.getAttribute("href") + " " + link.textContent;
+                    });
+                    return JSON.stringify({
+                        plain: plain_blocked || plain_menu !== null,
+                        alt: alt_blocked && !menu.hidden,
+                        links: links,
+                    });
+                })()
+            ]==])) :: { plain: boolean, alt: boolean, links: { string } }
+            equal(result.plain, false, "a plain right-click keeps the browser's menu")
+            equal(result.alt, true, "alt right-click opens the source menu")
+            equal(result.links[1], "vscode://file/work/site/page.luwu:12 site/page.luwu:12")
+            equal(result.links[2], "vscode://file/work/site/main.luwu:40 site/main.luwu:40")
+        end)
+        fs.removefile(file)
+    end,
+
+    ["elements record no source unless CHIMERA_SOURCES is set"] = function()
+        excludes(Paragraph("Hi"):to_html(), "data-chimera-source")
+        excludes(Paragraph():attr("data-chimera-source", "/x.luwu:1"):to_html(), "data-chimera-source")
     end,
 }
 

@@ -142,3 +142,7 @@ return Page("Code", {
         end
     ]====]),
 })
+    :describe(
+        "Luwu, Luau and Lua highlighted at build time in the reader's theme, with squiggles and hovers that "
+        .. "explain code like an editor does."
+    )

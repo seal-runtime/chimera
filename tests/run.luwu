@@ -26,10 +26,6 @@ const suites: { Suite } = {
         tests = require("./code"),
     },
     {
-        name = "color",
-        tests = require("./color"),
-    },
-    {
         name = "markup",
         tests = require("./markup"),
     },
@@ -80,7 +76,7 @@ for _, suite in suites do
     end)
     for _, case in cases do
         const label = case.label
-        if filter and not string.find(label, filter, 1, true) then
+        if filter and not label:contains(filter) then
             continue
         end
         const ok, problem = pcall(function()

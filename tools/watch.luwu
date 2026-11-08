@@ -1,0 +1,70 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const process = require("@std/process")
+const serve_module = require("./serve")
+const .{ LintSender } = require("./source_lints")
+const .{ sources_fingerprint } = serve_module
+type .{ WatchStart } = serve_module
+
+--[=[
+    Whether any of an event's `paths` is a `.luwu` file. An editor that saves by renaming a temporary file over the
+    source lists the temporary file first.
+]=]
+const function touches_luwu(paths: { string }): boolean
+    for _, path in paths when path:endswith(".luwu") do
+        return true
+    end
+    return false
+end
+
+--- Whether `event` saved, renamed or removed a `.luwu` file.
+const function changes_source(event: fs.WatchEventInfo): boolean
+    const changes = event.is_write or event.kind:startswith("Rename") or event.kind:startswith("Remove")
+    return changes and touches_luwu(event.paths)
+end
+
+--[=[
+    Reruns a site's build script whenever a `.luwu` file in its folders is saved, so the checked-in output stays
+    current. It also sends the sources' lints to luwu-lsp when `serve` has a `diagnostics_port`. `serve` runs it in a
+    separate thread because `fs.watch` blocks just like the server does.
+]=]
+const function watch(start: WatchStart)
+    local built_from = sources_fingerprint(start.folders)
+    const lints = if start.diagnostics_port then LintSender(start.diagnostics_port, start.folders) else nil
+    if lints then
+        lints:send()
+    end
+
+    -- Lints that are due go out on each 125 ms timeout of the watch too, not only when a file changes
+    for _, event in fs.watch(start.folders, { recursive = true, timeout_ms = 125 }) do
+        if lints then
+            lints:send_if_due()
+        end
+        changes_source(event) or continue
+
+        -- One save sends several events. Only the first changes what the build reads.
+        const fingerprint = sources_fingerprint(start.folders)
+        fingerprint == built_from and continue
+        built_from = fingerprint
+        if lints then
+            lints:send()
+        end
+        start.rebuild or continue
+
+        const result = process.run({
+            program = start.seal,
+            args = { start.script },
+            cwd = start.project,
+        })
+        if not result.ok then
+            warn(result.stderr)
+        end
+    end
+end
+
+const started = channel or error("tools/watch.luwu runs as a thread that tools/serve.luwu starts")
+-- Thread data arrives as decoded JSON, so its shape isn't known statically.
+watch(started.data :: WatchStart)

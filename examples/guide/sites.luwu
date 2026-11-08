@@ -273,3 +273,4 @@ return Page("Sites and pages", {
         Code("fs.copy"), ".",
     }),
 })
+    :describe("Set the header, footer and themes once on a Site and give each Page only its own content.")

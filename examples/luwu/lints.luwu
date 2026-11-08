@@ -221,3 +221,7 @@ return Page("Lints", {
         }),
     }),
 }, "lints.html")
+    :describe(
+        "More than 40 new lints for Luau and Luwu code that point out slow patterns and catch mistakes the type "
+        .. "checker can't see."
+    )

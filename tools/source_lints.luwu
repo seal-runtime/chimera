@@ -1,0 +1,488 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const http = require("@std/net/http")
+const time = require("@std/time")
+
+--- A change a quick fix makes. Without an end, it inserts `newText` at its start.
+export type LintEdit = {
+    line: number,
+    column: number,
+    endLine: number?,
+    endColumn: number?,
+    newText: string,
+}
+
+--- A quick fix the editor offers for a lint.
+export type LintFix = {
+    title: string,
+    edits: { LintEdit },
+}
+
+--- A lint in luwu-lsp's external diagnostics format: lines and columns start at 1 and columns count bytes.
+export type SourceLint = {
+    line: number,
+    column: number,
+    --- The last line, when it isn't `line`.
+    endLine: number?,
+    endColumn: number,
+    code: string,
+    message: string,
+    fixes: { LintFix },
+}
+
+--- The lints of each file, by absolute path.
+export type FileLints = { [string]: { SourceLint }? }
+
+--- How often [LintSender:send_if_due] sends the lints again, in seconds. A luwu-lsp that restarted has lost them.
+const RESEND_SECONDS = 5
+
+const Z_MESSAGE = "Add a space before `\\z` to keep this word apart from the next line's first. `\\z` skips the line "
+    .. "break and the indentation after it."
+
+--- Whether the backslash at `index` is the second half of a `\\`, which writes a backslash instead of starting `\z`.
+const function is_escaped_backslash(line: string, index: number): boolean
+    local count = 0
+    while index - count > 1 and string.sub(line, index - count - 1, index - count - 1) == "\\" do
+        count += 1
+    end
+    return count % 2 == 1
+end
+
+--[=[
+    The lines that end in a `\z` right after a word or punctuation when the next line starts with a word. The string's
+    next line starts at its first character that isn't whitespace, so nothing separates the two in the text.
+]=]
+export function z_without_space(text: string): { SourceLint }
+    const lines = string.split(text, "\n")
+    return {
+        for line_number, line in lines
+        when const z = string.find(line, "\\z%s*$")
+        when z > 1
+        when not string.match(string.sub(line, z - 1, z - 1), "%s")
+        when not is_escaped_backslash(line, z)
+        when string.find(lines[line_number + 1] or "", "^%s*[%w_]")
+        give {
+            line = line_number,
+            column = z,
+            endColumn = z + 2,
+            code = "ZJoinsWords",
+            message = Z_MESSAGE,
+            fixes = {
+                {
+                    title = "Add a space before `\\z`",
+                    edits = {
+                        {
+                            line = line_number,
+                            column = z,
+                            newText = " ",
+                        },
+                    },
+                },
+            },
+        }
+    }
+end
+
+--[=[
+    Chimera components that sit inside a line of text. Next to a string in a list of content, one reads better
+    interpolated into it: `` `Run {Code("seal")} to build` `` instead of `"Run ", Code("seal"), " to build"`.
+]=]
+const INLINE_COMPONENTS: { [string]: true? } = {
+    Code = true,
+    Emphasis = true,
+    Link = true,
+    PageLink = true,
+    Small = true,
+    Span = true,
+    Strong = true,
+}
+
+--- A token of Luwu source: a string, a word (a name, keyword or number) or one other character.
+type Token = {
+    kind: "string" | "long_string" | "word" | "symbol",
+    --- The byte offset of its first character.
+    start: number,
+    --- The byte offset of its last character.
+    finish: number,
+}
+
+--- Where the long bracket (`[[`, `[==[`) opening at `start` closes, or nil when there's none at `start`.
+const function long_bracket_end(source: string, start: number): number?
+    const level = string.match(source, "^%[(=*)%[", start) or return nil
+    const _, close = string.find(source, "]" .. level .. "]", start, true)
+    return close or #source
+end
+
+--[=[
+    Where the quoted string opening at `start` closes. An unclosed `"` or `'` string ends with its line. `\z` skips
+    the whitespace after it, line breaks included, and so does a `\` before a line break.
+]=]
+const function quoted_end(source: string, start: number): number
+    const quote = string.sub(source, start, start)
+    local index = start + 1
+    -- How many `{` interpolations of a backtick string are open
+    local depth = 0
+    while index <= #source do
+        const char = string.sub(source, index, index)
+        if char == "\\" and string.sub(source, index + 1, index + 1) == "z" then
+            index = string.find(source, "%S", index + 2) or #source + 1
+            continue
+        elseif char == "\\" then
+            index += 2
+            continue
+        elseif depth > 0 and (char == "\"" or char == "'" or char == "`") then
+            index = quoted_end(source, index) + 1
+            continue
+        elseif quote == "`" and char == "{" then
+            depth += 1
+        elseif quote == "`" and char == "}" and depth > 0 then
+            depth -= 1
+        elseif char == quote then
+            return index
+        elseif char == "\n" and quote ~= "`" then
+            return index - 1
+        end
+        index += 1
+    end
+    return #source
+end
+
+--- The token starting at `index`, or nil with where to look next when whitespace or a comment starts there.
+const function token_at(source: string, index: number): (Token?, number)
+    const char = string.sub(source, index, index)
+    if string.find(char, "%s") then
+        return nil, index + 1
+    elseif string.sub(source, index, index + 1) == "--" then
+        const line_end = string.find(source, "\n", index, true) or #source + 1
+        return nil, (long_bracket_end(source, index + 2) or line_end) + 1
+    elseif char == "\"" or char == "'" or char == "`" then
+        const finish = quoted_end(source, index)
+        return { kind = "string", start = index, finish = finish }, finish + 1
+    elseif const finish = long_bracket_end(source, index) then
+        return { kind = "long_string", start = index, finish = finish }, finish + 1
+    end
+
+    const word_end = string.match(source, "^[%w_]+()", index)
+    const finish = if word_end then word_end - 1 else index
+    const kind = if word_end then "word" else "symbol"
+    return { kind = kind, start = index, finish = finish }, finish + 1
+end
+
+--- The tokens of `source`, without its whitespace and comments.
+const function tokenize(source: string): { Token }
+    const tokens: { Token } = {}
+    local index = 1
+    while index <= #source do
+        const token, next_index = token_at(source, index)
+        if token then
+            table.insert(tokens, token)
+        end
+        index = next_index
+    end
+    return tokens
+end
+
+const function text_of(source: string, token: Token): string
+    return string.sub(source, token.start, token.finish)
+end
+
+--- Whether `token` is one of the characters in `symbols`.
+const function is_symbol(source: string, token: Token?, symbols: string): boolean
+    token and token.kind == "symbol" or return false
+    return string.find(symbols, text_of(source, token), 1, true) ~= nil
+end
+
+--- The index of the `)` closing the `(` at token `open`, or the last token when it's unclosed.
+const function closing_paren(source: string, tokens: { Token }, open: number): number
+    local depth = 0
+    for index = open, #tokens do
+        if is_symbol(source, tokens[index], "(") then
+            depth += 1
+        elseif is_symbol(source, tokens[index], ")") then
+            depth -= 1
+            depth == 0 and return index
+        end
+    end
+    return #tokens
+end
+
+--[=[
+    The last token of the inline component call starting at token `first`, with any method calls chained onto it
+    (`Link("site", "/"):new_tab()`), or nil when no call to one of [INLINE_COMPONENTS] starts there.
+]=]
+const function inline_call_end(source: string, tokens: { Token }, first: number): number?
+    const name = tokens[first]
+    name.kind == "word" and INLINE_COMPONENTS[text_of(source, name)] or return nil
+    is_symbol(source, tokens[first + 1], "(") or return nil
+
+    local last = closing_paren(source, tokens, first + 1)
+    while
+        is_symbol(source, tokens[last + 1], ":.")
+        and tokens[last + 2] and tokens[last + 2].kind == "word"
+        and is_symbol(source, tokens[last + 3], "(")
+    do
+        last = closing_paren(source, tokens, last + 3)
+    end
+    return last
+end
+
+--- A string or an inline component call in a list of content, as token indices.
+type Piece = {
+    first: number,
+    last: number,
+    is_string: boolean,
+}
+
+--- The piece starting at token `first`, or nil when what starts there isn't a whole item of a list.
+const function piece_at(source: string, tokens: { Token }, first: number): Piece?
+    const last = if tokens[first].kind == "string" then first else inline_call_end(source, tokens, first)
+    last or return nil
+    is_symbol(source, tokens[last + 1], ",)}") or return nil
+    return {
+        first = first,
+        last = last,
+        is_string = last == first,
+    }
+end
+
+--- The index of the `(` or `{` whose list holds token `index`, or nil when it's in no list.
+const function list_opener(source: string, tokens: { Token }, index: number): number?
+    local depth = 0
+    for opener = index - 1, 1, -1 do
+        if is_symbol(source, tokens[opener], ")]}") then
+            depth += 1
+        elseif is_symbol(source, tokens[opener], "([{") then
+            depth == 0 and return opener
+            depth -= 1
+        end
+    end
+    return nil
+end
+
+--- Whether `token` names a component: a class like `Paragraph`, as opposed to a helper like `pack_row`.
+const function is_component_name(source: string, token: Token?): boolean
+    return token ~= nil and token.kind == "word" and string.find(text_of(source, token), "^%u") ~= nil
+end
+
+--[=[
+    Whether the list holding token `index` is a component's content: its arguments (`Paragraph(...)`), or a table
+    passed to it (`Paragraph({ ... })`, `Menu { ... }`). The arguments of a helper are separate values.
+]=]
+const function in_content_list(source: string, tokens: { Token }, index: number): boolean
+    const opener = list_opener(source, tokens, index) or return false
+    is_symbol(source, tokens[opener], "[") and return false
+    is_component_name(source, tokens[opener - 1]) and return true
+    return is_symbol(source, tokens[opener], "{")
+        and is_symbol(source, tokens[opener - 1], "(")
+        and is_component_name(source, tokens[opener - 2])
+end
+
+--[=[
+    The pieces of the list items starting at token `first` that are strings and inline component calls, when they
+    mix the two. Only a run that starts a list or follows a comma counts, so `"a" .. "b", Code("c")` isn't one.
+]=]
+const function split_text_at(source: string, tokens: { Token }, first: number): { Piece }?
+    is_symbol(source, tokens[first - 1], "({,") or return nil
+    in_content_list(source, tokens, first) or return nil
+
+    const pieces: { Piece } = {}
+    local index = first
+    while index <= #tokens do
+        const piece = piece_at(source, tokens, index) or break
+        table.insert(pieces, piece)
+        is_symbol(source, tokens[piece.last + 1], ",") or break
+        index = piece.last + 2
+    end
+
+    local strings = 0
+    for _, piece in pieces when piece.is_string do
+        strings += 1
+    end
+    return if strings > 0 and strings < #pieces then pieces else nil
+end
+
+--- `pieces` as one backtick string, with each component call interpolated where it was.
+--- What `piece` writes inside a backtick string: a string's text, or a component call in braces.
+const function piece_text(source: string, tokens: { Token }, piece: Piece): string
+    const text = string.sub(source, tokens[piece.first].start, tokens[piece.last].finish)
+    if not piece.is_string then
+        return `\{{text}}`
+    elseif text:startswith("`") then
+        return string.sub(text, 2, -2)
+    end
+    const unescaped = string.gsub(string.sub(text, 2, -2), "\\([\"'])", "%1")
+    return (string.gsub(unescaped, "[`{]", "\\%0"))
+end
+
+--[=[
+    `pieces` as one backtick string, with each component call interpolated where it was. A piece that started a line
+    still does: `\z` ends the line before it and skips the line break and the indentation. The piece's leading spaces
+    go before the `\z`, which would skip them too, and so does punctuation that ends the previous line's text (`, `).
+    Pieces that join into one word (`{Code("give")}s`) stay on one line.
+]=]
+const function interpolated(source: string, tokens: { Token }, pieces: { Piece }): string
+    const parts: { string } = {}
+    local previous_end = tokens[pieces[1].first].start
+    for _, piece in pieces do
+        const start = tokens[piece.first].start
+        const text = piece_text(source, tokens, piece)
+        const leading = string.match(text, "^[%s,.;:!?)]*") or ""
+        const rest = string.sub(text, #leading + 1)
+        const joins_word = leading == ""
+            and string.find(rest, "^[%w_]") ~= nil
+            and string.find(parts[#parts] or "", "[%w_}]$") ~= nil
+        if string.sub(source, previous_end, start):contains("\n") and not joins_word then
+            const indent = string.match(string.sub(source, 1, start - 1), "\n([ \t]*)$") or ""
+            table.insert(parts, `{leading}\\z\n{indent}{rest}`)
+        else
+            table.insert(parts, text)
+        end
+        previous_end = tokens[piece.last].finish
+    end
+
+    return "`" .. table.concat(parts) .. "`"
+end
+
+--- The 1-indexed line and byte column of the byte at `offset` in `source`.
+const function position_of(source: string, offset: number): (number, number)
+    const before = string.sub(source, 1, offset - 1)
+    const _, line_breaks = string.gsub(before, "\n", "")
+    const line_start = (string.find(before, "\n[^\n]*$") or 0) + 1
+    return line_breaks + 1, offset - line_start + 1
+end
+
+--[=[
+    The places that list text and inline components as separate items of content (`"Run ", Code("seal"), " now"`).
+    One interpolated string says the same in one item and reads as the sentence it is.
+]=]
+export function split_text(source: string): { SourceLint }
+    const tokens = tokenize(source)
+    const lints: { SourceLint } = {}
+    local index = 1
+    while index <= #tokens do
+        const pieces = split_text_at(source, tokens, index)
+        if not pieces then
+            index += 1
+            continue
+        end
+
+        const first = tokens[pieces[1].first]
+        const last = tokens[pieces[#pieces].last]
+        const line, column = position_of(source, first.start)
+        const end_line, end_column = position_of(source, last.finish)
+        const joined = interpolated(source, tokens, pieces)
+        -- The message shows the string when it's short enough to read there
+        const message = if #joined <= 100 and not joined:contains("\n")
+            then `Write this text as one interpolated string: {joined}`
+            else "Write this text and its inline components as one interpolated string, like `Run {Code(\"seal\")} now`."
+        table.insert(lints, {
+            line = line,
+            column = column,
+            endLine = end_line,
+            endColumn = end_column + 1,
+            code = "SplitText",
+            message = message,
+            fixes = {
+                {
+                    title = "Interpolate into one string",
+                    edits = {
+                        {
+                            line = line,
+                            column = column,
+                            endLine = end_line,
+                            endColumn = end_column + 1,
+                            newText = joined,
+                        },
+                    },
+                },
+            },
+        })
+        index = pieces[#pieces].last + 1
+    end
+    return lints
+end
+
+--- Every lint of one file's `source`.
+export function lint_source(source: string): { SourceLint }
+    const lints = split_text(source)
+    for _, lint in z_without_space(source) do
+        table.insert(lints, lint)
+    end
+    return lints
+end
+
+--- `path` ends in `.luwu`, for listing source files.
+const function is_luwu(path: string): boolean
+    return path:endswith(".luwu")
+end
+
+--- The lints of every `.luwu` file in `folders` that has any.
+export function lint_folders(folders: { string }): FileLints
+    const paths = {
+        for _, folder in folders
+        for _, path in fs.listdir(folder, true, is_luwu)
+        give path
+    }
+
+    const lints: FileLints = {}
+    for
+        _, path in paths
+        when const found = lint_source(fs.readfile(path))
+        when #found > 0
+    do
+        lints[path] = found
+    end
+    return lints
+end
+
+--[=[
+    Sends `lints` to the luwu-lsp listening on `port` (its `luwu.diagnostics.externalPort`), in place of the ones it
+    has from chimera. Returns whether it took them. No luwu-lsp runs on the port while the editor is closed.
+]=]
+export function send_lints(port: number, lints: FileLints): boolean
+    const ok, response = pcall(function()
+        return http.post({
+            url = `http://127.0.0.1:{port}/diagnostics`,
+            body = {
+                source = "chimera",
+                files = lints,
+                replaceAll = true,
+            },
+            timeout = time.seconds(2),
+        })
+    end)
+    return ok and typeof(response) ~= "error" and response.ok
+end
+
+--[=[
+    Keeps the lints luwu-lsp shows for a site's sources current. The watcher calls [LintSender:send] when a source
+    changes and [LintSender:send_if_due] while it waits.
+]=]
+export class LintSender(
+    public const port: number,
+    public const folders: { string }
+)
+    private sent_at = -math.huge
+    --- Whether the last send reached luwu-lsp, so a change either way is printed once.
+    private reached: boolean? = nil
+
+    public function send(self)
+        self.sent_at = os.clock()
+        const reached = send_lints(self.port, lint_folders(self.folders))
+        if reached ~= self.reached then
+            const status = if reached
+                then `sending source lints to luwu-lsp on port {self.port}`
+                else `luwu-lsp isn't taking diagnostics on port {self.port}; sending again every {RESEND_SECONDS}s`
+            print(status)
+        end
+        self.reached = reached
+    end
+
+    public function send_if_due(self)
+        os.clock() - self.sent_at >= RESEND_SECONDS or (return)
+        self:send()
+    end
+end

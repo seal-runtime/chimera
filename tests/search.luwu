@@ -118,22 +118,6 @@ const function rank_all(browser: Browser, queries: { string }, form: number?): {
     return json.decode(browser:evaluate(script)) :: { { string } }
 end
 
-const function with_browser(run: (Browser) -> ())
-    if not Browser.available() then
-        print("    skipped: Firefox isn't installed")
-        return
-    end
-    const browser = Browser.launch()
-    const ok, problem = pcall(function()
-        run(browser)
-        return nil
-    end)
-    browser:close()
-    if not ok then
-        error(problem, 0)
-    end
-end
-
 const tests: { [string]: () -> () } = {
     ["the index holds pages, sections and elements' own entries"] = function()
         const site = sample()
@@ -179,7 +163,7 @@ const tests: { [string]: () -> () } = {
         fs.removetree(out_dir)
     end,
 
-    ["a search box points at the index from every folder and keeps its settings"] = function()
+    ["a search box points at the index from every folder and its settings survive"] = function()
         const nested = Page("Deep", h1("Deep"))
         const site = Site("docs")
             :search(Search()
@@ -224,7 +208,7 @@ const tests: { [string]: () -> () } = {
 
     ["search ranks names the way programmers write them"] = function()
         const out_dir = build_sample()
-        with_browser(function(browser)
+        Browser.session(function(browser)
             browser:open(fs.path.join(out_dir, "fs.html"))
             const queries = {
                 "readfile",
@@ -268,7 +252,7 @@ const tests: { [string]: () -> () } = {
 
     ["short terms don't match by typo and every term has to match"] = function()
         const out_dir = build_sample()
-        with_browser(function(browser)
+        Browser.session(function(browser)
             browser:open(fs.path.join(out_dir, "fs.html"))
             const results = rank_all(browser, { "os", "lines", "fs nothinglikethis" })
             excludes(table.concat(results[1], " "), "fs.", "\"os\" shouldn't find fs functions")
@@ -282,7 +266,7 @@ const tests: { [string]: () -> () } = {
 
     ["names that match come before entries that only mention the term"] = function()
         const out_dir = build_sample()
-        with_browser(function(browser)
+        Browser.session(function(browser)
             browser:open(fs.path.join(out_dir, "fs.html"))
             const titles = rank_all(browser, { "file" })[1]
             local mentions_only = false
@@ -304,7 +288,7 @@ const tests: { [string]: () -> () } = {
             :kinds({ "function" })
             :limit(1)
         )
-        with_browser(function(browser)
+        Browser.session(function(browser)
             browser:open(fs.path.join(out_dir, "node.html"))
             const results = rank_all(browser, { "read" }, 2)
             equal(table.concat(results[1], " "), "readFileSync")

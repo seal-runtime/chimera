@@ -3,9 +3,9 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Text, Fragment, Tag, HtmlElement } = require("@core/markup")
+const .{ Element, Component, Container, Text, Fragment, Tag, HtmlElement } = require("@core/markup")
 const .{ Script } = require("@elements/head")
-const .{ Color } = require("@style/color")
+const .{ Color } = require("@color")
 const .{ Token, token } = require("@style/token")
 type .{ Markup, Metadata, Writer, AttributeValue, Content, MarkdownWriter } = markup
 
@@ -18,7 +18,7 @@ const function fits_markdown(code: Element, hovers: number, allowed: { [string]:
         return false
     end
     for _, name in code.style_classes do
-        if not string.find(name, "^chimera%-code") and not string.find(name, "^language%-") then
+        if not name:startswith("chimera-code", "language-") then
             return false
         end
     end
@@ -64,6 +64,7 @@ export type Language =
     | "json"
     | "kotlin"
     | "markdown"
+    | "powershell"
     | "python"
     | "ruby"
     | "rust"
@@ -94,6 +95,7 @@ const LANGUAGES: { [string]: Language } = {
     json = "json",
     kotlin = "kotlin",
     markdown = "markdown",
+    powershell = "powershell",
     python = "python",
     ruby = "ruby",
     rust = "rust",
@@ -105,7 +107,15 @@ const LANGUAGES: { [string]: Language } = {
     yaml = "yaml",
 }
 
+--- The longest inline code, in characters, that stays on one line. It fits a phone's line whole.
+const SHORT_CODE = 30
+
 const HIGHLIGHT_JS = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
+
+--- Languages missing from highlight.js's common build, which load their own file after it.
+const EXTRA_LANGUAGES: { [Language]: boolean? } = {
+    powershell = true,
+}
 
 const KEYWORDS: { [string]: boolean } = {
     ["and"] = true,
@@ -145,6 +155,37 @@ const KEYWORDS: { [string]: boolean } = {
     ["match"] = true,
     ["case"] = true,
     ["is"] = true,
+    ["read"] = true,
+    ["write"] = true,
+}
+
+--- Keywords Luwu reads as names everywhere else, which [is_contextual_keyword] picks out by what's around them.
+const CONTEXTUAL_KEYWORDS: { [string]: boolean } = {
+    ["try"] = true,
+    ["declare"] = true,
+    ["extern"] = true,
+    ["extends"] = true,
+}
+
+--- Keywords that continue or end an expression, so a `try` before them is a name.
+const CONTINUING_KEYWORDS: { [string]: boolean } = {
+    ["and"] = true,
+    ["or"] = true,
+    ["then"] = true,
+    ["else"] = true,
+    ["elseif"] = true,
+    ["end"] = true,
+    ["in"] = true,
+    ["until"] = true,
+    ["is"] = true,
+    ["when"] = true,
+    ["as"] = true,
+    ["case"] = true,
+    ["implements"] = true,
+}
+
+--- Keywords only inside a type, like `{ read name: string }`. Elsewhere they're names, like a `read` function.
+const TYPE_KEYWORDS: { [string]: boolean } = {
     ["read"] = true,
     ["write"] = true,
 }
@@ -262,6 +303,41 @@ const function highlight_template(text: string, highlight_code: (string) -> stri
 end
 
 --[=[
+    Whether the contextual keyword `word`, from `index` to `finish`, is a keyword here. `try` is one when an expression
+    follows it, as Luwu's parser decides: `try(x)`, `try.x` and `try + 1` use a name. `declare` and `extern` are
+    keywords at the start of a statement with a name after them, and `extends` after a class's name. A snippet that's
+    only the word, like `Code("try")` in a sentence, is the keyword.
+]=]
+const function is_contextual_keyword(source: string, index: number, finish: number, word: string): boolean
+    if index == 1 and finish == #source then
+        return true
+    elseif word == "try" then
+        if string.find(source, "^%s*%.[({]", finish + 1) or string.find(source, "^%s*%.%.%.", finish + 1) then
+            return true
+        end
+        const _, gap_end = string.find(source, "^%s+", finish + 1)
+        gap_end or return false
+        const next_word = string.match(source, "^[%a_][%w_]*", gap_end + 1)
+        if next_word then
+            return not CONTINUING_KEYWORDS[next_word]
+        end
+        return string.find(source, "^[%d#`]", gap_end + 1) ~= nil
+    end
+    string.find(source, "^%s+[%a_]", finish + 1) or return false
+    local line_start = index
+    while line_start > 1 and string.sub(source, line_start - 1, line_start - 1) ~= "\n" do
+        line_start -= 1
+    end
+    const before = string.sub(source, line_start, index - 1)
+    if word == "extends" then
+        return string.find(before, "class%s+[%w_]+%s+$") ~= nil
+    end
+    return string.find(before, "^%s*$") ~= nil
+        or string.find(before, "^%s*export%s+$") ~= nil
+        or (word == "extern" and string.find(before, "^%s*declare%s+$") ~= nil)
+end
+
+--[=[
     The token starting at `index`: where it ends, its highlight.js class (empty for plain text, `"template"` for a
     backtick string), and whether it's the `function` keyword. After `function`, the next name is a function's name.
     `in_type` marks a type annotation, where names are types.
@@ -285,6 +361,10 @@ const function token_at(
             return close, "string", false
         end
         return index, "", false
+    elseif char == "@" and string.find(source, "^@[%a_]", index) then
+        -- An attribute like `@native` or `@checked`.
+        const _, attribute_end = string.find(source, "^@[%a_][%w_]*", index)
+        return attribute_end or index, "meta", false
     elseif string.find(char, "%d") or (char == "." and string.find(source, "^%.%d", index)) then
         const _, finish = string.find(source, "^0[xX][%x_]+", index)
         if finish then
@@ -299,8 +379,10 @@ const function token_at(
     const finish = index + #word - 1
     const previous = string.sub(source, index - 1, index - 1)
     const member = previous == "." or (previous == ":" and string.sub(source, index - 2, index - 2) ~= ":")
-    if KEYWORDS[word] and not member then
+    if KEYWORDS[word] and not member and (in_type or not TYPE_KEYWORDS[word]) then
         return finish, "keyword", word == "function"
+    elseif CONTEXTUAL_KEYWORDS[word] and not member and is_contextual_keyword(source, index, finish, word) then
+        return finish, "keyword", false
     elseif LITERALS[word] and not member then
         return finish, "literal", false
     elseif after_function then
@@ -341,8 +423,8 @@ const function highlight_luwu(source: string): string
         const opens = text == "(" or text == "{" or text == "["
         const closes = text == ")" or text == "}" or text == "]"
         if kind ~= "" or opens or closes then
-            -- The `.` of a destructuring `.{` belongs to the bracket.
-            const dot = text == "{"
+            -- The `.` of a destructuring `.{` or a bundle's `.(` belongs to the bracket.
+            const dot = (text == "{" or text == "(")
                 and index - 1 >= plain_start
                 and string.sub(source, index - 1, index - 1) == "."
                 and string.sub(source, index - 2, index - 2) ~= "."
@@ -415,17 +497,6 @@ const function highlight_luwu(source: string): string
         table.insert(out, Text.escape(string.sub(source, plain_start)))
     end
     return table.concat(out)
-end
-
---- All the text inside a parsed node.
-const function text_of(node: Markup, into: { string })
-    if class.isinstance(node, Text) then
-        table.insert(into, node.content)
-        return
-    end
-    for _, child in node:child_nodes() do
-        text_of(child, into)
-    end
 end
 
 const function language_of(value: AttributeValue?): Language?
@@ -673,7 +744,7 @@ const function markings_of(
 end
 
 const function quote(text: string): string
-    return (string.gsub(Text.escape(text), "\"", "&quot;"))
+    return Text.escape(text):replace("\"", "&quot;")
 end
 
 --- The `<span>` that opens a [Marking]: a squiggle's class, color and message, and a hover's class and index.
@@ -950,6 +1021,11 @@ export trait SourceCode needs Component
         return { for _, hover in self.hovers give hover.content }
     end
 
+    --- The code as written. Hovers aren't part of the text.
+    function plain_text(self): string
+        return self.source
+    end
+
     --[=[
         Takes parsed code as the source: the text inside the node, or the source of parsed [SourceCode]. A
         `<template>` from [SourceCode:render_source] becomes a [Hover] again.
@@ -972,9 +1048,7 @@ export trait SourceCode needs Component
             table.insert(self.hovers, Hover(parsed, node.children))
             return true
         end
-        const parts: { string } = {}
-        text_of(node, parts)
-        self.source ..= table.concat(parts)
+        self.source ..= node:plain_text()
         return true
     end
 
@@ -993,10 +1067,13 @@ export trait SourceCode needs Component
         then
             return nil
         end
-        return {
-            Script(nil, HIGHLIGHT_JS):defer(),
-            Script(CLIENT_HIGHLIGHTING),
-        }
+        const scripts: { Metadata } = { Script(nil, HIGHLIGHT_JS):defer() }
+        if EXTRA_LANGUAGES[language] then
+            const source = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/{language}.min.js`
+            table.insert(scripts, Script(nil, source):defer())
+        end
+        table.insert(scripts, Script(CLIENT_HIGHLIGHTING))
+        return scripts
     end
 end
 
@@ -1017,25 +1094,64 @@ end
     <code data-language="luwu" class="chimera-code" data-highlighted="yes">doc:<span class="hljs-title function_
     invoke__">to_html</span>(<span class="hljs-literal">true</span>)</code>
     ```
+
+    ## Linked code
+
+    Pass a link in place of the source to format the link's text as code. The code renders inside the link in the
+    link's color, without syntax colors. A `PageLink` to a `Page` uses the page's title, and a link to a path or URL
+    needs its text:
+
+    ```luwu
+    Paragraph({ "Returns a ", Code(PageLink("reference/results.html#result", "Result")), "." })
+    Paragraph({ "See ", Code(Link("string.format", "https://luau.org/library#string-library"), "plaintext"), "." })
+    ```
+
+    ```html
+    <p>Returns a <a data-element="PageLink" data-page="reference/results.html#result"
+    href="reference/results.html#result"><code data-language="luwu" data-plain class="chimera-code">Result</code></a>.</p>
+    ```
 ]=]
 export class Code implements SourceCode, HtmlElement
+    --- The link the code renders inside, when a link was passed in place of the source.
+    link: Container? = nil
+    --- Set while the link renders, so the code inside it renders as plain code.
+    rendering_link = false
+
     function tag(): string
         return "code"
     end
 
-    function __init(self, source: string?, language: Language?)
-        self.source = source or ""
+    function __init(self, source: (string | Container)?, language: Language?)
+        if type(source) == "string" or source == nil then
+            self.source = source or ""
+        else
+            self.source = source:plain_text()
+            source.children = { self }
+            self.link = source
+        end
         self
             :attr("data-language", language or "luwu")
             :add_style_class("chimera-code")
+        if self.link then
+            self:plain()
+        end
     end
 
     function is_inline(self): boolean
         return true
     end
 
-    --- Inline code in the writer's language writes as backticks. Code in another language keeps its HTML.
+    --- Inline code in the writer's language writes as backticks. Code in another language writes as HTML.
     function markdown(self, out: MarkdownWriter): string
+        if
+            const link = self.link
+            when not self.rendering_link
+        then
+            self.rendering_link = true
+            const written = link:markdown(out)
+            self.rendering_link = false
+            return written
+        end
         if
             self:language() ~= out.code_language
             or not fits_markdown(self, #self.hovers, { ["data-language"] = true })
@@ -1043,17 +1159,29 @@ export class Code implements SourceCode, HtmlElement
             return self:to_html()
         end
         const fence = fence_for(self.source, 1)
-        const padded = if string.find(self.source, "^`") or string.find(self.source, "`$")
+        const padded = if self.source:startswith("`") or self.source:endswith("`")
             then ` {self.source} `
             else self.source
         return fence .. padded .. fence
     end
 
     function render(self, out: Writer)
+        if
+            const link = self.link
+            when not self.rendering_link
+        then
+            self.rendering_link = true
+            link:render(out)
+            self.rendering_link = false
+            return
+        end
         if self:highlighted_here() then
             self:attr("data-highlighted", "yes")
         elseif not self:is_plain() and self:language() ~= "plaintext" then
             self:add_style_class("language-" .. self:language())
+        end
+        if #self.source > SHORT_CODE then
+            self:add_style_class("chimera-code-wrap")
         end
         self:render_open(out)
         self:render_source(out)
@@ -1061,27 +1189,34 @@ export class Code implements SourceCode, HtmlElement
     end
 end
 
+--- The indentation that `a` and `b` both start with.
+const function common_indent(a: string, b: string): string
+    local length = 0
+    while
+        length < #a
+        and length < #b
+        and string.byte(a, length + 1) == string.byte(b, length + 1)
+    do
+        length += 1
+    end
+    return string.sub(a, 1, length)
+end
+
 --- `source` without its leading blank lines, its trailing whitespace, or the indentation all of its lines share.
 const function dedent(source: string): string
-    const lines = string.split((string.gsub(string.gsub(source, "^%s*\n", ""), "%s+$", "")), "\n")
-    local shared: string? = nil
-    for _, line in lines do
-        if string.find(line, "%S") then
-            const indent = string.match(line, "^[ \t]*") or ""
-            if shared == nil then
-                shared = indent
-            else
-                local length = 0
-                while
-                    length < #shared
-                    and length < #indent
-                    and string.byte(shared, length + 1) == string.byte(indent, length + 1)
-                do
-                    length += 1
-                end
-                shared = string.sub(shared, 1, length)
-            end
+    const all_lines = string.split(source:trimend(), "\n")
+    const first_code_line = do
+        local index = 1
+        while index < #all_lines and not string.find(all_lines[index], "%S") do
+            index += 1
         end
+        give index
+    -- copies the lines from the first one with code onward into a new list
+    const lines = table.move(all_lines, first_code_line, #all_lines, 1, {})
+    local shared: string? = nil
+    for _, line in lines when string.find(line, "%S") do
+        const indent = string.match(line, "^[ \t]*") or ""
+        shared = if shared then common_indent(shared, indent) else indent
     end
     const cut = if shared then #shared else 0
     return table.concat({

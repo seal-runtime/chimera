@@ -71,7 +71,7 @@ return Page("Theming", {
     Paragraph({
         "A theme is a class that implements ", Code("Theme"), " with a ", Code("name"), ", a ", Code("mode"),
         " and a ", Code("palette"), ". Any token you leave out of the ", Code("Palette"),
-        " keeps its Light value:",
+        " uses its Light value:",
     }),
     CodeBlock([====[
         class Sepia() implements Theme
@@ -100,3 +100,7 @@ return Page("Theming", {
         "your theme as well (see ", PageLink("guide/styling.html", "Styling"), ").",
     }),
 })
+    :describe(
+        "Themes are classes that set the colors, fonts and spacing every element reads. Pages follow the "
+        .. "reader's OS or their pick."
+    )

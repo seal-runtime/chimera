@@ -86,6 +86,6 @@ export function examples_in(file: string): (name: string, result: Content) -> Ex
     end
     return function(wanted: string, result: Content): Example
         const source = snippets[wanted] or error(`{file} has no '--@ {wanted}' example`)
-        return Example((string.gsub(source, "%s+$", "")), result)
+        return Example(source:trimend(), result)
     end
 end

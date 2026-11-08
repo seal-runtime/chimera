@@ -44,7 +44,7 @@ return Page("Parsing HTML", {
     Paragraph({ "Each node prints as a tree. This output comes from running the code above as the page built:" }),
     CodeBlock(parsed_tree, "plaintext"),
     Paragraph({
-        "Tags that have a class become that class, and the rest become a ", Code("Tag"), " that keeps its ",
+        "Tags that have a class become that class, and the rest become a ", Code("Tag"), " with the same ",
         "name. Components come back from their ", Code("data-element", "html"), " attribute.",
     }),
 
@@ -81,3 +81,4 @@ print(parser.warnings[1])]====]),
         PageLink("guide/markdown-and-json.html", "Markdown and JSON"), ").",
     }),
 })
+    :describe("Parser reads hand-written HTML back into chimera objects so you can change them and render them again.")

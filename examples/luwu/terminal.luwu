@@ -17,7 +17,7 @@ export type Sample = { source: string, output: string }
 export function sample(name: string): Sample
     const path = `examples/luwu/samples/{name}.luwu`
     return {
-        source = (string.gsub(fs.readfile(path), "%s+$", "")),
+        source = fs.readfile(path):trimend(),
         output = process.run({ program = env.executable_path, args = { path } }):unwrap(),
     }
 end

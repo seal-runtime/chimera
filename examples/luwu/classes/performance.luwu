@@ -74,3 +74,4 @@ return Page("Performance Innovations", {
         "that native code drops entirely when the class is already known.",
     }),
 }, "performance-innovations.html")
+    :describe("How Luwu makes classes fast, and when each optimization applies.")

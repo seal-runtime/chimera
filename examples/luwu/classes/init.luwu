@@ -99,9 +99,9 @@ return Page("Classes and Traits", {
     h3("Inheritance through traits"),
     Paragraph({
         "Upstream Luau is adding classical inheritance through ", Code("open class"), " and ", Code("extends"), ". ",
-        "Luwu keeps the useful parts of inheritance and calls them traits. ",
+        "Luwu takes the useful parts of inheritance and calls them traits. ",
         "A trait gives classes shared methods with default implementations they can override, ",
-        "lists members each class is expected to provide, and can build on other traits.",
+        "lists members each class is expected to provide, and can require other traits.",
     }),
     Paragraph({
         "What Luwu leaves out is the confusing part of classical inheritance. ",
@@ -141,7 +141,7 @@ return Page("Classes and Traits", {
         "Some classes just hold data, like a named table or a struct. Luwu calls these plain old data (POD) classes. ",
         "Give each field a default value, and leave out the constructor.",
     }),
-    Paragraph("Then build objects from a table with the POD constructor. Fields you leave out keep their defaults."),
+    Paragraph("Then build objects from a table with the POD constructor. Fields you leave out get their defaults."),
     luwu([====[
         class Settings
             volume = 0.8
@@ -452,7 +452,7 @@ return Page("Classes and Traits", {
     ]====]),
     Paragraph("The override must take the same arguments the trait's version does. Extra arguments must be optional."),
 
-    h3("Building on other traits"),
+    h3("Traits that need other traits"),
     Paragraph({ "A trait can ", Code("needs"), " another trait. Implementing it implements both." }),
     luwu([====[
         trait Named
@@ -600,7 +600,7 @@ return Page("Classes and Traits", {
         "like a class runs it to pick a concrete class and return a new object of that class.",
     }),
     Paragraph({
-        "This ", Code("Component"), " trait keeps a registry of ", Code("class<Component>"), " values by class ",
+        "This ", Code("Component"), " trait holds a registry of ", Code("class<Component>"), " values by class ",
         "name. Its ", Code("__implemented"), " function runs once for every class that implements the trait, as ",
         "soon as the class is defined, so a component is registered without anyone remembering to do it. ",
         Code("Component(\"Button\")"), " then builds a ", Code("Button"), ":",
@@ -641,7 +641,7 @@ return Page("Classes and Traits", {
         Code("__implemented"), " is always ", Code("final"), " and takes the class rather than ", Code("self"),
         ". It also runs for classes that implement the trait through another trait's ", Code("needs"),
         ", once per class even when several traits lead to it, and the hooks of the traits a trait needs run ",
-        "first. A trait holds no state of its own, so the registry lives in the module beside it.",
+        "first. A trait holds no state of its own, so the registry is a table in the module beside it.",
     }),
     Paragraph({
         "Only traits that define ", Code("__create"), " can be called. Calling the ", Code("Animal"),
@@ -656,4 +656,8 @@ return Page("Classes and Traits", {
         ListItem("A class's name is also a type: an object of that class."),
     }),
 }, "classes-and-traits.html")
+    :describe(
+        "Classes group a domain concept's data with its behavior and protect its invariants, and traits share "
+        .. "behavior between classes."
+    )
     :add_page(performance)

@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Text, Shape } = require("@core/markup")
+const .{ Element, Shape } = require("@core/markup")
 const .{ Paragraph, Heading, Strong, Emphasis, Link, LineBreak, HorizontalRule, BlockQuote } = require("@elements/text")
 const .{ UnorderedList, OrderedList, ListItem } = require("@elements/lists")
 const .{ Image } = require("@elements/layout")
@@ -129,10 +129,6 @@ const function is_blank(line: string): boolean
     return string.find(line, "^%s*$") ~= nil
 end
 
-const function trim(text: string): string
-    return string.match(text, "^%s*(.-)%s*$") or ""
-end
-
 const function is_rule(line: string): boolean
     if indent_of(line) > 3 then
         return false
@@ -192,9 +188,9 @@ end
 
 --- The cells of a table row, split on pipes that aren't escaped or inside code.
 const function table_cells(line: string): { string }
-    local row = trim(line)
+    local row = line:trim()
     row = string.gsub(row, "^|", "")
-    if string.sub(row, -1) == "|" and string.sub(row, -2, -2) ~= "\\" then
+    if row:endswith("|") and not row:endswith("\\|") then
         row = string.sub(row, 1, -2)
     end
     const cells: { string } = {}
@@ -210,7 +206,7 @@ const function table_cells(line: string): { string }
         elseif char == "`" then
             in_code = not in_code
         elseif char == "|" and not in_code then
-            table.insert(cells, trim(table.concat(current)))
+            table.insert(cells, table.concat(current):trim())
             current = {}
             index += 1
             continue
@@ -218,13 +214,13 @@ const function table_cells(line: string): { string }
         table.insert(current, char)
         index += 1
     end
-    table.insert(cells, trim(table.concat(current)))
+    table.insert(cells, table.concat(current):trim())
     return cells
 end
 
 --- The alignment of each column from a table's separator row, or nil when `line` isn't one.
 const function table_alignments(line: string): { string }?
-    if not string.find(line, "-", 1, true) then
+    if not line:contains("-") then
         return nil
     end
     const alignments: { string } = {}
@@ -232,8 +228,8 @@ const function table_alignments(line: string): { string }?
         if not string.find(cell, "^:?%-+:?$") then
             return nil
         end
-        const left = string.sub(cell, 1, 1) == ":"
-        const right = string.sub(cell, -1) == ":"
+        const left = cell:startswith(":")
+        const right = cell:endswith(":")
         const alignment = if left and right then "center" elseif right then "right" elseif left then "left" else ""
         table.insert(alignments, alignment)
     end
@@ -262,21 +258,6 @@ const function decode_entity(name: string): string?
         return utf8.char(code)
     end
     return NAMED_ENTITIES[name]
-end
-
---- The plain text of `nodes`, for titles taken from a heading.
-const function text_of(nodes: { read Markup }): string
-    const parts: { string } = {}
-    for _, node in nodes do
-        if class.isinstance(node, Text) then
-            table.insert(parts, node.content)
-        elseif class.isinstance(node, Code) then
-            table.insert(parts, node.source)
-        else
-            table.insert(parts, text_of(node:child_nodes()))
-        end
-    end
-    return table.concat(parts)
 end
 
 --[=[
@@ -432,7 +413,7 @@ export class MarkdownReader
     public function title_of(nodes: { read Markup }): string?
         for _, node in nodes do
             if class.isinstance(node, Heading) when node.level == 1 then
-                return trim(text_of(node.children))
+                return node:plain_text():trim()
             end
         end
         return nil
@@ -445,7 +426,7 @@ export class MarkdownReader
     --- `element` with `nodes` adopted as its children, warning about any it can't hold.
     private function holding<E>(self, element: E & Element, nodes: { Markup }): E
         for _, node in nodes do
-            if not element:adopt(node) then
+            if not element:receive(node) then
                 self:warn(`{class.name(element)} can't hold {node:outline()}; dropped it`)
             end
         end
@@ -486,9 +467,9 @@ export class MarkdownReader
         const tildes, tilde_info = string.match(rest, "^(~~~+)(.*)$")
         const marks, title = string.match(rest, "^(#+)%s+(.-)%s*$")
         if indent <= 3 and backticks and backtick_info then
-            return self:fenced(lines, index, indent, backticks, trim(backtick_info), nodes)
+            return self:fenced(lines, index, indent, backticks, backtick_info:trim(), nodes)
         elseif indent <= 3 and tildes and tilde_info then
-            return self:fenced(lines, index, indent, tildes, trim(tilde_info), nodes)
+            return self:fenced(lines, index, indent, tildes, tilde_info:trim(), nodes)
         elseif indent <= 3 and marks and title and #marks <= 6 then
             const text = string.gsub(title, "%s+#+$", "")
             table.insert(nodes, Heading(self:inline(text), #marks))
@@ -499,7 +480,7 @@ export class MarkdownReader
         elseif is_rule(line) then
             table.insert(nodes, HorizontalRule())
             return index + 1
-        elseif indent <= 3 and string.sub(rest, 1, 1) == ">" then
+        elseif indent <= 3 and rest:startswith(">") then
             return self:quote(lines, index, nodes)
         elseif list_marker(line) then
             return self:list(lines, index, nodes)
@@ -507,7 +488,7 @@ export class MarkdownReader
             return self:html_block(lines, index, nodes)
         elseif
             indent <= 3
-            and string.find(line, "|", 1, true)
+            and line:contains("|")
             when const next_line = lines[index + 1]
             when table_alignments(next_line)
         then
@@ -618,7 +599,7 @@ export class MarkdownReader
                 elseif list_marker(line) or is_rule(line) or starts_html(line) or string.find(line, "^%s*[#>]") then
                     break
                 elseif not is_blank(item[#item]) then
-                    table.insert(item, trim(line))
+                    table.insert(item, line:trim())
                 else
                     break
                 end
@@ -667,7 +648,7 @@ export class MarkdownReader
                 elseif string.find(string.lower(line), `^ ? ? ?</{tag}%s*>%s*$`) then
                     depth -= 1
                     if depth == 0 then
-                        const wrapper = self:html(`{trim(lines[index])}</{tag}>`)[1]
+                        const wrapper = self:html(`{lines[index]:trim()}</{tag}>`)[1]
                         if wrapper and class.implements(wrapper, Element) then
                             const inner = { for position = index + 1, at - 1 give lines[position] }
                             table.insert(nodes, self:holding(wrapper, self:blocks(inner)))
@@ -703,7 +684,7 @@ export class MarkdownReader
         const header_cells = { for column, text in table_cells(lines[index]) give cell_of(text, column, true) }
         const rows: { TableRow } = {}
         local at = index + 2
-        while at <= #lines and not is_blank(lines[at]) and string.find(lines[at], "|", 1, true) do
+        while at <= #lines and not is_blank(lines[at]) and lines[at]:contains("|") do
             const cells = { for column, text in table_cells(lines[at]) give cell_of(text, column, false) }
             table.insert(rows, TableRow(cells))
             at += 1
@@ -718,7 +699,7 @@ export class MarkdownReader
     end
 
     private function paragraph(self, lines: { string }, index: number, nodes: { Markup }): number
-        const text: { string } = { (string.gsub(lines[index], "^%s+", "")) }
+        const text: { string } = { lines[index]:trimstart() }
         local at = index + 1
         while at <= #lines do
             const line = lines[at]
@@ -742,7 +723,7 @@ export class MarkdownReader
                 break
             end
             -- Keep trailing spaces: two of them end a line with a break.
-            table.insert(text, (string.gsub(line, "^%s+", "")))
+            table.insert(text, line:trimstart())
             at += 1
         end
         table.insert(nodes, Paragraph(self:inline(table.concat(text, "\n"))))
@@ -751,12 +732,12 @@ export class MarkdownReader
 
     --- A link target with `.md` pages pointing at the `.html` pages built from them.
     private function target(self, href: string): string
-        if not self.md_targets or string.find(href, "^%a[%w+.%-]*:") or string.find(href, "^#") then
+        if not self.md_targets or string.find(href, "^%a[%w+.%-]*:") or href:startswith("#") then
             return href
         end
         const path, anchor = string.match(href, "^(.-)(#.*)$")
         const file = path or href
-        if string.find(file, "%.md$") then
+        if file:endswith(".md") then
             return string.gsub(file, "%.md$", ".html") .. (anchor or "")
         end
         return href
@@ -851,7 +832,7 @@ export class MarkdownReader
             const after = string.sub(text, found + #marker, found + #marker)
             const escaped = before == "\\"
             const flanking = not string.find(before, "%s") and before ~= ""
-            const intraword = string.sub(marker, 1, 1) == "_" and string.find(after, "[%w]") ~= nil
+            const intraword = marker:startswith("_") and string.find(after, "[%w]") ~= nil
             if flanking and not escaped and not intraword then
                 return found
             end
@@ -912,7 +893,7 @@ export class MarkdownReader
                 end
                 if const close_at = close then
                     flush()
-                    local source = string.gsub(string.sub(text, at + #run, close_at - 1), "\n", " ")
+                    local source = string.sub(text, at + #run, close_at - 1):replace("\n", " ")
                     if string.find(source, "^ .* $") and string.find(source, "%S") then
                         source = string.sub(source, 2, -2)
                     end

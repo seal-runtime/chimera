@@ -101,3 +101,4 @@ return Page("Experimental Features", {
         print(describe(Circle(2)), describe(Rect(3, 3)), describe(Rect(2, 5)))
     ]====]),
 }, "experimental-features.html")
+    :describe("Push and pop operators and match expressions work in Luwu today, but their design may still change.")

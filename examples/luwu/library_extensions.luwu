@@ -133,3 +133,7 @@ string.trim(s: string, mode: ("start" | "end" | "all")?): string
 --- Whether s contains substring, without patterns, like string.find(s, substring, 1, true).
 string.contains(s: string, substring: string): boolean]====]),
 }, "library-extensions.html")
+    :describe(
+        "Additions to Luwu's standard library that fix real problems, like table.drop for removing list items "
+        .. "by value."
+    )

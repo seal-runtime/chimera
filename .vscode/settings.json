@@ -6,12 +6,18 @@
     "**/init.luau": "${dirname}",
     "**/init.client.luau": "${dirname}"
   },
-  "luau-lsp.types.definitionFiles": {
+  // "luau-lsp.types.definitionFiles": {
+  //   "@seal": "./.seal/typedefs/globals.d.luau"
+  // },
+  "luwu.types.definitionFiles": {
     "@seal": "./.seal/typedefs/globals.d.luau"
   },
   "luau-lsp.fflags.enableNewSolver": true,
   "luau-lsp.types.documentationFiles": [
     "./.seal/typedefs/docs.json"
   ],
-  "luau-lsp.fflags.enableByDefault": true
+  "luau-lsp.fflags.enableByDefault": true,
+  "luau-lsp.fflags.override": {
+    "DebugLuwuCollections": "true"
+  }
 }

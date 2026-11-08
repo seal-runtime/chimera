@@ -1,0 +1,11 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const env = require("@std/env")
+const .{ serve } = require("@chimera/tools/serve")
+
+serve("examples/site.luwu", {
+    port = tonumber(env.args[1]),
+    sources = { "src", "examples" },
+})

@@ -10,11 +10,11 @@ export type StyleInput = properties.StyleInput
 type Declarations = { [string]: StyleValue }
 
 const function property_name(key: string): string
-    if string.sub(key, 1, 2) == "--" then
+    if key:startswith("--") then
         return key
     end
-    const kebab = string.gsub(key, "_", "-")
-    if string.find(kebab, "^webkit%-") or string.find(kebab, "^moz%-") then
+    const kebab = key:replace("_", "-")
+    if kebab:startswith("webkit-", "moz-") then
         return "-" .. kebab
     end
     return kebab
@@ -27,10 +27,6 @@ const function value_string(value: StyleValue): string
         return value
     end
     return value:to_css()
-end
-
-const function trim(s: string): string
-    return (string.match(s, "^%s*(.-)%s*$")) or ""
 end
 
 const function sorted_keys(input: Declarations): { string }
@@ -69,7 +65,7 @@ export class Style
 
     --[=[
         Sets one declaration. A snake_case `name` renders as kebab-case, and [Color][color.Color]s render as CSS
-        colors. A new property goes last; changing one keeps its place. `nil` removes it.
+        colors. A new property goes last; changing one doesn't move it. `nil` removes it.
 
         ## Usage
 
@@ -84,7 +80,7 @@ export class Style
         font-size: 1.2rem; color: #000080
         ```
 
-        [color = require("@style/color")]
+        [color = require("@color")]
     ]=]
     function set(self, name: string, value: StyleValue?): Style
         const property = property_name(name)
@@ -296,7 +292,7 @@ export class Rule(selector: string, style: Style | StyleInput = {}, rules: { Rul
                 else `{self.selector}\{{table.concat(inner)}}`
         end
         const style = self.style
-        if style:is_empty() and string.sub(self.selector, 1, 1) == "@" then
+        if style:is_empty() and self.selector:startswith("@") then
             return `{pad}{self.selector};`
         end
         if not pretty then
@@ -327,7 +323,7 @@ export class Rule(selector: string, style: Style | StyleInput = {}, rules: { Rul
         local position = skip_space_and_comments(text, 1)
         while position <= #text do
             const brace = string.find(text, "[{;]", position) or break
-            const prelude = trim(string.sub(text, position, brace - 1))
+            const prelude = string.sub(text, position, brace - 1):trim()
             if string.sub(text, brace, brace) == ";" then
                 table.insert(rules, Rule(prelude))
                 position = skip_space_and_comments(text, brace + 1)
@@ -335,7 +331,7 @@ export class Rule(selector: string, style: Style | StyleInput = {}, rules: { Rul
             end
             const close = matching_brace(text, brace)
             const body = string.sub(text, brace + 1, close - 1)
-            if string.find(body, "{", 1, true) then
+            if body:contains("{") then
                 table.insert(rules, Rule(prelude, {}, Rule.parse(body)))
             else
                 table.insert(rules, Rule(prelude, Style.parse(body)))

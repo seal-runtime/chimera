@@ -13,6 +13,9 @@ OOP Luwu with classes and traits.
 Point a `.luaurc` alias at this directory and require it. Run your build script with a Luwu-enabled seal
 (`seal ./site.luwu`).
 
+chimera's colors come from [color](https://github.com/seal-runtime/color). Clone it next to chimera as `color`:
+chimera's `.luaurc` aliases `@color` to `../color`.
+
 ```luwu
 const fs = require("@std/fs")
 const chimera = require("@path/to/chimera")

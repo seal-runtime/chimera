@@ -6,7 +6,7 @@ const .{ equal, contains, excludes } = require("./assert")
 const chimera = require("@chimera")
 const .{
     core.{ Element, Text, Raw, Comment, Fragment, Tag },
-    elements.{ Div, Image, Main, Heading, Paragraph, Link, Strong },
+    elements.{ Div, Image, Main, Heading, Paragraph, Link, Strong, Head },
 } = chimera
 
 const function plain(text: string): string
@@ -14,6 +14,16 @@ const function plain(text: string): string
 end
 
 const tests: { [string]: () -> () } = {
+    ["embedded nodes take their place in interpolated strings"] = function()
+        const link = Link("site", "/"):embed()
+        equal(
+            Paragraph(`Build the {link} with {Strong("seal"):embed()}.`):to_html(),
+            `<p>Build the <a href="/">site</a> with <strong>seal</strong>.</p>`
+        )
+        equal(Paragraph(`{link}{link}`):to_html(), `<p><a href="/">site</a><a href="/">site</a></p>`)
+        equal(Paragraph("no markers & plain"):to_html(), "<p>no markers &amp; plain</p>")
+    end,
+
     ["text and attributes are escaped"] = function()
         const html = Div("a < b & c")
             :attr("title", `say "hi"`)
@@ -124,8 +134,12 @@ const tests: { [string]: () -> () } = {
         equal(shown, "Div#box\n├─ Paragraph<p>\n│  └─ \"hi\"\n└─ Image<img> src")
     end,
 
-    ["tostring is the outline"] = function()
-        equal(plain(`{Div():add_style_class("card")}`), "Div.card")
+    ["tostring embeds a child and debug shows it"] = function()
+        const card = Div():add_style_class("card")
+        equal(Paragraph(`a {card} b`):to_html(), `<p>a <div class="card"></div> b</p>`)
+        equal(plain(card:outline()), "Div.card")
+        equal(plain(card:debug()), "Div.card")
+        equal(plain(tostring(Head())), "Head")
     end,
 
     ["create falls back to Tag for unknown tags"] = function()

@@ -48,6 +48,43 @@ end]====]):to_html()
         contains(html, `<span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>`)
     end,
 
+    ["bundles keep their dot with the bracket"] = function()
+        const html = CodeBlock("const pair = .(1, 2)\nif r is Ok.(value) then end"):to_html()
+        contains(html, `= <span class="chimera-bracket-1">.(</span><span class="hljs-number">1</span>`)
+        contains(html, `<span class="hljs-title class_">Ok</span><span class="chimera-bracket-1">.(</span>value`)
+    end,
+
+    ["try is a keyword only in front of an expression"] = function()
+        const keyword = `<span class="hljs-keyword">try</span>`
+        contains(CodeBlock("const r = try read(path)"):to_html(), keyword)
+        contains(CodeBlock("const r = try not ok"):to_html(), keyword)
+        contains(CodeBlock("const r = try .(1, 2)"):to_html(), keyword)
+        contains(Code("try"):to_html(), keyword)
+        excludes(CodeBlock("try(read)"):to_html(), keyword)
+        excludes(CodeBlock("local n = try + 1"):to_html(), keyword)
+        excludes(CodeBlock("local ok = try and done"):to_html(), keyword)
+        excludes(CodeBlock("print(self.try)"):to_html(), keyword)
+    end,
+
+    ["declare, extern and extends are keywords where they start a declaration"] = function()
+        const source = "declare Some: class<Some>\nexport extern type Path\ndeclare class Cat extends Pet end"
+        const html = CodeBlock(source):to_html()
+        contains(html, `<span class="hljs-keyword">declare</span> <span class="hljs-title class_">Some</span>`)
+        contains(html, `<span class="hljs-keyword">export</span> <span class="hljs-keyword">extern</span>`)
+        contains(html, `<span class="hljs-keyword">extends</span>`)
+        excludes(CodeBlock("local declare = 1"):to_html(), `<span class="hljs-keyword">declare</span>`)
+        excludes(CodeBlock("print(extern)"):to_html(), `<span class="hljs-keyword">extern</span>`)
+    end,
+
+    ["read and write are keywords only in types"] = function()
+        contains(CodeBlock("type Box = { read value: number }"):to_html(), `<span class="hljs-keyword">read</span>`)
+        excludes(CodeBlock("const text = read(path)"):to_html(), `<span class="hljs-keyword">read</span>`)
+    end,
+
+    ["attributes are highlighted"] = function()
+        contains(CodeBlock("@native\nfunction f() end"):to_html(), `<span class="hljs-meta">@native</span>`)
+    end,
+
     ["table types color their keys and values as types"] = function()
         const html = CodeBlock("const prices: { [string]: number } = { [key] = 1 }"):to_html()
         contains(html, `<span class="chimera-bracket-2">[</span><span class="hljs-type">string</span>`)
@@ -107,6 +144,22 @@ end]====]):to_html()
         const _, count = string.gsub(html, "highlight%.min%.js", "")
         equal(count, 1)
         contains(html, "hljs.highlightElement(code)")
+    end,
+
+    ["languages outside highlight.js's common build load their own file"] = function()
+        const languages = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/"
+        contains(
+            Document()
+                :add(CodeBlock("Get-ChildItem", "powershell"))
+                :to_html(),
+            `{languages}powershell.min.js`
+        )
+        excludes(
+            Document()
+                :add(CodeBlock("ls", "bash"))
+                :to_html(),
+            languages
+        )
     end,
 
     ["inline code highlights like code blocks"] = function()

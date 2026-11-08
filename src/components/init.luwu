@@ -7,6 +7,10 @@ export .{
     Toggle,
     ThemeSwitcher,
     Card,
+    Panel,
+    Infobox,
+    Chip,
+    Alert,
     SiteFooter,
     Tab,
     Tabs,
@@ -21,3 +25,6 @@ export .{
 const code = require("@self/code")
 export .{ CodeBlock, Code, SourceSpan, Squiggle, Hover } = code
 export type .{ Language } = code
+
+const components = require("@self/components")
+export type .{ ChipTone } = components

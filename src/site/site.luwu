@@ -3,9 +3,13 @@
 --!lint ConstLocal
 
 const fs = require("@std/fs")
+const vars = require("@std/env/vars")
 const markup = require("@core/markup")
 const .{ Element, Component, Container, Text } = require("@core/markup")
 const .{ Main, Aside, Div, Header } = require("@elements/layout")
+const .{ Meta } = require("@elements/head")
+const .{ Paragraph } = require("@elements/text")
+const .{ Dark } = require("@themes")
 const .{ Menu, ThemeSwitcher, SiteFooter } = require("@components/components")
 const style_module = require("@style/style")
 const .{ Rule } = style_module
@@ -46,6 +50,31 @@ end
     site:add_page(Page("Home", Hero(), "index.html"), docs)
     ```
 ]=]
+--- The longest description [Page:summary] takes from a paragraph. Previews cut longer text anyway.
+const SUMMARY_LENGTH = 300
+
+--- The first [Paragraph] in `node`, depth first.
+const function first_paragraph(node: Markup): Paragraph?
+    if class.isinstance(node, Paragraph) then
+        return node
+    end
+    for _, child in node:child_nodes() do
+        if const found = first_paragraph(child) then
+            return found
+        end
+    end
+    return nil
+end
+
+--- `text` cut at the last whole word that fits in `SUMMARY_LENGTH`, with an ellipsis when anything was cut.
+const function shorten(text: string): string
+    if #text <= SUMMARY_LENGTH then
+        return text
+    end
+    const cut = string.sub(text, 1, SUMMARY_LENGTH)
+    return (string.match(cut, "^(.*%S)%s") or cut) .. "…"
+end
+
 export class Page
     title = ""
     --- The page's file, relative to its parent's folder: `"guide.html"`, or a path like `"docs/index.html"`.
@@ -56,6 +85,8 @@ export class Page
     main: Main = Main()
     children: { Page } = {}
     parent: Page? = nil
+    --- Whether site search lists the page. Set with [Page:hide_from_search].
+    searchable = true
 
     --- `file` defaults to the title in lowercase with dashes, like `"getting-started.html"`.
     function __init(self, title: string?, content: Content?, file: string?)
@@ -75,6 +106,20 @@ export class Page
     ]=]
     function add(self, ...: Content?): Page
         self.main:add(...)
+        return self
+    end
+
+    --[=[
+        Leaves the page out of site search, for pages nobody looks for, like a 404 page.
+
+        ## Usage
+
+        ```luwu
+        Page("Page Not Found", Paragraph("There's nothing here."), "404.html"):hide_from_search()
+        ```
+    ]=]
+    function hide_from_search(self): Page
+        self.searchable = false
         return self
     end
 
@@ -201,6 +246,29 @@ export class Page
         return self
     end
 
+    --[=[
+        What search engines and link previews show for the page: its [Page:describe] text, or else the text of its
+        first paragraph. Nil when it has neither, and then [Site:describe] fills in.
+
+        ## Usage
+
+        ```luwu
+        Page("Install", { h1("Install"), Paragraph("Install chimera with seal.") }):summary()
+        ```
+
+        ```text
+        Install chimera with seal.
+        ```
+    ]=]
+    function summary(self): string?
+        if const description = self.description then
+            return description
+        end
+        const paragraph = first_paragraph(self.main) or return nil
+        const text = string.gsub(paragraph:plain_text(), "%s+", " "):trim()
+        return if text == "" then nil else shorten(text)
+    end
+
     --- The page as a `PageEntry`, with the pages under it, for elements that list pages.
     function entry(self): PageEntry
         return {
@@ -229,6 +297,26 @@ end
     site:header(Header { Menu { PageLink(home), PageLink(guide), PageLink(docs, "Documentation") } })
     -- on docs/install.html: <a data-element="PageLink" data-page="guide.html" href="../guide.html">Guide</a>
     ```
+
+    ## Linking by path
+
+    A page module that requires the module of the page it links to can end up in a require cycle, such as two pages
+    that link to each other. Pass the linked page's path from the site's root instead of the [Page]. The link
+    then needs no `require`. A path has no title to fall back on, so give the link's text too:
+
+    ```luwu
+    PageLink("reference/globals.html", "Globals")
+    PageLink("guide/install.html#linux", { Code("seal"), " on Linux" })
+    ```
+
+    The path is the page's output file under the site's output directory. It's the folders of the pages above it
+    followed by the file name passed to [Page], not the name of the module that builds it. A page built with
+    `Page("Builtin classes", content, "builtin-classes.html")` under a page at `reference/index.html` is at
+    `"reference/builtin-classes.html"`, whatever its module is called. To check a path, look for the file in the
+    output directory.
+
+    chimera doesn't check that the path exists, so a typo builds a link to a missing page. The link's `href` is
+    worked out on each page the same way as for a [Page], and a `#fragment` at the end is kept.
 ]=]
 export class PageLink implements Component, Container
     target: Page? = nil
@@ -237,7 +325,10 @@ export class PageLink implements Component, Container
         return "a"
     end
 
-    --- Takes a [Page], or a path from the site's root. The text defaults to the page's title.
+    --[=[
+        Takes a [Page], or a path from the site's root like `"reference/globals.html"` to link without requiring the
+        page's module. The text defaults to the page's title, so a path needs `content`.
+    ]=]
     function __init(self, target: (Page | string)?, content: Content?)
         if type(target) == "string" then
             self:attr("data-page", target)
@@ -586,6 +677,10 @@ export class Site(const name: string)
     description: string? = nil
     --- Set with [Site:favicon].
     icon_file: string? = nil
+    --- Set with [Site:url].
+    published_url: string? = nil
+    --- Set with [Site:preview_image].
+    preview_file: string? = nil
     --- Set with [Site:search]. [Site:default_header] shows it.
     search_box: Search? = nil
     language = "en"
@@ -639,7 +734,8 @@ export class Site(const name: string)
     end
 
     --[=[
-        The summary search engines show, for pages without their own [Page:describe].
+        The summary search engines and link previews show for pages without a [Page:summary]: no [Page:describe]
+        and no paragraph.
 
         ## Usage
 
@@ -665,6 +761,68 @@ export class Site(const name: string)
     function favicon(self, file: string): Site
         self.icon_file = file
         return self
+    end
+
+    --[=[
+        Where the site is published. Link previews need it: pages get an `og:url` and, with [Site:preview_image],
+        an `og:image` with a full address.
+
+        ## Usage
+
+        ```luwu
+        site:url("https://seal-runtime.github.io/chimera/")
+        ```
+    ]=]
+    function url(self, address: string): Site
+        self.published_url = if address:endswith("/") then address else `{address}/`
+        return self
+    end
+
+    --[=[
+        The image link previews show for every page, like Discord's and Slack's embeds. Use a PNG or JPEG: most
+        previews don't show SVG. [Site:build] copies `file` to the site's root. It needs [Site:url] because
+        previews only load images from a full address.
+
+        ## Usage
+
+        ```luwu
+        site
+            :url("https://example.com/")
+            :preview_image("assets/preview.png")
+        ```
+    ]=]
+    function preview_image(self, file: string): Site
+        self.preview_file = file
+        return self
+    end
+
+    --[=[
+        The Open Graph and Twitter card tags that link previews read for `page`: its own title and description, the
+        site's name, and the default theme's primary color as the preview's accent. The home page (`index.html` at
+        the root) previews under the site's name. [Site:document] adds them to every page.
+
+        ## Usage
+
+        ```luwu
+        custom_document:add_head(table.unpack(site:preview_tags(page)))
+        ```
+    ]=]
+    function preview_tags(self, page: Page): { Meta }
+        const theme = (self.dark_theme or self.light_theme or Dark)()
+        const description = page:summary() or self.description
+        const address = self.published_url
+        const image = if address and self.preview_file then address .. base_name(self.preview_file) else nil
+        const tags: { Meta | none } = {
+            Meta.property("og:type", "website"),
+            Meta.property("og:site_name", self.name),
+            Meta.property("og:title", if page:path() == "index.html" then self.name else page.title),
+            if description then Meta.property("og:description", description) else none,
+            if address then Meta.property("og:url", address .. page:path()) else none,
+            if image then Meta.property("og:image", image) else none,
+            Meta("twitter:card", if image then "summary_large_image" else "summary"),
+            Meta("theme-color", theme:palette().primary:to_hex()),
+        }
+        return { for _, tag in tags when tag ~= none give tag }
     end
 
     --[=[
@@ -969,9 +1127,10 @@ export class Site(const name: string)
         for _, theme in self.offered_themes do
             document:offer_theme(theme)
         end
-        if const description = page.description or self.description then
+        if const description = page:summary() or self.description then
             document:describe(description)
         end
+        document:add_head(table.unpack(self:preview_tags(page)))
         if const icon = self.icon_file then
             const links = markup.Writer()
             links.location = page:path()
@@ -1000,6 +1159,23 @@ export class Site(const name: string)
             customize(document, page)
         end
         return document
+    end
+
+    --[=[
+        Where a build script writes the site: `default`, or the `CHIMERA_OUT` environment variable when it's set.
+        chimera's development server (`tools/serve.luwu`) sets it to build somewhere other than the checked-in
+        output.
+
+        ## Usage
+
+        ```luwu
+        const out = Site.output_dir("site")
+        site:build(out)
+        fs.copy("assets/logo.png", `{out}/logo.png`)
+        ```
+    ]=]
+    function output_dir(default: string): string
+        return vars.get("CHIMERA_OUT") or default
     end
 
     --[=[
@@ -1034,16 +1210,18 @@ export class Site(const name: string)
             fs.writefile(file, document:to_html(pretty))
             table.insert(written, file)
             searched = searched or contains_search(document.body)
-            index:add_page(page.title, path, page.main, page.description)
+            if page.searchable then
+                index:add_page(page.title, path, page.main, page.description)
+            end
         end
         if searched then
             const file = fs.path.join(out_dir, search_module.INDEX_FILE)
             fs.writefile(file, index:to_js())
             table.insert(written, file)
         end
-        if const icon = self.icon_file then
-            const file = fs.path.join(out_dir, base_name(icon))
-            fs.writefile(file, fs.readfile(icon))
+        for _, source in { self.icon_file or none, self.preview_file or none } when source ~= none do
+            const file = fs.path.join(out_dir, base_name(source))
+            fs.writefile(file, fs.readfile(source))
             table.insert(written, file)
         end
         return written

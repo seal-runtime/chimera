@@ -16,6 +16,9 @@ export type TokenName =
     | "border"
     | "radius"
     | "spacing"
+    | "padding"
+    | "gutter"
+    | "column_width"
     | "font"
     | "mono_font"
     | "shadow"
@@ -33,6 +36,10 @@ export type TokenName =
     | "syntax_error"
     | "syntax_warning"
     | "syntax_info"
+    | "on_muted"
+    | "on_info"
+    | "on_warning"
+    | "on_error"
 
 --[=[
     A theme token as a CSS value: the custom property a [Theme][theme.Theme] sets. Styles using tokens follow theme
@@ -131,5 +138,5 @@ end
     ```
 ]=]
 export function token(name: TokenName): Token
-    return Token("var(--chimera-" .. string.gsub(name, "_", "-") .. ")")
+    return Token("var(--chimera-" .. name:replace("_", "-") .. ")")
 end

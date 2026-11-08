@@ -286,3 +286,7 @@ return Page("Expressive Control Flow", {
     ]====]),
     Paragraph("Both loops print the same thing. The second one reads top to bottom with every exit at the left edge."),
 }, "expressive-control-flow.html")
+    :describe(
+        "Control flow tools that let you check a value right where you get it, with fewer nested ifs and "
+        .. "temporary variables."
+    )

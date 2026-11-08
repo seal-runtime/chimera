@@ -34,8 +34,10 @@ const .{
         Head,
         Div,
         Section,
+        DescriptionList,
     },
-    components.{ Menu, Dropdown, Toggle, Card, Row, Column, Grid, Tabs, Tab },
+    components.{ Menu, Dropdown, Toggle, Card, Infobox, Chip, Alert, Row, Column, Grid, Tabs, Tab },
+    style.{ Color },
 } = chimera
 
 const tests: { [string]: () -> () } = {
@@ -313,6 +315,70 @@ const tests: { [string]: () -> () } = {
             :to_html()
         contains(picked, `aria-selected="true" onclick="chimera.tab(this)">b</button>`)
         contains(picked, `<div data-element="Tab" data-tab="a" role="tabpanel" hidden class="chimera-tab">`)
+    end,
+
+    ["tooltips render their content in a template"] = function()
+        equal(
+            Paragraph("Luwu")
+                :tooltip({ "Added by ", Link("Luwu", "#") })
+                :to_html(),
+            `<p data-hover="tooltip"><template data-hover="tooltip">Added by <a href="#">Luwu</a></template>Luwu</p>`
+        )
+    end,
+
+    ["chips take a tone and stay out of their holder's text"] = function()
+        const chip = Chip("deprecated")
+            :tone("info")
+            :tone("warning")
+        equal(chip:to_html(), `<span data-element="Chip" class="chimera-chip chimera-chip-warning">deprecated</span>`)
+        equal(Heading.h2({ "pairs", chip }):plain_text(), "pairs")
+    end,
+
+    ["alerts hold a title and content in a toned box"] = function()
+        equal(
+            Alert("Careful", Paragraph("Not for multithreading."))
+                :tone("warning")
+                :to_html(),
+            `<div data-element="Alert" role="note" class="chimera-alert chimera-alert-warning">`
+                .. `<p class="chimera-alert-title">Careful</p><p>Not for multithreading.</p></div>`
+        )
+    end,
+
+    ["filled chips pick the text color with more contrast"] = function()
+        const luau = Chip("Luau")
+            :fill(Color.hex("#00A2FF"))
+            :to_html()
+        const lua = Chip("Lua")
+            :fill(Color.hex("#000080"))
+            :to_html()
+        contains(luau, "--chimera-chip-text: #1b1b1f")
+        contains(lua, "--chimera-chip-text: #ffffff")
+    end,
+
+    ["description lists pair terms with descriptions"] = function()
+        equal(
+            DescriptionList()
+                :item("Added in", "Lua 5.1")
+                :to_html(),
+            "<dl><dt>Added in</dt><dd>Lua 5.1</dd></dl>"
+        )
+    end,
+
+    ["infoboxes group fields and skip nil values"] = function()
+        const html = Infobox("Ada")
+            :image("ada.png", "Ada")
+            :field("Born", "1815")
+            :field("Died", nil)
+            :section("Known for")
+            :field("Work", "Notes")
+            :to_html()
+        equal(
+            html,
+            `<aside data-element="Infobox" class="chimera-infobox"><p class="chimera-infobox-title">Ada</p>`
+                .. `<figure class="chimera-infobox-image"><img src="ada.png" alt="Ada"></figure>`
+                .. `<dl><dt>Born</dt><dd>1815</dd></dl><p class="chimera-infobox-section">Known for</p>`
+                .. `<dl><dt>Work</dt><dd>Notes</dd></dl></aside>`
+        )
     end,
 }
 

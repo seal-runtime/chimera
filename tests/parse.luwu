@@ -9,7 +9,7 @@ const .{
     Document,
     core.{ Tag, Text, Comment },
     elements.{ Div, Heading, Paragraph, UnorderedList, Script },
-    components.{ Card },
+    components.{ Card, Infobox, Chip },
 } = chimera
 type .{ Markup } = core
 
@@ -123,6 +123,35 @@ const tests: { [string]: () -> () } = {
         const nodes = Parser():parse(html)
         truthy(class.isinstance(nodes[1], Card), "expected a Card")
         equal(render_all(nodes), html)
+    end,
+
+    ["tooltips survive parsing"] = function()
+        const html = Chip("flagged")
+            :tone("info")
+            :tooltip({ "Needs ", Card("LuwuStringExtensions") })
+            :to_html()
+        const nodes = Parser():parse(html)
+        truthy(class.isinstance(nodes[1], Chip), "expected a Chip")
+        equal(render_all(nodes), html)
+    end,
+
+    ["parsed infoboxes take more fields"] = function()
+        const html = Infobox("Ada")
+            :field("Born", "1815")
+            :to_html()
+        if const box = Parser():parse(html)[1] when class.isinstance(box, Infobox) then
+            equal(
+                box
+                    :field("Died", "1852")
+                    :to_html(),
+                Infobox("Ada")
+                    :field("Born", "1815")
+                    :field("Died", "1852")
+                    :to_html()
+            )
+        else
+            error("expected an Infobox")
+        end
     end,
 
     ["documents parse, loose content goes in the body"] = function()

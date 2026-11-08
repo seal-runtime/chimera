@@ -32,7 +32,7 @@ return Page("Literal Types and Validators", {
     ]====]),
     Paragraph({ "Calling ", Code("walk(\"up\")"), " is a type error. Luau has this too." }),
     Paragraph({
-        "Luwu adds ", Code("literal<T>"), ". It asks for a literal of type T, and keeps the exact value as the type.",
+        "Luwu adds ", Code("literal<T>"), ". It asks for a literal of type T and uses the exact value as the type.",
     }),
     luwu([====[
         const function tag(name: literal<string>): string
@@ -144,3 +144,7 @@ return Page("Literal Types and Validators", {
         ListItem({ "Type functions are written in Luwu. They use the ", Code("types"), " library to inspect types." }),
     }),
 }, "literal-types-and-validators.html")
+    :describe(
+        "Check string rules like hex colors, CSS sizes and routes while you type, with type errors that carry "
+        .. "your own message."
+    )

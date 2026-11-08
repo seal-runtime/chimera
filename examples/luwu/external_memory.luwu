@@ -153,3 +153,7 @@ return Page("External Buffers and Strings", {
         }),
     }),
 }, "external-buffers-and-strings.html")
+    :describe(
+        "External buffers and strings let an embedder expose huge files to scripts without cloning them into "
+        .. "the VM."
+    )

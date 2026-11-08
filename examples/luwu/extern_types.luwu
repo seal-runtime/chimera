@@ -1,0 +1,142 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const .{
+    elements.{ Heading, Paragraph, UnorderedList, ListItem },
+    components.{ Code, CodeBlock },
+    site.{ Page, TableOfContents },
+} = require("@chimera")
+const luwu = require("./sample")
+const .{ h1, h2 } = Heading
+
+--- What `luwu-analyze` printed for the example above it.
+const function analyzer_output(output: string): CodeBlock
+    return CodeBlock(output, "plaintext")
+        :copyable()
+        :style({ white_space = "pre-wrap" })
+end
+
+return Page("Generic Extern Types", {
+    h1("Generic Extern Types"),
+    Paragraph({
+        "A runtime that returns a result from every file read wants scripts to know what each result holds. ",
+        "The result is an extern type: the host defines it and scripts only see its declaration. ",
+        "In Luwu, extern types and their methods can take generic parameters, so one ", Code("Result<T>"),
+        " covers every call and the type checker knows what ", Code("unwrap"), " gives back.",
+    }),
+    Paragraph({
+        "Since the fork, Luau and Luwu have diverged here. Luau 0.742's parser expects ", Code("with"),
+        " right after an extern type's name and reads no generic parameters on its methods.",
+    }),
+    TableOfContents(),
+
+    h2("Generic parameters"),
+    Paragraph("An embedder declares the type in a definitions file:"),
+    luwu([====[
+        declare extern type Result<T>
+            function unwrap(self): T
+            function unwrap_or(self, default: T): T
+            function map<U>(self, transform: (T) -> U): Result<U>
+        end
+
+        declare function read_file(path: string): Result<string>
+    ]====]),
+    Paragraph({
+        "Scripts get the type that each call fills in. Here ", Code("map"), " turns a ", Code("Result<string>"),
+        " into a ", Code("Result<number>"), ":",
+    }),
+    luwu([====[
+        const contents = read_file("config.toml")
+        const size = contents:map(function(text)
+            return #text
+        end)
+
+        const bytes: number = size:unwrap()
+        const label: string = size:unwrap_or(0)
+        print(bytes, label)
+    ]====]),
+    analyzer_output("main.luwu(7,23): TypeError: Expected 'label' to be 'string', but was given 'number'"),
+
+    h2("Generic methods"),
+    Paragraph({
+        "A method can declare its own generic parameters after its name, like ", Code("map<U>"),
+        " above. They work like a generic function's: each call infers them from its arguments and they can ",
+        "appear in the return type alongside the extern type's own parameters.",
+    }),
+
+    h2("Defaults"),
+    Paragraph({
+        "A generic parameter can have a default, the way a generic type alias can. Since ",
+        Code("with"), " is optional in Luwu and user code can ", Code("declare"),
+        " extern types, this example runs as a plain module:",
+    }),
+    luwu([====[
+        declare extern type Channel<Message = string>
+            function send(self, message: Message)
+            function receive(self): Message?
+        end
+
+        declare function open_channel<Message>(name: string): Channel<Message>
+
+        type Move = { x: number, y: number }
+
+        const chat: Channel = open_channel("chat")
+        const moves: Channel<Move> = open_channel("moves")
+
+        chat:send("gg")
+        moves:send({ x = 1, y = 2 })
+        moves:send("north")
+    ]====]),
+    analyzer_output(CodeBlock.dedent([====[
+        main.luwu(15,12): TypeError: Expected this to be
+            'Move: { x: number, y: number }'
+        but was given
+            'string'
+
+        'string' is unrelated to 'Move'.
+    ]====])),
+
+    h2("Narrowing with typeof"),
+    Paragraph({
+        "Generic parameters exist only for the type checker. At runtime ", Code("typeof"),
+        " gives the extern type's name without its parameters, and checking it narrows a union to every member ",
+        "with that name. Checking a field then narrows to the right instantiation:",
+    }),
+    luwu([====[
+        declare extern type Failure<Reason>
+            reason: Reason
+        end
+
+        declare function load(path: string): string | Failure<string> | Failure<{ code: number }>
+    ]====]),
+    luwu([====[
+        const save = load("save.dat")
+        if typeof(save) == "Failure" then
+            if typeof(save.reason) == "string" then
+                print(`load failed: {save.reason}`)
+            else
+                print(`load failed with code {save.reason.code}`)
+            end
+        else
+            print(`loaded {#save} bytes`)
+        end
+    ]====]),
+    analyzer_output("No errors."),
+
+    h2("Things to know"),
+    UnorderedList({
+        ListItem({
+            "Nothing at runtime records what ", Code("T"), " an extern type was used with. ",
+            "The host is trusted to return what its declaration says.",
+        }),
+        ListItem({
+            "Inferred types include their parameters: ", Code("size"), " in the first example is a ",
+            Code("Result<number>"), ".",
+        }),
+    }),
+}, "generic-extern-types.html")
+    :describe(
+        "Extern types and their methods take generic parameters in Luwu, so a host can declare one Result<T> "
+        .. "for every call that returns one."
+    )

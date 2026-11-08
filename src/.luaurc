@@ -1,0 +1,14 @@
+{
+  "aliases": {
+    "core": "./core/",
+    "style": "./style/",
+    "site": "./site/",
+    "themes": "./themes/",
+    "elements": "./elements/",
+    "document": "./document/",
+    "components": "./components/",
+    "parse": "./parse/",
+    "formats": "./formats/",
+    "color": "../../color/"
+  }
+}

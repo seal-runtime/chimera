@@ -66,7 +66,7 @@ return Page("Destructuring", {
     ]====]),
 
     h2("Keeping the whole value"),
-    Paragraph("Put a name before the braces to keep the whole table too."),
+    Paragraph("Put a name before the braces to bind the whole table too."),
     luwu([====[
         const function load_config()
             return { width = 1280, height = 720, title = "Game" }
@@ -169,3 +169,4 @@ return Page("Destructuring", {
         ListItem({ "You can't assign to a pattern. ", Code(".{ a, b } = t"), " without const or local is an error." }),
     }),
 }, "destructuring.html")
+    :describe("Destructuring pulls several fields out of a table in one line instead of writing each name twice.")

@@ -34,6 +34,9 @@ export .{
     List,
     UnorderedList,
     OrderedList,
+    DescriptionList,
+    DescriptionTerm,
+    DescriptionDetails,
 } = require("@self/lists")
 
 export .{
@@ -61,6 +64,7 @@ export .{
 export .{
     Summary,
     Details,
+    Disclosure,
 } = require("@self/disclosure")
 
 export .{

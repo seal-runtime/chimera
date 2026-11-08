@@ -31,7 +31,7 @@ return Page("Compatibility", {
     Paragraph({
         "A Luau library written for Luau 0.730 or earlier runs in Luwu without changes. ",
         "The reverse doesn't hold: once a file uses classes or table comprehensions it's Luwu code, and upstream ",
-        "Luau can't run it. Luwu keeps the two apart by file extension, and it refuses Luwu syntax in a ",
+        "Luau can't run it. Luwu tells the two apart by file extension, and it refuses Luwu syntax in a ",
         Code(".luau", "plaintext"),
         " file so that file stays valid Luau.",
     }),
@@ -143,3 +143,7 @@ return Page("Compatibility", {
         "everything else as it was.",
     }),
 })
+    :describe(
+        "Luau libraries written for Luau 0.730 or earlier run in Luwu without changes, and file extensions keep "
+        .. "Luwu syntax out of .luau files."
+    )

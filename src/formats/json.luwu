@@ -42,7 +42,7 @@ const function build_node(data: JsonNode, warnings: { string }, components: bool
         element:attr(attribute.name, attribute.value)
     end
     for _, child in data.children or {} do
-        if const node = build_node(child, warnings, components) when not element:adopt(node) then
+        if const node = build_node(child, warnings, components) when not element:receive(node) then
             table.insert(warnings, `{class.name(element)} can't hold {node:outline()}; dropped it`)
         end
     end
@@ -130,7 +130,7 @@ end
 --- [Element.nodes_from_json][markup.Element.nodes_from_json].
 ---
 --- [markup = require("@core/markup")]
-export const format: JsonFormat = {
+export format: JsonFormat = {
     tree = tree,
     build = build,
 }

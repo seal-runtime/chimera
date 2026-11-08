@@ -112,7 +112,7 @@ const tests: { [string]: () -> () } = {
         )
     end,
 
-    ["parsed documents keep their classes and themes"] = function()
+    ["classes and themes survive parsing a document"] = function()
         const document = Document.from_html(sample():to_html())
         equal(if const dark = document.dark_theme then dark.name else nil, "dark")
         equal(document.light_theme, nil)

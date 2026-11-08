@@ -45,8 +45,8 @@ end
 
 --- A `file://` URL for `path`, with Windows drive paths like `C:\docs` turned into `file:///C:/docs`.
 const function file_url(path: string): string
-    const forward = string.gsub(string.gsub(path, "\\", "/"), " ", "%%20")
-    return if string.sub(forward, 1, 1) == "/" then `file://{forward}` else `file:///{forward}`
+    const forward = path:replace("\\", "/"):replace(" ", "%20")
+    return if forward:startswith("/") then `file://{forward}` else `file:///{forward}`
 end
 
 --[=[
@@ -157,5 +157,22 @@ export class Browser private (
             return self:call("session.end", {})
         end)
         self.child:kill()
+    end
+
+    --- Runs `run` with a fresh browser and closes it afterwards, or skips the test when Firefox isn't installed.
+    public function session(run: (Browser) -> ())
+        if not Browser.available() then
+            print("    skipped: Firefox isn't installed")
+            return
+        end
+        const browser = Browser.launch()
+        const ok, problem = pcall(function()
+            run(browser)
+            return nil
+        end)
+        browser:close()
+        if not ok then
+            error(problem, 0)
+        end
     end
 end

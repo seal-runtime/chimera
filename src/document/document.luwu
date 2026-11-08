@@ -24,6 +24,7 @@ type .{
     Writer,
     ThemeOption,
     HeadingEntry,
+    ContentsEntry,
     PageEntry,
     Metadata,
     AttributeValue,
@@ -171,20 +172,38 @@ const RUNTIME_JS = [====[(function () {
     to_top.toggleAttribute("data-visible", scrollY > innerHeight * 0.75);
   }
   addEventListener("scroll", function () { if (document.body) sync_to_top(); }, { passive: true });
-  // Squiggle messages and code hovers show in a box under the marked code, like an editor's hover.
+  // Squiggle messages, code hovers and tooltips show in a box under what they mark, like an editor's hover.
   var hover = null;
   var hovered = null;
   var hide_timer = 0;
+  var show_timer = 0;
+  // Like an editor, a mouse has to rest on a mark this long before its box opens. Taps open it at once.
+  var HOVER_DELAY = 400;
   function hide_hover() {
     clearTimeout(hide_timer);
+    clearTimeout(show_timer);
     if (hover) hover.hidden = true;
     hovered = null;
   }
-  // A hover's content sits in a <template> with its index, inside the element holding the code.
+  function hover_open() {
+    return hover && !hover.hidden;
+  }
+  // Once a box is open, moving to another mark switches at once instead of waiting again.
+  function schedule_hover(mark) {
+    clearTimeout(hide_timer);
+    clearTimeout(show_timer);
+    if (hover_open()) {
+      show_hover(mark);
+      return;
+    }
+    show_timer = setTimeout(function () { show_hover(mark); }, HOVER_DELAY);
+  }
+  // A hover's content sits in a <template> with its index: inside the element holding the code, or inside an
+  // element with a tooltip.
   function hover_template(mark) {
     var index = mark.dataset.hover;
     if (!index) return null;
-    for (var at = mark.parentElement; at; at = at.parentElement) {
+    for (var at = mark; at; at = at.parentElement) {
       var template = at.querySelector(":scope > template[data-hover='" + index + "']");
       if (template) return template;
     }
@@ -192,7 +211,8 @@ const RUNTIME_JS = [====[(function () {
   }
   function show_hover(mark) {
     clearTimeout(hide_timer);
-    if (hovered === mark && hover && !hover.hidden) return;
+    clearTimeout(show_timer);
+    if (hovered === mark && hover_open()) return;
     var message = mark.dataset.message;
     var template = hover_template(mark);
     if (!hover) {
@@ -233,14 +253,20 @@ const RUNTIME_JS = [====[(function () {
   // Code inside the box doesn't open another box.
   function mark_at(target) {
     if (!target || !target.closest || (hover && hover.contains(target))) return null;
-    return target.closest(".chimera-squiggle[data-message], .chimera-hoverable[data-hover]");
+    return target.closest(".chimera-squiggle[data-message], .chimera-hoverable[data-hover], [data-hover='tooltip']");
   }
-  document.addEventListener("mouseover", function (event) {
+  // Touch has no hover, so a tap goes through the click handler below.
+  document.addEventListener("pointerover", function (event) {
+    if (event.pointerType === "touch") return;
     var mark = mark_at(event.target);
-    if (mark) show_hover(mark);
+    if (mark) schedule_hover(mark);
   });
-  document.addEventListener("mouseout", function (event) {
-    if (mark_at(event.target) && !mark_at(event.relatedTarget)) hide_timer = setTimeout(hide_hover, 150);
+  document.addEventListener("pointerout", function (event) {
+    if (event.pointerType === "touch") return;
+    if (mark_at(event.target) && !mark_at(event.relatedTarget)) {
+      clearTimeout(show_timer);
+      hide_timer = setTimeout(hide_hover, 150);
+    }
   });
   document.addEventListener("scroll", function (event) {
     if (!(hover && hover.contains(event.target))) hide_hover();
@@ -261,13 +287,84 @@ const RUNTIME_JS = [====[(function () {
     if (event.key === "Escape") {
       close_menus();
       hide_hover();
+      hide_source_menu();
     }
   });
+  // In a development build (CHIMERA_SOURCES), Alt + right-click lists the places in the site's code that made an
+  // element, each opening in VS Code. Only local pages get this, so a deployed site never opens an editor.
+  var source_menu = null;
+  var local_page = location.protocol === "file:" || location.hostname === "localhost"
+    || location.hostname === "127.0.0.1";
+  function hide_source_menu() {
+    if (source_menu) source_menu.hidden = true;
+  }
+  function source_link(frame) {
+    var split = frame.lastIndexOf(":");
+    var path = frame.slice(0, split);
+    var line = frame.slice(split + 1);
+    var link = document.createElement("a");
+    link.href = "vscode://file" + (path.charAt(0) === "/" ? "" : "/") + path + ":" + line;
+    link.textContent = path.split("/").slice(-2).join("/") + ":" + line;
+    link.title = path + ":" + line;
+    link.addEventListener("click", function (event) {
+      hide_source_menu();
+      // Served by chimera's dev server (tools/serve.luwu), the server opens the file. Embedded browsers like
+      // VS Code's can't follow vscode:// links.
+      if (location.protocol === "file:") return;
+      event.preventDefault();
+      fetch("/__chimera/open?file=" + encodeURIComponent(path) + "&line=" + encodeURIComponent(line));
+    });
+    return link;
+  }
+  if (local_page) {
+    document.addEventListener("contextmenu", function (event) {
+      if (!event.altKey) return;
+      var element = event.target.closest && event.target.closest("[data-chimera-source]");
+      if (!element) return;
+      event.preventDefault();
+      hide_hover();
+      if (!source_menu) {
+        source_menu = document.createElement("div");
+        source_menu.className = "chimera-hover chimera-source-menu";
+        document.body.appendChild(source_menu);
+      }
+      source_menu.replaceChildren();
+      element.dataset.chimeraSource.split("|").forEach(function (frame) {
+        source_menu.appendChild(source_link(frame));
+      });
+      source_menu.style.left = "0px";
+      source_menu.style.top = "0px";
+      source_menu.hidden = false;
+      var left = Math.min(event.clientX, innerWidth - source_menu.offsetWidth - 8);
+      var top = Math.min(event.clientY, innerHeight - source_menu.offsetHeight - 8);
+      source_menu.style.left = Math.max(8, left) + "px";
+      source_menu.style.top = Math.max(8, top) + "px";
+    });
+    document.addEventListener("click", function (event) {
+      if (source_menu && !source_menu.contains(event.target)) hide_source_menu();
+    });
+  }
+  // The contents box renders open so it works without this script and as the wide-screen rail. Below the rail's
+  // width (the theme's 1100px media rule) it sits above the article, so it starts closed there.
+  var toc_rail = matchMedia("(min-width: 1100px)");
+  function sync_toc() {
+    var details = document.querySelector(".chimera-toc details");
+    if (details) details.open = toc_rail.matches;
+  }
+  toc_rail.addEventListener("change", sync_toc);
   document.addEventListener("DOMContentLoaded", function () {
     sync(current());
     if (chosen) carry(chosen);
+    sync_toc();
   });
 })();]====]
+
+--- The `<html>` attributes that name the page's themes. [Document:attr] picks the themes they name.
+const THEME_ATTRIBUTES: { [string]: true? } = {
+    ["data-theme-light"] = true,
+    ["data-theme-dark"] = true,
+    ["data-themes"] = true,
+}
 
 --- Matches the page until the reader picks a theme. Picking one sets `data-theme`.
 const UNPICKED = ":root:not([data-theme])"
@@ -313,7 +410,7 @@ const function front_matter_value(text: string): string
     if string.find(text, "^[%w%s%.,!?'()%-]+$") and not string.find(text, "^%s") then
         return text
     end
-    return `"{string.gsub(string.gsub(text, "\\", "\\\\"), "\"", "\\\"")}"`
+    return `"{text:replace("\\", "\\\\"):replace("\"", "\\\"")}"`
 end
 
 const function lists_headings(node: Markup): boolean
@@ -328,30 +425,33 @@ const function lists_headings(node: Markup): boolean
     return false
 end
 
-const function collect_headings(node: Markup, into: { Heading })
-    if class.implements(node, Element) when not node:contributes_headings() then
-        return
-    end
+--- What the table of contents lists: headings, and elements with a [Element:contents_entry].
+const function collect_headings(node: Markup, into: { Element })
     if class.isinstance(node, Heading) then
         table.insert(into, node)
+    elseif class.implements(node, Element) when node:contents_entry() then
+        table.insert(into, node)
+    end
+    if class.implements(node, Element) when not node:contributes_headings() then
+        return
     end
     for _, child in node:child_nodes() do
         collect_headings(child, into)
     end
 end
 
-const HTML_ENTITIES: { [string]: string } = {
-    ["&lt;"] = "<",
-    ["&gt;"] = ">",
-    ["&quot;"] = "\"",
-    ["&#39;"] = "'",
-    ["&amp;"] = "&",
-}
-
---- A heading's text without its markup, as a table of contents shows it.
-const function heading_text(heading: Heading): string
-    const inner = string.gsub(heading:to_html(), "<[^>]*>", "")
-    return (string.gsub(inner, "&[#%w]+;", HTML_ENTITIES))
+--- The level and text `element` shows in the table of contents.
+const function contents_entry_of(element: Element): ContentsEntry
+    if class.isinstance(element, Heading) then
+        return {
+            level = element.level,
+            text = element:plain_text(),
+        }
+    end
+    return element:contents_entry() or {
+        level = 2,
+        text = element:plain_text(),
+    }
 end
 
 --- An id for a heading reading `text`, unique among the `used` ones.
@@ -370,46 +470,71 @@ end
 
 --- The page's headings from `min_level` down, each given an id from its text unless it has one.
 const function outline(body: Markup, min_level: number): { HeadingEntry }
-    const headings: { Heading } = {}
+    const headings: { Element } = {}
     collect_headings(body, headings)
     const used: { [string]: boolean } = {}
     const entries: { HeadingEntry } = {}
-    for _, heading in headings when heading.level >= min_level do
-        const text = heading_text(heading)
+    for _, heading in headings do
+        const .{ level, text } = contents_entry_of(heading)
+        if level < min_level then
+            continue
+        end
         const id = heading:get_id() or do
             const generated = heading_id(text, used)
             heading:id(generated)
             give generated
         used[id] = true
-        table.insert(entries, { level = heading.level, text = text, id = id })
+        table.insert(entries, { level = level, text = text, id = id })
     end
     return entries
 end
 
-const function collect_needs(
-    node: Markup,
-    seen: { [class]: boolean },
-    rules: { Rule },
-    inside: { Rule },
-    head: { [string]: Metadata }
-)
+--- What the elements on a page need from its `<head>`.
+type Needs = {
+    --- Each class's [Element:default_styles], once per class on the page.
+    default_styles: { Rule },
+    --- Every element's [Element:style_inside] rules.
+    scoped_rules: { Rule },
+    --- Every element's [Element:head_elements], each once, keyed by its HTML.
+    head_elements: { [string]: Metadata? },
+}
+
+const function collect_needs(node: Markup, seen: { [class]: boolean }, needs: Needs)
     if class.implements(node, Element) then
         for _, item in node:head_elements() or {} do
-            head[item:to_html()] = item
+            needs.head_elements[item:to_html()] = item
         end
         if const cls = class.of(node) when not seen[cls] then
             seen[cls] = true
             for _, rule in node:default_styles() or {} do
-                table.insert(rules, rule)
+                table.insert(needs.default_styles, rule)
             end
         end
         for _, rule in node.inside_rules or {} do
-            table.insert(inside, rule)
+            table.insert(needs.scoped_rules, rule)
         end
     end
     for _, child in node:child_nodes() do
-        collect_needs(child, seen, rules, inside, head)
+        collect_needs(child, seen, needs)
     end
+end
+
+--- The values of `map` ordered by their keys, so pages render the same every time.
+const function sorted_by_key(map: { [string]: Metadata? }): { Metadata }
+    const keys = { for key in map give key }
+    table.sort(keys)
+    return { for _, key in keys when const value = map[key] give value }
+end
+
+--- What the elements in `body` need from the page's `<head>`.
+const function needs_of(body: Markup): Needs
+    const needs: Needs = {
+        default_styles = {},
+        scoped_rules = {},
+        head_elements = {},
+    }
+    collect_needs(body, {}, needs)
+    return needs
 end
 
 --[=[
@@ -610,11 +735,13 @@ export class Document implements Element, HtmlElement
 
     --- The page's description, from its `description` meta tag, if it has one.
     function get_description(self): string?
-        for _, item in self.head.items do
-            if class.isinstance(item, Meta) when item:get_attr("name") == "description" then
-                const content = item:get_attr("content")
-                return if type(content) == "string" then content else nil
-            end
+        for
+            _, item in self.head.items
+            when class.isinstance(item, Meta)
+            when item:get_attr("name") == "description"
+        do
+            const content = item:get_attr("content")
+            return if type(content) == "string" then content else nil
         end
         return nil
     end
@@ -900,37 +1027,48 @@ export class Document implements Element, HtmlElement
         second stylesheet, whose rules it reads back into `rules`.
     ]=]
     function generated_head(self): { Metadata }
-        const base = Stylesheet():attr(GENERATED, "styles")
-        for _, theme in self:all_themes() do
-            table.insert(base.rules, Rule(`:root[data-theme="{theme.name}"]`, theme_tokens(theme)))
-        end
-        const light = self:default_theme("Light")
-        const dark = self:default_theme("Dark")
-        const first = light or dark
-        if first then
-            table.insert(base.rules, Rule(UNPICKED, theme_tokens(first)))
-            if light and dark then
-                table.insert(base.rules, Rule("@media (prefers-color-scheme: dark)", {}, {
-                    Rule(UNPICKED, theme_tokens(dark)),
-                }))
+        const needs = needs_of(self.body)
+
+        const base = do
+            const light = self:default_theme("Light")
+            const dark = self:default_theme("Dark")
+            const unpicked = light or dark
+
+            const rules = {
+                for _, theme in self:all_themes()
+                give Rule(`:root[data-theme="{theme.name}"]`, theme_tokens(theme))
+            }
+
+            if unpicked then
+                table.insert(rules, Rule(UNPICKED, theme_tokens(unpicked)))
+                if light and dark then
+                    table.insert(rules, Rule("@media (prefers-color-scheme: dark)", {}, {
+                        Rule(UNPICKED, theme_tokens(dark)),
+                    }))
+                end
+                for _, rule in unpicked:base_styles() do
+                    table.insert(rules, rule)
+                end
             end
-            for _, rule in first:base_styles() do
-                table.insert(base.rules, rule)
+
+            for _, rule in needs.default_styles do
+                table.insert(rules, rule)
             end
-        end
-        const overrides = Stylesheet(self.rules):attr(GENERATED, "overrides")
-        const needed: { [string]: Metadata } = {}
-        collect_needs(self.body, {}, base.rules, overrides.rules, needed)
+            give Stylesheet(rules):attr(GENERATED, "styles")
+
+        const overrides = Stylesheet({
+            for _, rules in { self.rules, needs.scoped_rules }
+            for _, rule in rules
+            give rule
+        }):attr(GENERATED, "overrides")
 
         const head: { Metadata } = { base }
         if #overrides.rules > 0 then
             table.insert(head, overrides)
         end
         table.insert(head, Script(RUNTIME_JS):attr(GENERATED, "runtime"))
-        const keys = { for key in needed give key }
-        table.sort(keys)
-        for _, key in keys do
-            table.insert(head, needed[key]:attr(GENERATED, "required"))
+        for _, element in sorted_by_key(needs.head_elements) do
+            table.insert(head, element:attr(GENERATED, "required"))
         end
         return head
     end
@@ -948,26 +1086,21 @@ export class Document implements Element, HtmlElement
         ```
     ]=]
     function attr(self, name: string, value: AttributeValue?): Document
-        if name == "data-theme-light" or name == "data-theme-dark" then
-            if type(value) == "string" when const theme = Theme.find(value) then
-                if name == "data-theme-light" then
-                    self:default_light_theme(theme)
-                else
-                    self:default_dark_theme(theme)
-                end
+        THEME_ATTRIBUTES[name] or return Element.attr(self, name, value)
+        type(value) == "string" or return self
+
+        if name == "data-themes" then
+            for theme_name in string.gmatch(value, "%S+") when const theme = Theme.find(theme_name) do
+                self:offer_theme(theme)
             end
-            return self
-        elseif name == "data-themes" then
-            if type(value) == "string" then
-                for theme_name in string.gmatch(value, "%S+") do
-                    if const theme = Theme.find(theme_name) then
-                        self:offer_theme(theme)
-                    end
-                end
+        elseif const theme = Theme.find(value) then
+            if name == "data-theme-light" then
+                self:default_light_theme(theme)
+            else
+                self:default_dark_theme(theme)
             end
-            return self
         end
-        return Element.attr(self, name, value)
+        return self
     end
 
     function adopt(self, node: Markup): boolean
@@ -989,7 +1122,7 @@ export class Document implements Element, HtmlElement
             const kept = {
                 for _, child in node.children
                 when not class.isinstance(child, Script) or child:get_attr(GENERATED) == nil
-                    give child
+                give child
             }
             self.body = Body(kept)
             return true
@@ -1036,10 +1169,15 @@ export class Document implements Element, HtmlElement
         out:newline()
 
         const head = Head()
+        const generated = self:generated_head()
+        -- A `<base>` only applies to the URLs after it, like the favicon's, so it goes first.
+        for _, item in generated when item:current_tag() == "base" do
+            head:add(item)
+        end
         for _, item in self.head.items do
             head:add(item)
         end
-        for _, item in self:generated_head() do
+        for _, item in generated when item:current_tag() ~= "base" do
             head:add(item)
         end
         head:render(out)

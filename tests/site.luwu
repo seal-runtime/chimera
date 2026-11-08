@@ -7,9 +7,10 @@ const .{ equal, contains, excludes, truthy } = require("./assert")
 const chimera = require("@chimera")
 const .{
     Document,
+    Parser,
     core.{ Writer },
     elements.{ Header, Paragraph, Heading, Link },
-    components.{ Menu, SiteFooter, Card },
+    components.{ Menu, SiteFooter, Card, Code, Panel },
     themes.{ catppuccin },
     site.{ Site, Page, PageLink, TableOfContents },
 } = chimera
@@ -120,6 +121,34 @@ const tests: { [string]: () -> () } = {
         contains(html, `<li><a href="#pricing">Pricing</a></li>`)
         excludes(html, `href="#free"`)
         contains(html, `<h3>Free</h3>`)
+    end,
+
+    ["a panel's title is in the table of contents without being a heading"] = function()
+        const page = Page("Strings", {
+            h1("Strings"),
+            TableOfContents(),
+            Panel("Summary", { h3("Splitting"), Paragraph("string.split") }):open(),
+            h2("string.split"),
+        })
+        const html = Site("chimera")
+            :add_page(page)
+            :document(page)
+            :to_html()
+        contains(html, `<li><a href="#summary">Summary</a></li><li><a href="#string-split">string.split</a></li>`)
+        const panel = string.match(html, "<details[^>]*Panel[^>]*>") or ""
+        contains(panel, `id="summary"`)
+        contains(panel, `class="chimera-panel"`)
+        contains(html, `<summary>Summary</summary>`)
+        contains(html, `<h3>Splitting</h3>`)
+        excludes(html, `href="#splitting"`)
+    end,
+
+    ["panels parse back with their title"] = function()
+        const html = Panel("Summary", Paragraph("Everything at a glance."))
+            :open()
+            :to_html()
+        const back = Parser():parse(html)[1]
+        equal(back:to_html(), html)
     end,
 
     ["a table of contents lists the pages under its page"] = function()
@@ -296,6 +325,60 @@ const tests: { [string]: () -> () } = {
         if fs.path.exists(out_dir) then
             fs.removetree(out_dir)
         end
+    end,
+
+    ["pages carry link preview tags"] = function()
+        const .{ site, home, install } = sample()
+        const page = site
+            :document(install)
+            :to_html()
+        contains(page, `<meta property="og:site_name" content="chimera">`)
+        contains(page, `<meta property="og:title" content="Install">`)
+        contains(page, `<meta property="og:description" content="Static sites">`)
+        contains(page, `<meta name="twitter:card" content="summary">`)
+        contains(page, `<meta name="theme-color" content="#cba6f7">`)
+        excludes(page, "og:url")
+        contains(
+            site
+                :document(home)
+                :to_html(),
+            `<meta property="og:title" content="chimera">`
+        )
+        site
+            :url("https://example.com")
+            :preview_image("assets/preview.png")
+        const published = site
+            :document(install)
+            :to_html()
+        contains(published, `<meta property="og:url" content="https://example.com/docs/install.html">`)
+        contains(published, `<meta property="og:image" content="https://example.com/preview.png">`)
+        contains(published, `<meta name="twitter:card" content="summary_large_image">`)
+    end,
+
+    ["a page without a description is summarized by its first paragraph"] = function()
+        const .{ site, home, guide } = sample()
+        equal(home:summary(), "Welcome.")
+        contains(
+            site
+                :document(home)
+                :to_html(),
+            `<meta property="og:description" content="Welcome.">`
+        )
+        equal(guide:summary(), nil)
+        contains(
+            site
+                :document(guide)
+                :to_html(),
+            `<meta property="og:description" content="Static sites">`
+        )
+        equal(Page("Code", Paragraph({ "Call  ", Code("print"), "\n to log." })):summary(), "Call print to log.")
+        equal(
+            Page("Described", Paragraph("Ignored.")):describe("Chosen"):summary(),
+            "Chosen"
+        )
+        const long = Page("Long", Paragraph(string.rep("word ", 100))):summary() or ""
+        truthy(#long <= 304)
+        truthy(long:endswith("word…"))
     end,
 
     ["every page links the site's favicon, which build copies to the root"] = function()

@@ -80,8 +80,8 @@ export trait Layout needs Container
     end
 
     --[=[
-        Lays the children out in a grid with as many columns as fit, each at least `min_width` wide
-        (`"12rem"` by default).
+        Lays the children out in a grid with as many columns as fit, each at least `min_width` wide (the theme's
+        `column_width` by default).
 
         ## Usage
 
@@ -300,7 +300,7 @@ export class Image implements Component, HtmlElement
         end
         const alt = self:get_attr("alt")
         const title = self:get_attr("title")
-        const quoted = if type(title) == "string" then ` "{string.gsub(title, "\"", "\\\"")}"` else ""
+        const quoted = if type(title) == "string" then ` "{title:replace("\"", "\\\"")}"` else ""
         const description = if type(alt) == "string" then MarkdownWriter.escape(alt) else ""
         return `![{description}]({string.gsub(src, " ", "%%20")}{quoted})`
     end

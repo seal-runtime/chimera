@@ -22,7 +22,7 @@ const function diagnostics(output: string): { string }
             table.insert(found[#found], line)
         end
     end
-    return { for _, lines in found give (string.gsub(table.concat(lines, "\n"), "%s+$", "")) }
+    return { for _, lines in found give table.concat(lines, "\n"):trimend() }
 end
 
 --- `source` as one checker sees it: its messages on squiggles under `spans`, then its whole output.
@@ -37,7 +37,7 @@ const function checker_view(source: string, spans: { string }, raw_output: strin
             const kind, rest = string.match(message, "^(%a+): (.*)$")
             const text = rest or message
             const where = SourceSpan.from_string(span)
-            give if kind == "Note" or str.startswith(text, "Help")
+            give if kind == "Note" or text:startswith("Help")
                 then Squiggle.info(where, text)
                 else Squiggle.error(where, text)
     }
@@ -1337,3 +1337,7 @@ return Page("Type Checking", {
         ListItem({ "Type annotations describe values. They're separate from what ", Code("type(x)"), " returns." }),
     }),
 }, "type-checking.html")
+    :describe(
+        "Luwu type checks in strict mode by default and reports mistakes in your editor as you write them. "
+        .. "Typing is gradual, so annotations can come a piece at a time."
+    )

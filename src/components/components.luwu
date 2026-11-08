@@ -5,11 +5,12 @@
 const datetime = require("@std/time/datetime")
 const markup = require("@core/markup")
 const .{ Element, Component, Container, Text } = require("@core/markup")
-const .{ Div, Layout } = require("@elements/layout")
+const .{ Div, Layout, Figure, FigureCaption, Image } = require("@elements/layout")
 const .{ Row, Grid } = require("@components/layout")
-const .{ Heading, Paragraph } = require("@elements/text")
-const .{ UnorderedList, ListItem } = require("@elements/lists")
-const .{ Summary } = require("@elements/disclosure")
+const .{ Heading, Paragraph, Span } = require("@elements/text")
+const .{ Color } = require("@color")
+const .{ UnorderedList, ListItem, DescriptionList } = require("@elements/lists")
+const .{ Summary, Disclosure } = require("@elements/disclosure")
 type .{ Content, Markup, Writer, Element, Child } = markup
 
 const MENU_ICON = [=[<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">]=]
@@ -60,8 +61,12 @@ end
 --[=[
     A `"details"` element that shows a floating list of items when clicked, with no JavaScript.
 
+    When the label is a link, clicking the label follows it and only the arrow next to it opens the list. That suits a
+    section whose overview page is also one of its items.
+
     ```luwu
     Dropdown("Account", { Link("Profile", "/me"), Link("Sign out", "/logout") })
+    Dropdown(PageLink(reference, "Standard Library"), { PageLink(strings), PageLink(tables) })
     ```
 ]=]
 export class Dropdown implements Component
@@ -75,6 +80,10 @@ export class Dropdown implements Component
         self:add_style_class("chimera-dropdown")
         self.summary:add(label)
         self.menu:add(items)
+        if class.implements(label, Element) when label:current_tag() == "a" then
+            self:add_style_class("chimera-dropdown-linked")
+            self.summary:add(Span():add_style_class("chimera-dropdown-arrow"):attr("aria-label", "Show menu"))
+        end
     end
 
     --[=[
@@ -243,6 +252,307 @@ export class Card implements Component, Container
     end
 
     --- A card's title labels the card. It isn't a section of the page.
+    function contributes_headings(self): boolean
+        return false
+    end
+end
+
+--[=[
+    A `"details"` element for an overview readers jump to and skim, like the summary of an API's functions. Its
+    title shows in the page's table of contents without being a heading, and readers can collapse the box. The
+    theme gives it the background code blocks have, with rounder corners and less padding inside than other boxes.
+
+    ## Usage
+
+    ```luwu
+    Panel("Summary", DescriptionList()
+        :item(Code("string.split"), "Splits a string at each separator")
+        :item(Code("string.trim"), "Removes whitespace from both ends")
+    ):open()
+    ```
+
+    It starts collapsed. [Disclosure:open][disclosure.Disclosure.open] shows it when the page loads.
+
+    [disclosure = require("@elements/disclosure")]
+]=]
+export class Panel implements Component, Disclosure
+    function tag(): string
+        return "details"
+    end
+
+    function __init(self, title: Content?, content: Content?)
+        self:add_style_class("chimera-panel")
+        if title ~= nil then
+            self:title(title)
+        end
+        self:add(content)
+    end
+
+    --- The panel's title, listed at a heading's level 2.
+    function contents_entry(self): markup.ContentsEntry?
+        const summary = self.summary or return nil
+        return {
+            level = 2,
+            text = summary:plain_text(),
+        }
+    end
+
+    --- Headings inside the panel label its parts. They aren't sections of the page.
+    function contributes_headings(self): boolean
+        return false
+    end
+end
+
+--[=[
+    An `"aside"` element that sums up one subject in a box of labeled facts beside the text about it, like the
+    boxes next to encyclopedia articles. It holds a title, an optional image and fields, which [Infobox:section]
+    splits into groups. On wide screens it floats to the right of the content around it. On narrow screens it sits
+    in the flow at full width.
+
+    ## Usage
+
+    ```luwu
+    Infobox("Ada Lovelace")
+        :image("ada.png", "A portrait of Ada Lovelace")
+        :field("Born", "10 December 1815")
+        :field("Died", death_date)
+        :section("Known for")
+        :field("Work", "Notes on the Analytical Engine")
+    ```
+
+    A field whose value is `nil` is left out, so an optional fact like `death_date` needs no `if` around it.
+]=]
+export class Infobox implements Component, Container
+    function tag(): string
+        return "aside"
+    end
+
+    function __init(self, title: Content?)
+        self:add_style_class("chimera-infobox")
+        if title ~= nil then
+            self:add(Paragraph(title):add_style_class("chimera-infobox-title"))
+        end
+    end
+
+    --[=[
+        Adds an image after what the box holds so far. `alt` describes it for screen readers, and `caption` shows
+        under it.
+
+        ## Usage
+
+        ```luwu
+        Infobox("Nyla"):image("nyla.svg", "Nyla, Luwu's mascot", "Luwu's mascot")
+        ```
+    ]=]
+    function image(self, src: string, alt: string, caption: Content?): Infobox
+        const figure = Figure(Image(src, alt)):add_style_class("chimera-infobox-image")
+        if caption ~= nil then
+            figure:add(FigureCaption(caption))
+        end
+        return self:add(figure)
+    end
+
+    --[=[
+        Starts a new group of fields under `title`.
+
+        ## Usage
+
+        ```luwu
+        Infobox("Ada Lovelace")
+            :field("Born", "10 December 1815")
+            :section("Known for")
+            :field("Work", "Notes on the Analytical Engine")
+        ```
+    ]=]
+    function section(self, title: Content): Infobox
+        return self:add(Paragraph(title):add_style_class("chimera-infobox-section"))
+    end
+
+    --[=[
+        Adds a field labeled `label` after the fields before it. A `nil` value leaves the field out.
+
+        ## Usage
+
+        ```luwu
+        Infobox("Ada Lovelace"):field("Born", "10 December 1815")
+        ```
+    ]=]
+    function field(self, label: Content, value: Content?): Infobox
+        value ~= nil or return self
+
+        const last = self.children[#self.children]
+        const fields = if last and class.isinstance(last, DescriptionList) then last else do
+            const created = DescriptionList()
+            self:add(created)
+            give created
+        fields:item(label, value)
+        return self
+    end
+end
+
+--- A [Chip]'s theme color: muted text by default, or one of these. `"plain"` is the theme's surface color.
+export type ChipTone = "muted" | "plain" | "primary" | "info" | "warning" | "error"
+
+--- The two text colors a [Chip:fill] color picks between.
+const DARK_TEXT = Color(27, 27, 31)
+const LIGHT_TEXT = Color(255, 255, 255)
+
+--[=[
+    A `"span"` element that shows a short label in a small filled box, like a status next to a name. It takes a
+    theme color with [Chip:tone] or a color of its own with [Chip:fill], and an optional [Chip:icon]. Give it a
+    [Element:tooltip] to explain what it means.
+
+    A chip describes what it's next to rather than being part of it. Its text is left out of the
+    [Markup:plain_text] of what holds it, so a chip in a heading changes neither the heading's id nor its line in
+    a [TableOfContents][site.TableOfContents].
+
+    [site = require("@site/site")]
+
+    ## Usage
+
+    ```luwu
+    Heading.h2({
+        Code("pairs"),
+        Chip("deprecated")
+            :tone("warning")
+            :tooltip("Loop over the table instead."),
+    })
+    ```
+]=]
+export class Chip implements Component, Container
+    function tag(): string
+        return "span"
+    end
+
+    function __init(self, content: Content?)
+        self
+            :add_style_class("chimera-chip")
+            :add(content)
+    end
+
+    --[=[
+        Colors the chip with a theme color instead of muted text.
+
+        ## Usage
+
+        ```luwu
+        Chip("experimental"):tone("warning")
+        ```
+    ]=]
+    function tone(self, color: ChipTone): Chip
+        for _, name in self.style_classes do
+            if name:startswith("chimera-chip-") then
+                self:remove_style_class(name)
+                break
+            end
+        end
+        return self:add_style_class(`chimera-chip-{color}`)
+    end
+
+    --[=[
+        Fills the chip with a color of its own, like a brand color, instead of a theme color. The text turns black or
+        white, whichever has more contrast with it.
+
+        ## Usage
+
+        ```luwu
+        Chip("Lua"):fill(Color.hex("#000080"))
+        ```
+    ]=]
+    function fill(self, color: Color): Chip
+        return self:style({
+            ["--chimera-chip-color"] = color,
+            ["--chimera-chip-text"] = color:readable(DARK_TEXT, LIGHT_TEXT),
+        })
+    end
+
+    --[=[
+        Shows `icon` before the label, in place of any icon given before. An inline SVG that draws with
+        `currentColor` takes the chip's text color.
+
+        Pixel art loses whole rows of pixels when it's drawn smaller than its grid. Pass the art's `grid` size, like
+        16 for a 16 by 16 icon, and the icon draws at that many CSS pixels so every pixel shows on any screen. The
+        chip's height doesn't change.
+
+        ## Usage
+
+        ```luwu
+        Chip("Luwu"):icon(Image("nyla.svg", ""), 16)
+        ```
+    ]=]
+    function icon(self, icon: Content, grid: number?): Chip
+        if
+            const first = self.children[1]
+            when class.isinstance(first, Span)
+            when first:has_style_class("chimera-chip-icon")
+        then
+            table.remove(self.children, 1)
+        end
+        const holder = Span(icon):add_style_class("chimera-chip-icon")
+        if grid then
+            holder
+                :add_style_class("chimera-chip-pixel-icon")
+                :style({ ["--chimera-chip-icon-size"] = `{grid}px` })
+        end
+        return self:insert(1, holder)
+    end
+
+    function is_inline(self): boolean
+        return true
+    end
+
+    --- A chip labels what holds it and isn't part of its text.
+    function plain_text(self): string
+        return ""
+    end
+end
+
+--[=[
+    A `"div"` element that sets a note or warning apart from the text around it: a box with a colored edge and an
+    optional title. It takes the same theme colors as a [Chip], muted by default.
+
+    ## Usage
+
+    ```luwu
+    Alert("Not for multithreading", Paragraph("A thread is a coroutine. Only one runs at a time."))
+        :tone("warning")
+    ```
+]=]
+export class Alert implements Component, Container
+    function tag(): string
+        return "div"
+    end
+
+    function __init(self, title: Content?, content: Content?)
+        self
+            :attr("role", "note")
+            :add_style_class("chimera-alert")
+        if title ~= nil then
+            self:add(Paragraph(title):add_style_class("chimera-alert-title"))
+        end
+        self:add(content)
+    end
+
+    --[=[
+        Colors the alert with a theme color.
+
+        ## Usage
+
+        ```luwu
+        Alert("Deprecated"):tone("error")
+        ```
+    ]=]
+    function tone(self, color: ChipTone): Alert
+        for _, name in self.style_classes do
+            if name:startswith("chimera-alert-") then
+                self:remove_style_class(name)
+                break
+            end
+        end
+        return self:add_style_class(`chimera-alert-{color}`)
+    end
+
+    --- An alert's title labels the alert. It isn't a section of the page.
     function contributes_headings(self): boolean
         return false
     end

@@ -2,7 +2,7 @@
 --!optimize 2
 --!lint ConstLocal
 
-const .{ Color } = require("@style/color")
+const .{ Color } = require("@color")
 const .{ Theme, Palette } = require("@style/theme")
 
 --- A plain light theme, and the theme a [Document][document.Document] uses until given another.

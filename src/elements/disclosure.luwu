@@ -18,24 +18,21 @@ export class Summary implements Container, HtmlElement
 end
 
 --[=[
-    A `"details"` element that lets the reader expand and hide its content, with no JavaScript.
+    A `"details"` element the reader can expand and hide, with a [Summary] that stays visible while its content is
+    hidden. [Details] and the `Panel` component implement it.
+
+    ## Usage
 
     ```luwu
-    Details("What does it cost?", Paragraph("Nothing.")):open()
+    class Spoiler implements Component, Disclosure
+        function tag(): string
+            return "details"
+        end
+    end
     ```
 ]=]
-export class Details implements Component, Container, HtmlElement
-    function tag(): string
-        return "details"
-    end
+export trait Disclosure needs Container
     summary: Summary? = nil
-
-    function __init(self, summary: Summary | Content?, content: Content?)
-        if summary ~= nil then
-            self.summary = if class.isinstance(summary, Summary) then summary else Summary(summary)
-        end
-        self:add(content)
-    end
 
     --[=[
         Shows the content when the page loads; `open(false)` starts it collapsed again.
@@ -52,8 +49,14 @@ export class Details implements Component, Container, HtmlElement
         <details open><summary>Question?</summary><p>Answer.</p></details>
         ```
     ]=]
-    function open(self, is_open: boolean?): Details
+    function open(self, is_open: boolean?): Self
         return self:attr("open", is_open ~= false)
+    end
+
+    --- Sets what the [Summary] says, replacing any it had.
+    function title(self, title: Summary | Content): Self
+        self.summary = if class.isinstance(title, Summary) then title else Summary(title)
+        return self
     end
 
     function adopt(self, node: Markup): boolean
@@ -68,7 +71,7 @@ export class Details implements Component, Container, HtmlElement
         return false
     end
 
-    function clear(self): Details
+    function clear(self): Self
         self.summary = nil
         table.clear(self.children)
         return self
@@ -81,5 +84,25 @@ export class Details implements Component, Container, HtmlElement
             table.insert(nodes, child)
         end
         return nodes
+    end
+end
+
+--[=[
+    A `"details"` element that lets the reader expand and hide its content, with no JavaScript.
+
+    ```luwu
+    Details("What does it cost?", Paragraph("Nothing.")):open()
+    ```
+]=]
+export class Details implements Component, HtmlElement, Disclosure
+    function tag(): string
+        return "details"
+    end
+
+    function __init(self, summary: Summary | Content?, content: Content?)
+        if summary ~= nil then
+            self:title(summary)
+        end
+        self:add(content)
     end
 end

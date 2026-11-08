@@ -180,6 +180,7 @@ const website = Site("chimera")
     :offer_theme(Light)
     :offer_theme(Dark)
     :describe("Build static websites in Luwu, from classes")
+    :url("https://seal-runtime.github.io/chimera/")
     :favicon("examples/assets/nyla.svg")
     :header(Header {
         Menu {
@@ -221,7 +222,8 @@ const website = Site("chimera")
     })
     :add_page(home, guide, luwu_pages)
 
-for _, path in website:build("examples/out") do
+const out = Site.output_dir("examples/out")
+for _, path in website:build(out) do
     print(`wrote {path}`)
 end
 
@@ -229,6 +231,6 @@ const assets = {
     { file = "nyla-nyeh.png", destination = "luwu/nyla-nyeh.png" },
 }
 for _, .{ file, destination } in assets do
-    fs.copy(`examples/assets/{file}`, `examples/out/{destination}`)
-    print(`copied examples/out/{destination}`)
+    fs.copy(`examples/assets/{file}`, `{out}/{destination}`)
+    print(`copied {out}/{destination}`)
 end

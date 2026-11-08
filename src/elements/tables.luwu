@@ -218,7 +218,7 @@ end
 export type function ColumnName(name: type): type
     const value = StringletonFromType(name, "column name")
     type(value) == "string" or return value
-    if string.find(value, "|", 1, true) then
+    if value:contains("|") then
         return types.error("a column name can't contain '|' (got '" .. value .. "')")
     end
     return name
@@ -482,7 +482,7 @@ export class Table<Headings = ""> implements Component, HtmlElement
     function table_style(self, look: TableStyle): Self
         const kept = {
             for _, name in self.style_classes
-            when string.sub(name, 1, #TABLE_STYLE_PREFIX) ~= TABLE_STYLE_PREFIX
+            when not name:startswith(TABLE_STYLE_PREFIX)
             give name
         }
         self.style_classes = kept

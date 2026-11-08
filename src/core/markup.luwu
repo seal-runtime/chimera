@@ -3,6 +3,7 @@
 --!lint ConstLocal
 
 const colors = require("@std/colors")
+const vars = require("@std/env/vars")
 const std_json = require("@std/json")
 const style_module = require("@style/style")
 const Style = style_module.Style
@@ -14,8 +15,8 @@ export type AttributeValue = string | number | boolean
 
 --[=[
     What a [Container] holds, and what [Container:add] and container constructors take: a string or number (shown
-    as [Text]), any [Child] element, or an array of those. An array can hold `none` for an item that's left out,
-    and `nil` is accepted wherever content is optional.
+    as [Text]), any [Child] element, or an array of [Content], nested arrays included. An array can hold `none` for an
+    item that's left out, and `nil` is accepted wherever content is optional.
 
     ## Usage
 
@@ -26,7 +27,7 @@ export type AttributeValue = string | number | boolean
     Paragraph("Just text")
     ```
 ]=]
-export type Content = string | number | Child | { read string | number | Child | none }
+export type Content = string | number | Child | { read Content | none }
 
 const INLINE_TAGS: { [string]: boolean } = {
     a = true,
@@ -90,6 +91,12 @@ export type HeadingEntry = {
     id: string,
 }
 
+--- What an element that isn't a heading shows in the page's table of contents: its text, at a heading's level.
+export type ContentsEntry = {
+    level: number,
+    text: string,
+}
+
 --[=[
     One result a site's search can find, like a function in an API reference. Elements describe themselves with
     [Element:search_entries]. The search index adds the page each entry sits on.
@@ -107,7 +114,7 @@ export type SearchEntry = {
     keywords: { string }?,
 }
 
---- One attribute of a [JsonNode], in the order the element renders it. `true` is an attribute without a value.
+--- One attribute of a [JsonNode], kept in render order. `true` is an attribute without a value.
 export type JsonAttribute = {
     name: string,
     value: string | boolean,
@@ -261,10 +268,6 @@ export class Writer(pretty = false, indent = "  ")
     end
 end
 
-const function trim(text: string): string
-    return string.match(text, "^%s*(.-)%s*$") or ""
-end
-
 --[=[
     Collects Markdown for [Markup:to_markdown]. Each node writes its own Markdown in `markdown`, and asks the writer
     for its children's: [MarkdownWriter:inline] for text inside a line, [MarkdownWriter:blocks] for paragraphs,
@@ -283,7 +286,7 @@ end
     ```
 ]=]
 export class MarkdownWriter
-    --- The language Markdown's inline code is in. A `Code` in another language keeps its HTML so it parses back.
+    --- The language Markdown's inline code is in. A `Code` in another language is written as HTML so it parses back.
     code_language = "luwu"
 
     --[=[
@@ -317,7 +320,7 @@ export class MarkdownWriter
         const blocks: { string } = {}
         const run: { string } = {}
         const function flush()
-            const text = trim(table.concat(run))
+            const text = table.concat(run):trim()
             if text ~= "" then
                 table.insert(blocks, text)
             end
@@ -381,7 +384,7 @@ export class Attributes
 
     --[=[
         Sets an attribute. A string or number renders as `name="value"` (escaped), `true` as a bare `name`, and
-        `nil` or `false` removes it. New attributes render after existing ones; changing one keeps its place.
+        `nil` or `false` removes it. New attributes render after existing ones; changing one doesn't move it.
 
         ## Usage
 
@@ -496,6 +499,9 @@ const function display_children(node: Markup, prefix: string, lines: { string })
     end
 end
 
+--- The `data-hover` value that marks an [Element:tooltip] and the `<template>` holding its content.
+const TOOLTIP = "tooltip"
+
 const VOID_TAGS: { [string]: boolean } = {
     area = true,
     base = true,
@@ -535,11 +541,42 @@ const function render_children(out: Writer, children: { read Markup })
     end
 end
 
+--- The nodes [Child:embed] strings stand for. A marker's number is the node's index.
+const embedded: { Child } = {}
+--- The characters around an embedded node's number. They're in Unicode's private use area, so text never has them.
+const EMBED_OPEN = "\u{E000}"
+const EMBED_CLOSE = "\u{E001}"
+
+--- Appends `text` as [Text], with each [Child:embed] marker in it replaced by the node it stands for.
+const function append_text(children: { Child }, text: string)
+    if not text:contains(EMBED_OPEN) then
+        table.insert(children, Text(text))
+        return
+    end
+    const pattern = `{EMBED_OPEN}(%d+){EMBED_CLOSE}`
+    local start = 1
+    while true do
+        const marker_start, marker_end, number = string.find(text, pattern, start)
+        if not marker_start or not marker_end then
+            break
+        end
+        if marker_start > start then
+            table.insert(children, Text(string.sub(text, start, marker_start - 1)))
+        end
+        const node = embedded[tonumber(number) or 0] or error(`no embedded node {number}`)
+        table.insert(children, node)
+        start = marker_end + 1
+    end
+    if start <= #text then
+        table.insert(children, Text(string.sub(text, start)))
+    end
+end
+
 const function append_content(children: { Child }, content: (Content | none)?)
     if content == nil or content == none then
         return
     elseif type(content) == "string" then
-        table.insert(children, Text(content))
+        append_text(children, content)
     elseif type(content) == "number" then
         table.insert(children, Text(tostring(content)))
     elseif type(content) == "table" then
@@ -691,12 +728,30 @@ export trait Markup
     end
 
     --[=[
+        The node's text without markup, the way a reader sees it, with code as written. Heading ids, search
+        entries, Markdown titles and link previews read it.
+
+        ## Usage
+
+        ```luwu
+        Paragraph({ "Call ", Code("print"), " to log." }):plain_text()
+        ```
+
+        ```text
+        Call print to log.
+        ```
+    ]=]
+    function plain_text(self): string
+        return table.concat({ for _, child in self:child_nodes() give child:plain_text() })
+    end
+
+    --[=[
         Whether pretty printing keeps this node on its parent's line instead of starting a new one. True for text and
         inline tags like `a`, `strong` and `code`.
 
         ## Usage
 
-        An inline node keeps its parent compact even when pretty printing:
+        A parent of inline nodes stays on one line even when pretty printing:
 
         ```luwu
         Paragraph({ "Hi ", Link("there", "/") }):to_html(true)
@@ -711,13 +766,13 @@ export trait Markup
     end
 
     --[=[
-        A one-line summary of the node, shown by `print` and string interpolation. Elements show their class, tag,
-        id, classes and attribute names: `Div():id("main"):add_style_class("card")` prints as `Div#main.card`.
+        A one-line summary of the node, used by [Markup:debug] and warnings. Elements show their class, tag, id,
+        classes and attribute names: `Div():id("main"):add_style_class("card")` outlines as `Div#main.card`.
 
         ## Usage
 
         ```luwu
-        print(`{Div():id("main"):add_style_class("card")}`)
+        print(Div():id("main"):add_style_class("card"):outline())
         ```
     ]=]
     function outline(self): string
@@ -744,6 +799,21 @@ export trait Markup
         return table.concat(lines, "\n")
     end
 
+    --[=[
+        The node's tree as a string for the terminal, the same one `print(node)` shows. String interpolation and
+        `tostring` embed a [Child] instead (see [Child:embed]), so call this to put the tree in a log line.
+
+        ## Usage
+
+        ```luwu
+        print(`built {page_body:debug()}`)
+        ```
+    ]=]
+    function debug(self): string
+        return self:display()
+    end
+
+    --- A node that can't go into content, like `Head`, has no embed marker, so it converts to its outline.
     function __tostring(self): string
         return self:outline()
     end
@@ -767,7 +837,37 @@ end
     Paragraph { "Press ", Shortcode("enter"), " to continue" }
     ```
 ]=]
-export trait Child needs Markup end
+export trait Child needs Markup
+    --[=[
+        The node as a string to write inside an interpolated string. `tostring` and string interpolation call it,
+        so `{node}` in an interpolated string embeds the node too. When the string is added as content, the node
+        takes the place of the string's marker and the text around it stays text. For the node's tree as text,
+        use [Markup:debug]. The marker is a number
+        between two characters from Unicode's private use area, so it shows as junk anywhere else, such as a
+        page's title or an attribute.
+
+        The same string can be added more than once, and every copy is the same node.
+
+        ## Usage
+
+        ```luwu
+        Paragraph(`Run {Code("seal ./site.luwu", "bash")} to build the {Link("site", "/")}.`)
+        ```
+
+        ```html
+        <p>Run <code data-language="bash" class="chimera-code">seal ./site.luwu</code> to build the
+        <a href="/">site</a>.</p>
+        ```
+    ]=]
+    function embed(self): string
+        table.insert(embedded, self)
+        return `{EMBED_OPEN}{#embedded}{EMBED_CLOSE}`
+    end
+
+    function __tostring(self): string
+        return self:embed()
+    end
+end
 
 const element_factories: { [string]: () -> Element } = {}
 const component_factories: { [string]: () -> Element } = {}
@@ -827,6 +927,54 @@ end
     [lists = require("@elements/lists")]
     [parser = require("@parse/parser")]
 ]=]
+--[=[
+    Whether elements record where they were made, so a page built for development can open their source in an
+    editor. It's on when the `CHIMERA_SOURCES` environment variable is set, and pages built without it carry no
+    source paths.
+]=]
+const TRACK_SOURCES = vars.get("CHIMERA_SOURCES") ~= nil
+
+--- A chunk's file path, from what `debug.info` reports for it.
+const function chunk_path(source: string): string?
+    return string.match(source, "^%[string \"(.*)\"%]$") or string.match(source, "^@(.*)$")
+end
+
+--- chimera's own folder. Frames in its `src` or its entry point are chimera's, not where a user made an element.
+const CHIMERA_ROOT = do
+    const here = chunk_path(debug.info(1, "s")) or ""
+    give string.match(here, "^(.*/)src/core/markup%.luwu$") or ""
+
+--- The attribute an element's source places render into. Parsing drops it: sources come from construction.
+const SOURCE_ATTRIBUTE = "data-chimera-source"
+
+--- How many places in user code an element records, innermost first.
+const MAX_SOURCE_FRAMES = 4
+
+--[=[
+    The places in user code that made the element being constructed, innermost first, as `path:line` joined by
+    `|`. An element made by a helper records the helper's call and the call that reached it.
+]=]
+const function made_at(): string?
+    const frames: { string } = {}
+    for level = 2, 64 do
+        const source, line, run = debug.info(level, "slf")
+        -- Past a `require`, the stack only loads modules: nothing there defines the element.
+        if source == nil or run == require or #frames >= MAX_SOURCE_FRAMES then
+            break
+        end
+        const path = chunk_path(source) or continue
+        if
+            line <= 0
+            or path:startswith(`{CHIMERA_ROOT}src/`)
+            or path == `{CHIMERA_ROOT}init.luwu`
+        then
+            continue
+        end
+        table.insert(frames, `{path}:{line}`)
+    end
+    return if #frames > 0 then table.concat(frames, "|") else nil
+end
+
 export trait Element needs Markup, Tagged
     expect function __init(self)
     -- LUWU FIXME: repeated from Tagged so `class<Element>` sees it (luwu CLASS_TRAIT_BUGS.CLAUDE.md, bug 1).
@@ -837,6 +985,27 @@ export trait Element needs Markup, Tagged
     inline_style: Style? = nil
     --- Rules that apply only inside this element, rendered by the document as `#id selector { ... }`.
     inside_rules: { Rule }? = nil
+    --- Set with [Element:tooltip].
+    tooltip_content: { Child }? = nil
+    --- Where in user code the element was made, when chimera tracks sources (see `CHIMERA_SOURCES`).
+    source_frames: string? = if TRACK_SOURCES then made_at() else nil
+
+    --[=[
+        Lists `path:line` first in the element's source menu when chimera tracks sources. A stack only shows calls,
+        so an element made from data, like a string in a table literal, needs this to point at the data.
+
+        ## Usage
+
+        ```luwu
+        Paragraph(entry.summary):made_from("src/reference/primitives.luwu", 121)
+        ```
+    ]=]
+    function made_from(self, path: string, line: number): Self
+        TRACK_SOURCES or return self
+        const frame = `{path}:{line}`
+        self.source_frames = if const frames = self.source_frames then `{frame}|{frames}` else frame
+        return self
+    end
 
     --[=[
         Sets the element's `id` attribute. Links, scripts and CSS find the element by it.
@@ -966,7 +1135,9 @@ export trait Element needs Markup, Tagged
     ]=]
     function attr(self, name: string, value: AttributeValue?): Self
         const lowered = string.lower(name)
-        if lowered == "class" then
+        if lowered == SOURCE_ATTRIBUTE then
+            return self
+        elseif lowered == "class" then
             table.clear(self.style_classes)
             if type(value) == "string" then
                 self:add_style_class(value)
@@ -1048,7 +1219,7 @@ export trait Element needs Markup, Tagged
         })
         ```
 
-        [color = require("@style/color")]
+        [color = require("@color")]
         [document = require("@document/document")]
     ]=]
     function style(self, input: StyleInput): Self
@@ -1241,6 +1412,29 @@ export trait Element needs Markup, Tagged
     end
 
     --[=[
+        The entry this element adds to the page's table of contents, for a part of the page readers jump to that
+        isn't a heading. A [Panel][components.Panel] lists its title this way. Nil by default. A
+        [Document][document.Document] gives an element that has an entry an id from its text, as it does headings.
+
+        [components = require("@components/components")]
+        [document = require("@document/document")]
+
+        ## Usage
+
+        ```luwu
+        function contents_entry(self): ContentsEntry?
+            return {
+                level = 2,
+                text = self.title,
+            }
+        end
+        ```
+    ]=]
+    function contents_entry(self): ContentsEntry?
+        return nil
+    end
+
+    --[=[
         The search results this element stands for. Nil (the default) lets a site's search index read the
         element's headings and text the usual way. A table replaces that: the index adds these entries and skips the
         element's children. The index reads pages after they render, so set the id an entry links to before then,
@@ -1272,6 +1466,44 @@ export trait Element needs Markup, Tagged
     ]=]
     function adopt(self, node: Markup): boolean
         return false
+    end
+
+    --[=[
+        Takes a parsed node the way [Element:adopt] does, after reading an [Element:tooltip]'s `<template>` back
+        into the tooltip. The parser and the Markdown and JSON readers hand children over through it.
+    ]=]
+    final function receive(self, node: Markup): boolean
+        if
+            class.implements(node, Element)
+            when node:current_tag() == "template"
+            when node:get_attr("data-hover") == TOOLTIP
+        then
+            self.tooltip_content = { for _, child in node:child_nodes() when class.implements(child, Child) give child }
+            return true
+        end
+        return self:adopt(node)
+    end
+
+    --[=[
+        Shows `content` in a box when the reader points at the element, or taps it on a touch screen. It's the box
+        code hovers use, styled by the theme's `.chimera-hover` rule. The content can be text or any elements, and
+        it isn't part of the element's text. Elements without children, like an `Image`, can't hold one.
+
+        ## Usage
+
+        ```luwu
+        Span("Luwu"):tooltip("Added by Luwu.")
+        ```
+
+        ```html
+        <span data-hover="tooltip"><template data-hover="tooltip">Added by Luwu.</template>Luwu</span>
+        ```
+    ]=]
+    function tooltip(self, content: Content): Self
+        const children: { Child } = {}
+        append_content(children, content)
+        self.tooltip_content = children
+        return self:attr("data-hover", TOOLTIP)
     end
 
     --[=[
@@ -1375,7 +1607,15 @@ export trait Element needs Markup, Tagged
         if const style = self.inline_style when not style:is_empty() then
             out:write(` style="{escape_attribute(style:to_css())}"`)
         end
+        if const frames = self.source_frames then
+            out:write(` {SOURCE_ATTRIBUTE}="{escape_attribute(frames)}"`)
+        end
         out:write(">")
+        if const tooltip = self.tooltip_content when not VOID_TAGS[self:current_tag()] then
+            out:write(`<template data-hover="{TOOLTIP}">`)
+            render_children(out, tooltip)
+            out:write("</template>")
+        end
     end
 
     --[=[
@@ -1658,6 +1898,9 @@ export trait Container needs Element
     end
 end
 
+--- Every component class by name. Two classes with one name would render the same `data-element`.
+const component_classes: { [string]: class<Component>? } = {}
+
 --[=[
     A custom element that can go anywhere content goes: inside any [Container], or in a page's body. The trait to
     implement for your own elements.
@@ -1711,6 +1954,10 @@ export trait Component needs Element, Child
     --- the class again from that name, even though its tag is a common one like `div`.
     final function __implemented(cls: class<Component>)
         const name: string = class.name(cls)
+        if component_classes[name] then
+            error(`two component classes are named '{name}'; rename one so parsed HTML can tell them apart`, 2)
+        end
+        component_classes[name] = cls
         component_factories[name] = function()
             return cls()
         end
@@ -1874,6 +2121,9 @@ export trait Json needs Component
 
     final function __implemented(cls: class<Json>)
         const name: string = class.name(cls)
+        if json_classes[name] then
+            error(`two Json classes are named '{name}'; rename one so JSON can tell them apart`, 2)
+        end
         json_classes[name] = cls
     end
 
@@ -1952,6 +2202,10 @@ export class Text(content: string) implements Child
         return MarkdownWriter.escape(self.content)
     end
 
+    function plain_text(self): string
+        return self.content
+    end
+
     function is_inline(self): boolean
         return true
     end
@@ -1986,7 +2240,7 @@ end
 --- An HTML comment.
 export class Comment(text: string) implements Child
     function render(self, out: Writer)
-        out:write(`<!--{string.gsub(self.text, "%-%-", "- -")}-->`)
+        out:write(`<!--{self.text:replace("--", "- -")}-->`)
     end
 
     function outline(self): string

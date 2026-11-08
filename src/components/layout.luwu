@@ -32,8 +32,9 @@ export class Row implements Component, Layout
 end
 
 --[=[
-    A `"div"` that stacks its children top to bottom, with the theme's spacing between them. The [Layout] methods
-    adjust it.
+    A `"div"` that stacks its children top to bottom, with the theme's spacing between them. Columns in a [Row] share
+    its width and wrap onto lines of their own when they'd get narrower than the theme's `column_width`. The [Layout]
+    methods adjust it.
 
     ## Usage
 
@@ -54,8 +55,8 @@ export class Column implements Component, Layout
 end
 
 --[=[
-    A `"div"` that lays its children out in as many columns as fit, each at least `min_width` wide (`"12rem"` by
-    default), with the theme's spacing between them.
+    A `"div"` that lays its children out in as many columns as fit, each at least `min_width` wide (the theme's
+    `column_width` by default), with the theme's spacing between them.
 
     ## Usage
 

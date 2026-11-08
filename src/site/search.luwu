@@ -13,7 +13,7 @@ type .{ Markup, Writer, Metadata, SearchEntry, AttributeValue } = markup
 --- The file [Site:build][site.Site.build] writes the search index to, at the site's root.
 ---
 --- [site = require("@site/site")]
-export const INDEX_FILE = "search-index.js"
+export INDEX_FILE = "search-index.js"
 
 --- The most body text one entry keeps. Results quote it, and longer text makes the index heavier to load.
 const TEXT_LIMIT = 1200
@@ -587,7 +587,11 @@ export trait Matcher
 
     --- Parsed pages rebuild each matcher class from the name [Search] stores it under, its class name.
     final function __implemented(cls: class<Matcher>)
-        matchers[class.name(cls)] = cls
+        const name: string = class.name(cls)
+        if matchers[name] then
+            error(`two matcher classes are named '{name}'; rename one so saved searches can tell them apart`, 2)
+        end
+        matchers[name] = cls
     end
 
     --[=[
@@ -1036,10 +1040,6 @@ export class Search implements Component
     function display(self, depth: number?, options: unknown?): string
         return `Search({#self.matcher_list} matchers, {self.max_results} results)`
     end
-
-    function __tostring(self): string
-        return self:display()
-    end
 end
 
 
@@ -1052,7 +1052,7 @@ end
     contains_search(document.body)
     ```
 ]=]
-export const function contains_search(node: Markup): boolean
+export function contains_search(node: Markup): boolean
     if class.isinstance(node, Search) then
         return true
     end
@@ -1088,21 +1088,8 @@ type Collecting = {
 
 const function collapse(text: string): string
     const single = string.gsub(text, "%s+", " ")
-    const trimmed = string.match(single, "^%s*(.-)%s*$") or ""
+    const trimmed = single:trim()
     return if #trimmed > TEXT_LIMIT then string.sub(trimmed, 1, TEXT_LIMIT) else trimmed
-end
-
-const function plain_text(node: Markup, into: { string })
-    if class.isinstance(node, Text) then
-        table.insert(into, node.content)
-        return
-    elseif class.isinstance(node, Code) then
-        table.insert(into, node.source)
-        return
-    end
-    for _, child in node:child_nodes() do
-        plain_text(child, into)
-    end
 end
 
 const function finish_entry(state: Collecting)
@@ -1134,13 +1121,11 @@ const function collect(node: Markup, state: Collecting, sections: boolean)
         end
     end
     if class.isinstance(node, Heading) and sections and node.level > 1 then
-        const parts: { string } = {}
-        plain_text(node, parts)
         finish_entry(state)
         const id = node:get_id()
         const section: IndexedEntry = {
             k = "section",
-            t = collapse(table.concat(parts)),
+            t = collapse(node:plain_text()),
             p = if id then `{state.path}#{id}` else state.path,
             g = state.page,
         }

@@ -25,6 +25,7 @@ const none_page = require("./none")
 const literal_types = require("./literal_types")
 const library_extensions = require("./library_extensions")
 const external_memory = require("./external_memory")
+const extern_types = require("./extern_types")
 const experimental = require("./experimental")
 
 const health = sample("health")
@@ -41,7 +42,7 @@ const function excerpt(source: string, keep: { [string]: boolean? }, note: strin
     local skipping = false
     local noted = false
     for _, line in str.splitlines(source) do
-        started = started or str.startswith(line, "class ")
+        started = started or line:startswith("class ")
         if not started then
             continue
         end
@@ -93,7 +94,7 @@ return Page("Luwu", {
     h2("Your first program"),
     Paragraph({
         "Luwu files end in ", Code(".luwu", "plaintext"), ". If you've written Luau, this short program should look ",
-        "familiar. It keeps a small inventory, picks out the fruit that's in stock and prints it cheapest first:",
+        "familiar. It holds a small inventory, picks out the fruit that's in stock and prints it cheapest first:",
     }),
     luwu([====[
         type Item = { name: string, price: number, stock: number }
@@ -165,7 +166,7 @@ return Page("Luwu", {
     h3("Type Checking"),
     Paragraph({
         "Luwu enables type checking by default to catch your code's mistakes before you run it. ",
-        "Luwu builds upon Luau's new type solver to add new features, drastically improve error message friendliness ",
+        "Luwu extends Luau's new type solver to add new features, drastically improve error message friendliness ",
         "and readability, and catch more common mistakes.",
     }),
     Paragraph({
@@ -447,11 +448,22 @@ return Page("Luwu", {
     Paragraph("Embedders can expose huge files to scripts without cloning them into the VM."),
     see_more(external_memory),
 
+    h3("Generic Extern Types"),
+    Paragraph({
+        "Extern types and their methods take generic parameters, so a host can declare one ", Code("Result<T>"),
+        " for every call that returns one.",
+    }),
+    see_more(extern_types),
+
     h2("Experimental Features"),
     Paragraph("Push and pop operators, and match expressions. They work today, but their design may still change."),
     see_more(experimental),
 
 }, "luwu/index.html")
+    :describe(
+        "Luwu is a fast, object oriented, and highly expressive embeddable scripting language forked from Luau "
+        .. "0.730 and influenced by Kotlin, Rust, Ruby, and Python."
+    )
     :add_page(
         compatibility,
         type_checking,
@@ -466,5 +478,6 @@ return Page("Luwu", {
         default_arguments,
         library_extensions,
         external_memory,
+        extern_types,
         experimental
     )

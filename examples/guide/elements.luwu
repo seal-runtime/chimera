@@ -93,7 +93,7 @@ return Page("Elements", {
     Paragraph({
         "Elements are classes that correspond to specific HTML tags: ", Code("Paragraph"), " is ",
         Code("<p>", "html"), ", ", Code("UnorderedList"), " is ", Code("<ul>", "html"), ", ", Code("Link"), " is ",
-        Code("<a>", "html"), " and ", Code("Image"), " is ", Code("<img>", "html"), ". All of them live in ",
+        Code("<a>", "html"), " and ", Code("Image"), " is ", Code("<img>", "html"), ". All of them are in ",
         Code("chimera.elements"), " and are named after what the tag is rather than its abbreviation.",
     }),
     TableOfContents(),
@@ -190,3 +190,7 @@ return Page("Elements", {
             ),
         }),
 })
+    :describe(
+        "Classes for HTML tags named after what each tag is: Paragraph is <p>, UnorderedList is <ul> and Link "
+        .. "is <a>."
+    )

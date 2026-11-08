@@ -3,7 +3,7 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container, HtmlElement } = require("@core/markup")
+const .{ Element, Component, Container, Child, HtmlElement } = require("@core/markup")
 type .{ Content, Markup, MarkdownWriter } = markup
 
 --- A `"li"` element that holds one item of an [UnorderedList] or [OrderedList].
@@ -216,5 +216,60 @@ export class OrderedList implements Component, List, HtmlElement
     ]=]
     function start(self, first: number): OrderedList
         return self:attr("start", first)
+    end
+end
+
+--- A `"dt"` element that names one term of a [DescriptionList].
+export class DescriptionTerm implements Container, Child, HtmlElement
+    function tag(): string
+        return "dt"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--- A `"dd"` element that describes the [DescriptionTerm] before it.
+export class DescriptionDetails implements Container, Child, HtmlElement
+    function tag(): string
+        return "dd"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+end
+
+--[=[
+    A `"dl"` element that pairs terms with their descriptions, like a glossary or the labeled facts in an
+    [Infobox][components.Infobox].
+
+    ## Usage
+
+    ```luwu
+    DescriptionList()
+        :item("Added in", "Lua 5.1")
+        :item("Changed in", "Luau 0.601")
+    ```
+
+    ```html
+    <dl><dt>Added in</dt><dd>Lua 5.1</dd><dt>Changed in</dt><dd>Luau 0.601</dd></dl>
+    ```
+
+    [components = require("@components/components")]
+]=]
+export class DescriptionList implements Component, Container, HtmlElement
+    function tag(): string
+        return "dl"
+    end
+
+    function __init(self, content: Content?)
+        self:add(content)
+    end
+
+    --- Adds `term` and its `description` after the pairs before them.
+    function item(self, term: Content, description: Content): DescriptionList
+        return self:add(DescriptionTerm(term), DescriptionDetails(description))
     end
 end

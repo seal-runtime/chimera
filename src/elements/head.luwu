@@ -265,7 +265,7 @@ export class Script implements Component, Metadata, HtmlElement
 
     function render(self, out: Writer)
         self:render_open(out)
-        out:write((string.gsub(self.code, "</script", "<\\/script")))
+        out:write(self.code:replace("</script", "<\\/script"))
         out:write("</script>")
     end
 end

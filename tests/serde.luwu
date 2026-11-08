@@ -70,7 +70,7 @@ class Callout implements Shape, Container
         then
             table.remove(first.children, 1)
             if const space = first.children[1] when class.isinstance(space, Text) then
-                space.content = string.gsub(space.content, "^%s+", "")
+                space.content = space.content:trimstart()
             end
             return Callout(node.children)
         elseif class.isinstance(node, Div) and node:has_style_class("alert") then

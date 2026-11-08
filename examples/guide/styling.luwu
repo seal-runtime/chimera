@@ -68,7 +68,8 @@ return Page("Styling", {
     CodeBlock([====[
         background  surface  text  muted  border
         primary  primary_text  accent
-        radius  spacing  font  mono_font  shadow
+        radius  spacing  padding  gutter  column_width
+        font  mono_font  shadow
         syntax_keyword  syntax_string  syntax_comment  ...  syntax_error
     ]====], "plaintext"),
     Paragraph({
@@ -123,3 +124,7 @@ return Page("Styling", {
         PageLink("guide/custom-components.html", "Custom components"), " shows.",
     }),
 })
+    :describe(
+        "Styles are typed Luwu tables: misspelled properties and invalid values are type errors, and styles can "
+        .. "follow the reader's theme."
+    )

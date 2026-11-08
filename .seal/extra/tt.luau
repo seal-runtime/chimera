@@ -28,7 +28,7 @@ function tt.len<K, V>(t: { [K]: V }): number
 			count += 1
 		end
 	else
-		for k, v in pairs(t) do
+		for k, v in t do
 			count += 1
 		end
 	end
@@ -46,7 +46,7 @@ function tt.keys<K>(t: { [K]: unknown }): { K }
 			table.insert(keys, key)
 		end
 	else
-		for key, _ in pairs(t) do
+		for key, _ in t do
 			table.insert(keys, key)
 		end
 	end
@@ -62,7 +62,7 @@ function tt.values<K>(t: { [K]: unknown }): { K }
 			table.insert(values, value)
 		end
 	else
-		for _, value in pairs(t) do
+		for _, value in t do
 			table.insert(values, value)
 		end
 	end
@@ -73,7 +73,7 @@ end
 	Create a new table by calling `mapper` repeatedly to transform the keys/values from `t` into a new table.
 
 	You might need to explicitly specify the return type of your `mapper` function so luau gets your types correctly.
-	
+
 	## Usage
 	```luau
 	-- examples
@@ -116,7 +116,7 @@ function tt.map<K, V, NK, NV>(t: { [K]: V }, mapper: <K, V, NK, NV>(key: K, val:
 			end
 		end
 	else
-		for key, value in pairs(t) do
+		for key, value in t do
 			local new_key: NK?, new_value: NV? = (mapper :: any)(key, value) -- LUAU FIXME: blocked type return
 			if new_key ~= nil and new_value ~= nil then
 				-- LUAU FIXME: if new_key/new_value refinement break without ~= nil check
@@ -138,7 +138,7 @@ function tt.arraymap<T>(t: { T }, mapper: (index: number, value: T) -> T?): { T 
 			end
 		end
 	else
-		for index, value in ipairs(t) do
+		for index, value in t do
 			local new_value = mapper(index, value)
 			if new_value ~= nil then
 				table.insert(result, new_value)
@@ -159,7 +159,7 @@ function tt.filter<K, V>(t: { [K]: V }, filterer: (key: K, value: V) -> boolean)
 			end
 		end
 	else
-		for key, value in pairs(t) do
+		for key, value in t do
 			local should_include = filterer(key, value)
 			if should_include then
 				filtered[key] = value
@@ -181,7 +181,7 @@ function tt.select<K, V>(t: { [K]: V }, columns: { K }): { [K]: V }
 			end
 		end
 	else
-		for k, v in pairs(t) do
+		for k, v in t do
 			if table.find(columns, k) then
 				result[k] = v
 			end
@@ -293,7 +293,7 @@ function tt.maptostring<K, V>(t: { [K]: V }, mapper: (key: K, value: V) -> strin
 			end
 		end
 	else
-		for k, v in pairs(t) do
+		for k, v in t do
 			local s = mapper(k, v) :: string?
 			if s and sep then
 				result ..= s .. sep

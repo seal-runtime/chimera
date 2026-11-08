@@ -115,19 +115,25 @@ return Page("Table Comprehensions", {
     ]====]),
 
     h2("Items that need statements"),
-    Paragraph("When one item takes a few steps, give a do expression."),
+    Paragraph({
+        "When one item takes a few steps, end the clauses with ", Code("do"), " instead of ", Code("give"),
+        ". The block follows the rules of a do expression: it ends with ", Code("give"), ", and ", Code("continue"),
+        " skips the item.",
+    }),
     luwu([====[
-        const lines = { "hp=10", "", "mp=4" }
+        const lines = { "hp=10", "", "mp=four" }
 
         const settings = {
             for _, line in lines
             when line ~= ""
-            give do
+            do
                 const key, value = string.match(line, "^(%a+)=(%d+)$")
+                value or continue
                 give `{key}: {value}`
         }
-        print(settings[1], settings[2])
+        print(#settings, settings[1])
     ]====]),
+    Paragraph({ Code("do"), " is short for ", Code("give do"), ", which still works." }),
 
     h2("Things to know"),
     UnorderedList({
@@ -137,3 +143,7 @@ return Page("Table Comprehensions", {
         ListItem({ "Luau's ", Code("table.insert"), " loop still works. Comprehensions are just shorter." }),
     }),
 }, "table-comprehensions.html")
+    :describe(
+        "A table comprehension builds a new table from a loop in one expression instead of filling an empty "
+        .. "table by hand."
+    )

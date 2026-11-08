@@ -1,0 +1,474 @@
+--!strict
+--!optimize 2
+--!lint ConstLocal
+
+const fs = require("@std/fs")
+const env = require("@std/env")
+const vars = require("@std/env/vars")
+const process = require("@std/process")
+const server = require("@std/net/http/server")
+const url = require("@std/serde/url")
+const thread = require("@std/thread")
+const chimera = require("@chimera")
+const .{
+    elements.{ Div, Heading, Paragraph, Link },
+    components.{ Code, CodeBlock, Squiggle, SourceSpan },
+} = chimera
+type .{ Content } = chimera
+type .{ Language } = chimera.components
+
+--- How [serve] runs. Every field is optional.
+export type ServeOptions = {
+    --- The port to serve on, 4870 by default.
+    port: number?,
+    --- Folders whose `.luwu` files the site is built from, relative to the project. Defaults to the build script's
+    --- folder. List a library the site uses too, like `"../chimera/src"`, to rebuild when it changes.
+    sources: { string }?,
+    --- Whether saving a source file also reruns the build script into the checked-in output. On by default.
+    rebuild_output: boolean?,
+    --[=[
+        luwu-lsp's `luwu.diagnostics.externalPort`. When it's set, the editor shows chimera's lints of the sources
+        (a `\z` right after a word, which joins it to the next line's first) and they update as files are saved.
+    ]=]
+    diagnostics_port: number?,
+}
+
+--- What `serve` starts the watcher thread (`tools/watch.luwu`) with: the build to rerun and the folders to watch.
+export type WatchStart = {
+    --- The seal executable that runs the build script.
+    seal: string,
+    script: string,
+    project: string,
+    folders: { string },
+    --- Whether to rerun the build script when a source is saved.
+    rebuild: boolean,
+    --- Where to send the sources' lints. See [ServeOptions].
+    diagnostics_port: number?,
+}
+
+--- Content types by file extension, for the files a built site has.
+const CONTENT_TYPES: { [string]: string? } = {
+    html = "text/html; charset=utf-8",
+    css = "text/css",
+    js = "text/javascript",
+    json = "application/json",
+    svg = "image/svg+xml",
+    png = "image/png",
+    jpg = "image/jpeg",
+    jpeg = "image/jpeg",
+    webp = "image/webp",
+    ico = "image/x-icon",
+    woff2 = "font/woff2",
+}
+
+--- The statuses the server answers with.
+type Status = "200 OK" | "400 Bad Request" | "404 Not Found" | "500 Internal Server Error"
+
+const function respond(status: Status, content_type: string, body: string): server.ServeResponse
+    return {
+        status_code = status,
+        content_type = content_type,
+        body = body,
+        headers = {},
+        cookies = {},
+    }
+end
+
+--[=[
+    A response that sends `contents` byte for byte. `server.serve` converts a string body to UTF-8 and replaces every
+    invalid byte, which corrupts images and fonts. A buffer body goes out unchanged.
+]=]
+const function respond_bytes(content_type: string, contents: string): server.ServeResponse
+    const response = {
+        status_code = "200 OK",
+        content_type = content_type,
+        body = buffer.fromstring(contents),
+        headers = {},
+        cookies = {},
+    }
+    -- seal's ServeResponse type only allows a string body, but server.serve also takes a buffer.
+    return (response :: unknown) :: server.ServeResponse
+end
+
+--- The value of `name` in the query string of `path`.
+const function query_value(path: string, name: string): string?
+    const query = string.match(path, "%?(.*)$") or return nil
+    for key, value in string.gmatch(query, "([^&=]+)=([^&]*)") when key == name do
+        return url.decode(value or "")
+    end
+    return nil
+end
+
+--[=[
+    Reloads the page when the site builds again. Every HTML page the development server sends gets this script, and
+    the built files never contain it. Each poll of `/__chimera/version` rebuilds first if a source changed, so a saved
+    edit shows up in the open tab within one interval. A hidden tab doesn't poll. A server that doesn't know the
+    endpoint stops the polling.
+]=]
+const LIVE_RELOAD_SCRIPT = [==[
+<script>
+(function () {
+  var version = null;
+  function poll() {
+    if (document.hidden) return setTimeout(poll, 250);
+    fetch("/__chimera/version", { cache: "no-store" })
+      .then(function (response) {
+        return response.ok ? response.text() : null;
+      })
+      .then(function (next) {
+        if (next === null) return;
+        if (version !== null && next !== version) return location.reload();
+        version = next;
+        setTimeout(poll, 250);
+      })
+      .catch(function () {
+        // The server restarting refuses connections for a moment.
+        setTimeout(poll, 1000);
+      });
+  }
+  poll();
+})();
+</script>
+]==]
+
+--- `html` with the live reload script added before `</body>`, or at the end when it has none.
+const function with_live_reload(html: string): string
+    const body_end = string.find(html, "</body>", 1, true) or return html .. LIVE_RELOAD_SCRIPT
+    return string.sub(html, 1, body_end - 1) .. LIVE_RELOAD_SCRIPT .. string.sub(html, body_end)
+end
+
+--- One line of a stack traceback that names a source file.
+type Frame = {
+    path: string,
+    line: number,
+    --- What ran there, like `in function 'evaluate'`.
+    what: string,
+}
+
+--- The [Frame] a traceback line describes, or nil for a line without a file, like `[C]: in function 'error'`.
+const function parse_frame(text: string): Frame?
+    const path, line, what = string.match(text, "^%s*%[\"(.-)\"%]:(%d+):%s*(.*)$")
+    if not (path and line and what) then
+        return nil
+    end
+    return {
+        path = path,
+        line = tonumber(line) or 1,
+        what = what,
+    }
+end
+
+--- `path` relative to `project` when it's inside it, or as it is.
+const function shown_path(path: string, project: string): string
+    return if path:startswith(`{project}/`) then string.sub(path, #project + 2) else path
+end
+
+--[=[
+    A fenced block in the error as a [CodeBlock]. The fence's info string is the language and, optionally, the chunk
+    name the code ran as: ```` ```luwu example ````. When the error names a line of that chunk (`["example"]:8:`),
+    the line gets a squiggle with the error's message.
+]=]
+const function error_code_block(info: string, code: string, problem: string): CodeBlock
+    const language, chunk = string.match(info, "^(%S*)%s*(.-)%s*$")
+    -- The fence's language is text from the error, so its type can't be known.
+    const block = CodeBlock(code, if language and language ~= "" then language :: Language else nil)
+        :line_numbers()
+    if chunk == nil or chunk == "" then
+        return block
+    end
+    const escaped_chunk = string.gsub(chunk, "%p", "%%%0")
+    const line_text, message = string.match(problem, `%["{escaped_chunk}"%]:(%d+):%s*([^\n]*)`)
+    const line = tonumber(line_text) or return block
+    const source_line = string.split(code, "\n")[line] or return block
+    return block:squiggle(Squiggle.error(SourceSpan.on_line(line, 1, math.max(#source_line, 1)), message))
+end
+
+--- The error's text, with its fenced code blocks shown as highlighted code.
+const function error_message(message: string, problem: string): { Content }
+    const parts: { Content } = {}
+    local rest = message
+    while true do
+        const before, info, code, after = string.match(rest, "^(.-)```([^\n]*)\n(.-)\n```\n?(.*)$")
+        if not (before and info and code and after) then
+            break
+        end
+        if before:trim() ~= "" then
+            table.insert(parts, Div(before:trimend()):add_style_class("chimera-build-error-text"))
+        end
+        table.insert(parts, error_code_block(info, code, problem))
+        rest = after
+    end
+    if rest:trim() ~= "" then
+        table.insert(parts, Div(rest:trimend()):add_style_class("chimera-build-error-text"))
+    end
+    return parts
+end
+
+--- A traceback line, its file linked to open in the editor at its line.
+const function traceback_row(text: string, project: string): Div
+    const frame = parse_frame(text) or return Div(Code(text:trim()))
+    const open = `/__chimera/open?file={url.encode(frame.path)}&line={frame.line}`
+    return Div({
+        Link(Code(`{shown_path(frame.path, project)}:{frame.line}`), open)
+            :on("click", "event.preventDefault(); fetch(this.href)"),
+        ` {frame.what}`,
+    })
+end
+
+--- The body of the error page for `problem`, the build script's error output.
+const function error_body(script: string, problem: string, project: string): Div
+    const unprefixed = string.gsub(problem, "^%[ERR%]%s*", "")
+    const message, traceback = string.match(unprefixed, "^(.-)\nstack traceback:\n(.*)$")
+    const rows = {
+        for _, text in string.split(traceback or "", "\n") when text:trim() ~= ""
+        give traceback_row(text, project)
+    }
+    return Div({
+        Heading.h1("Build failed"),
+        Paragraph({
+            Code(script), " stopped with the error below. ",
+            "Fix it and save. This page reloads by itself once the site builds again.",
+        }),
+        error_message(message or unprefixed, unprefixed),
+        if #rows > 0
+            then Div({ Paragraph("Stack traceback"), rows }):add_style_class("chimera-build-error-traceback")
+            else none,
+    })
+        :add_style_class("chimera-build-error")
+end
+
+--- The `<html>` tag and `<head>` of a page from the last build that worked, so the error page gets the site's theme.
+const function last_good_head(page_file: string, out_dir: string): string?
+    for _, path in { page_file, fs.path.join(out_dir, "index.html") } when const file = fs.find(path):try_file() do
+        const html = file:read()
+        const html_tag = string.match(html, "<html[^>]*>") or continue
+        const head = string.match(html, "<head[^>]*>.-</head>") or continue
+        const titled = string.gsub(head, "<title[^>]*>.-</title>", "<title>Build failed</title>")
+        return html_tag .. titled
+    end
+    return nil
+end
+
+--[=[
+    The page the development server shows in place of `page_file` while the build fails. It uses the head of the last
+    page that built, so its styles and theme are the site's and the theme's `.chimera-build-error` rules style it.
+    Before any page built it follows the system's light or dark mode.
+]=]
+const function build_error_page(body: Div, page_file: string, out_dir: string): string
+    const html = body:to_html()
+    if const head = last_good_head(page_file, out_dir) then
+        return `<!doctype html>{head}<body>{html}</body></html>`
+    end
+    const style = "<style>:root\{color-scheme:light dark}body\{max-width:52rem;margin:2rem auto;padding:0 1rem}</style>"
+    return `<!doctype html><title>Build failed</title>{style}<body>{html}</body>`
+end
+
+--- `path` ends in `.luwu`, for listing source files.
+const function is_luwu(path: string): boolean
+    return path:endswith(".luwu")
+end
+
+--- The modification time of every `.luwu` file under `folders`, so a change shows up as a new value.
+export function sources_fingerprint(folders: { string }): string
+    const parts = {
+        for _, folder in folders
+        for _, path in fs.listdir(folder, true, is_luwu)
+        when const file = fs.find(path):try_file()
+        give `{path}@{tostring(file:metadata().modified_at)}`
+    }
+    table.sort(parts)
+    return table.concat(parts, "\n")
+end
+
+--[=[
+    The panic `server.serve` raises when a connection closes without sending a request. Browsers open connections
+    like that ahead of time, and live reload's polling makes them frequent. The panic reaches Luau as an error, so
+    [serve] catches it and serves again. `server.serve` is deprecated, and its replacement won't need this.
+]=]
+const EMPTY_REQUEST_PANIC = "index out of bounds: the len is 0 but the index is 0"
+
+--- Whether `problem`, an error `server.serve` raised, is the [EMPTY_REQUEST_PANIC].
+const function is_empty_request_panic(problem: unknown): boolean
+    return tostring(problem):contains(EMPTY_REQUEST_PANIC)
+end
+
+--- Removes the logs seal writes into `folder` for each [EMPTY_REQUEST_PANIC]. Other panic logs stay.
+const function remove_empty_request_panic_logs(folder: string)
+    for
+        _, path in fs.listdir(folder)
+        when const name = fs.path.child(path)
+        when name:startswith("PANIC_IN_THE_SEAL_INTERNALS_")
+        when const log = fs.find(path):try_file()
+    do
+        const text = log:read()
+        if text:contains(EMPTY_REQUEST_PANIC) and text:contains("std_net/serve.rs") then
+            fs.removefile(path)
+        end
+    end
+end
+
+--- Opens the source file a page's Alt + right-click menu asks for, at its line, with the `editor` command.
+const function open_source(path: string, editor: string): server.ServeResponse
+    const file = query_value(path, "file") or return respond("400 Bad Request", "Text", "missing file")
+    const line = query_value(path, "line") or "1"
+    if not (file:endswith(".luwu") or file:endswith(".luau")) or fs.find(file).type ~= "File" then
+        return respond("404 Not Found", "Text", "not a source file")
+    end
+    process.run({
+        program = editor,
+        args = { "-g", `{file}:{line}` },
+    })
+    return respond("200 OK", "Text", "opened")
+end
+
+--[=[
+    Runs a development server for a chimera site. It builds the site with `CHIMERA_SOURCES` on into
+    `.chimera-dev/`, serves it on localhost and rebuilds before serving a page when a `.luwu` file changed. An open
+    page polls the server and reloads as soon as a saved edit builds. On its pages, Alt + right-click on an element
+    lists the places in the site's code that made it, and picking one opens it in VS Code. That works inside VS
+    Code's own browser too, which can't follow `vscode://` links.
+
+    `script` is the site's build script, relative to the project root (the current folder). It must write to
+    `Site.output_dir`. Saving a source file also reruns it into the checked-in output, unless
+    `rebuild_output = false`. That runs in a thread of its own because the file watcher blocks like the server.
+    `CHIMERA_EDITOR` picks the editor command (`code` by default).
+
+    ## Usage
+
+    A site keeps a `.seal/serve.luwu` that starts it, run with `seal ./.seal/serve.luwu`:
+
+    ```luwu
+    const .{ serve } = require("@chimera/tools/serve")
+    serve("src/main.luwu", {
+        sources = { "src", "../chimera/src" },
+    })
+    ```
+]=]
+export function serve(script: string, options: ServeOptions?)
+    const port = if options then options.port or 4870 else 4870
+    const project = env.cwd()
+    const out_dir = fs.path.join(project, ".chimera-dev")
+    const folders = do
+        const listed = if options then options.sources else nil
+        const script_folder = fs.path.parent(fs.path.join(project, script)) or project
+        give if listed then { for _, folder in listed give fs.path.join(project, folder) } else { script_folder }
+    const editor = vars.get("CHIMERA_EDITOR") or "code"
+    local built_from = ""
+    --- Counts the development builds. `/__chimera/version` answers with it and open pages reload when it changes.
+    local build_number = 0
+    --- Why the last development build failed, shown in place of the page until a fix builds.
+    local build_error: string? = nil
+
+    const rebuild = not options or options.rebuild_output ~= false
+    const diagnostics_port = if options then options.diagnostics_port else nil
+    if rebuild or diagnostics_port then
+        -- The fields of a WatchStart, which tools/watch.luwu reads back from `channel.data`.
+        thread.spawn({
+            name = "chimera-watch",
+            path = "./watch.luwu",
+            data = {
+                seal = env.executable_path,
+                script = script,
+                project = project,
+                folders = folders,
+                rebuild = rebuild,
+                diagnostics_port = diagnostics_port,
+            },
+        })
+    end
+    if rebuild then
+        print(`rebuilding the output whenever a .luwu file in {table.concat(folders, ", ")} changes`)
+    end
+
+    --- Builds the site again when its sources changed since the last build.
+    const function rebuild_if_changed()
+        const fingerprint = sources_fingerprint(folders)
+        fingerprint == built_from and (return)
+        built_from = fingerprint
+        build_number += 1
+        build_error = nil
+        print(`building {script}`)
+        const result = process.run({
+            program = env.executable_path,
+            args = { script },
+            cwd = project,
+            env = {
+                add = {
+                    CHIMERA_SOURCES = "1",
+                    CHIMERA_OUT = out_dir,
+                },
+            },
+        })
+        if not result.ok then
+            -- The watcher thread already printed this error. The browser shows it in place of the page.
+            build_error = string.gsub(result.stderr, "\27%[[%d;]*m", "")
+        end
+    end
+
+    --- A built file, rebuilding first when a page is asked for.
+    const function serve_file(path: string): server.ServeResponse
+        const route = string.match(path, "^[^?#]*") or "/"
+        const relative = if route:endswith("/") then `{route}index.html` else route
+        const extension = string.match(relative, "%.(%w+)$") or "html"
+        if extension == "html" then
+            rebuild_if_changed()
+            if const problem = build_error then
+                const body = error_body(script, problem, project)
+                const page = build_error_page(body, fs.path.join(out_dir, url.decode(relative)), out_dir)
+                return respond("500 Internal Server Error", "HTML", with_live_reload(page))
+            end
+        end
+        const file = fs.path.join(out_dir, url.decode(relative))
+        if relative:contains("..") or fs.find(file).type ~= "File" then
+            -- Like static hosts such as Cloudflare, a missing page gets the site's 404.html when it has one.
+            const not_found = fs.path.join(out_dir, "404.html")
+            if extension == "html" and fs.find(not_found).type == "File" then
+                return respond("404 Not Found", "HTML", with_live_reload(fs.readfile(not_found)))
+            end
+            return respond("404 Not Found", "Text", `{relative} isn't in the built site`)
+        end
+        const contents = fs.readfile(file)
+        if extension == "html" then
+            return respond("200 OK", "HTML", with_live_reload(contents))
+        end
+        return respond_bytes(CONTENT_TYPES[extension] or "Binary", contents)
+    end
+
+    --- The build number for live reload, after rebuilding when a source changed since the last build.
+    const function version(): server.ServeResponse
+        rebuild_if_changed()
+        const response = respond("200 OK", "Text", tostring(build_number))
+        response.headers = { ["Cache-Control"] = "no-store" }
+        return response
+    end
+
+    const function handle(request: server.ServeRequest): server.ServeResponse
+        if request.path:startswith("/__chimera/open") then
+            return open_source(request.path, editor)
+        end
+        if request.path:startswith("/__chimera/version") then
+            return version()
+        end
+        return serve_file(request.path)
+    end
+
+    rebuild_if_changed()
+    print(`serving {out_dir} at http://localhost:{port}/`)
+    while true do
+        const ok, problem = pcall(function()
+            server.serve({
+                address = "localhost",
+                port = port,
+                handler = handle,
+            })
+            return true
+        end)
+        if ok then
+            break
+        end
+        if not is_empty_request_panic(problem) then
+            error(problem)
+        end
+        remove_empty_request_panic_logs(project)
+    end
+end

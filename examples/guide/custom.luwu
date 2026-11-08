@@ -62,7 +62,7 @@ return Page("Custom components", {
     Paragraph({
         Code("default_styles"), " returns the CSS the component needs, and every page that uses the component ",
         "includes those rules once. ", Code("style_selector()"), " gives the selector for the class's elements. ",
-        "Rules built on it only ever match your component.",
+        "Rules that use it only ever match your component.",
     }),
 
     h2("Parsing it back"),
@@ -123,4 +123,13 @@ return Page("Custom components", {
         Code("print(warning)"), " shows the element in the terminal as a tree rather than as HTML. ",
         "Override ", Code("outline"), " to change the one-line summary each node gets.",
     }),
+    Paragraph({
+        "String interpolation doesn't give the tree: ", Code("`see {warning}`"), " embeds the element, so a ",
+        "paragraph built from that string holds it. To put the tree in a log line, call ", Code("warning:debug()"),
+        ".",
+    }),
 })
+    :describe(
+        "Write a component once as a class that gets the same methods, type checking and theming as chimera's "
+        .. "built-in ones."
+    )

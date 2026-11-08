@@ -2,7 +2,7 @@
 --!optimize 2
 --!lint ConstLocal
 
-const color = require("@style/color")
+const color = require("@color")
 const .{ Color } = color
 const .{ Token } = require("@style/token")
 type .{ NamedColor } = color
@@ -112,7 +112,7 @@ export type function ValidColor(value: type): type
         rgb = true, rgba = true, hsl = true, hsla = true, hwb = true, lab = true, lch = true, oklab = true,
         oklch = true, color = true, ["color-mix"] = true, ["light-dark"] = true, var = true,
     }
-    if string.sub(text, 1, 1) == "#" then
+    if text:startswith("#") then
         const digits = string.sub(text, 2)
         if string.find(digits, "[^%x]") then
             return types.error("hex color '" .. text .. "' has characters that aren't hex digits")

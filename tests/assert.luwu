@@ -2,9 +2,19 @@
 --!optimize 2
 --!lint ConstLocal
 
+const .{ core.{ Markup } } = require("@chimera")
+
+--- A value for a failure message. A node shows its tree, since `tostring` gives its embed marker.
+const function shown(value: unknown): string
+    if class.implements(value, Markup) then
+        return value:debug()
+    end
+    return tostring(value)
+end
+
 const function equal<T>(actual: T, expected: T, label: string?)
     if actual ~= expected then
-        error(`{label or "values differ"}\n    expected: {tostring(expected)}\n    actual:   {tostring(actual)}`, 2)
+        error(`{label or "values differ"}\n    expected: {shown(expected)}\n    actual:   {shown(actual)}`, 2)
     end
 end
 
@@ -15,13 +25,13 @@ const function truthy(value: unknown, label: string?)
 end
 
 const function contains(haystack: string, needle: string, label: string?)
-    if not string.find(haystack, needle, 1, true) then
+    if not haystack:contains(needle) then
         error(`{label or "missing text"}\n    expected to find: {needle}\n    in: {haystack}`, 2)
     end
 end
 
 const function excludes(haystack: string, needle: string, label: string?)
-    if string.find(haystack, needle, 1, true) then
+    if haystack:contains(needle) then
         error(`{label or "unexpected text"}\n    expected not to find: {needle}\n    in: {haystack}`, 2)
     end
 end

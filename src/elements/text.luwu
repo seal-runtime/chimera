@@ -3,21 +3,8 @@
 --!lint ConstLocal
 
 const markup = require("@core/markup")
-const .{ Element, Component, Container, Text, HtmlElement } = require("@core/markup")
+const .{ Element, Component, Container, HtmlElement } = require("@core/markup")
 type .{ Content, Markup, Writer, MarkdownWriter } = markup
-
---- The text of `nodes` without markup, for comparing a heading with the id a document gives it.
-const function plain_text(nodes: { read Markup }): string
-    const parts: { string } = {}
-    for _, node in nodes do
-        if class.isinstance(node, Text) then
-            table.insert(parts, node.content)
-        else
-            table.insert(parts, plain_text(node:child_nodes()))
-        end
-    end
-    return table.concat(parts)
-end
 
 --- Whether `id` is the one a document would generate from `text`, so Markdown can leave it out.
 const function is_generated_id(id: string, text: string): boolean
@@ -92,7 +79,7 @@ export class Heading implements Component, Container, HtmlElement
     --- A heading whose only attribute is the id a document would give it anyway writes as `#` Markdown.
     function markdown(self, out: MarkdownWriter): string
         const id = self:get_id()
-        const generated = id == nil or is_generated_id(id, plain_text(self.children))
+        const generated = id == nil or is_generated_id(id, self:plain_text())
         if not generated or not self:only_attributes("id") then
             return self:to_html()
         end
@@ -259,7 +246,7 @@ export class Small implements Component, Container, HtmlElement
     end
 end
 
---- A `"pre"` element that keeps its text's whitespace as written, usually for code blocks.
+--- A `"pre"` element that shows its text's whitespace as written, usually for code blocks.
 export class Preformatted implements Component, Container, HtmlElement
     function tag(): string
         return "pre"
@@ -354,7 +341,7 @@ export class Link implements Component, Container, HtmlElement
             return self:to_html()
         end
         const title = self:get_attr("title")
-        const quoted = if type(title) == "string" then ` "{string.gsub(title, "\"", "\\\"")}"` else ""
+        const quoted = if type(title) == "string" then ` "{title:replace("\"", "\\\"")}"` else ""
         const target = string.gsub(string.gsub(href, " ", "%%20"), "%)", "%%29")
         return `[{out:inline(self.children)}]({target}{quoted})`
     end

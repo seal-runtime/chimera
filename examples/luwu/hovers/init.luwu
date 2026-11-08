@@ -22,7 +22,7 @@ const captured = json.readfile(`{HERE}/hovers.json`) :: { [string]: { { span: st
 
 --[=[
     The inline Markdown of a hover line: code, emphasis, bold and links. Links into the hovered file only work in an
-    editor, so they keep their text and drop the link.
+    editor, so they show their text without the link.
 ]=]
 const function inline(text: string): { Child }
     const parts: { Child } = {}
@@ -53,7 +53,7 @@ const function inline(text: string): { Child }
             and url
             and after_link
         then
-            if str.startswith(url, "https://") then
+            if url:startswith("https://") then
                 table.insert(parts, Link(inline(label), url):new_tab())
             else
                 for _, part in inline(label) do
@@ -86,13 +86,13 @@ const function from_markdown(markdown: string): { Child }
     end
     for _, line in str.splitlines(markdown) do
         if fence then
-            if str.trimback(line) == "```" then
-                table.insert(blocks, CodeBlock((string.gsub(table.concat(fence, "\n"), "^%s+", ""))))
+            if line:trimend() == "```" then
+                table.insert(blocks, CodeBlock(table.concat(fence, "\n"):trimstart()))
                 fence = nil
             else
                 table.insert(fence, line)
             end
-        elseif str.startswith(line, "```") then
+        elseif line:startswith("```") then
             end_paragraph()
             fence = {}
         elseif line == "----------" then
@@ -100,14 +100,14 @@ const function from_markdown(markdown: string): { Child }
             table.insert(blocks, HorizontalRule())
         elseif string.find(line, "^%s*$") then
             end_paragraph()
-        elseif not str.startswith(line, "*Jump to*") then
+        elseif not line:startswith("*Jump to*") then
             if #paragraph > 0 then
                 table.insert(paragraph, if hard_break then LineBreak() else Text(" "))
             end
-            for _, part in inline(str.trimback(line)) do
+            for _, part in inline(line:trimend()) do
                 table.insert(paragraph, part)
             end
-            hard_break = str.endswith(line, "  ")
+            hard_break = line:endswith("  ")
         end
     end
     end_paragraph()
@@ -116,7 +116,7 @@ end
 
 --- A sample from `samples/`, with every hover luwu-lsp showed over it.
 const function hovered(sample: string): CodeBlock
-    const source = string.gsub(fs.readfile(`{HERE}/samples/{sample}.luwu`), "%s+$", "")
+    const source = fs.readfile(`{HERE}/samples/{sample}.luwu`):trimend()
     const hovers = {
         for _, .{ span, markdown } in captured[sample] or error(`hovers.json has no '{sample}'; run capture.luwu`)
         give Hover(SourceSpan.from_string(span), from_markdown(markdown))
@@ -209,3 +209,7 @@ return Page("Better Hovers", {
     }),
     Paragraph({ "The ", Code("luwu.hover.verbosity"), " setting picks where each session starts." }),
 }, "better-hovers.html")
+    :describe(
+        "Hovers from luwu-lsp, the language server maintained alongside Luwu, copied unedited onto the page so "
+        .. "you can see what your editor shows."
+    )

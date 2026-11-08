@@ -104,7 +104,7 @@ const function text_of(node: Markup): string
 end
 
 --@ shape
-class Callout implements Shape, Container
+class NoteCallout implements Shape, Container
     function tag(): string
         return "aside"
     end
@@ -128,17 +128,17 @@ class Callout implements Shape, Container
                 const rest = first.children[1]
                 when class.isinstance(rest, Text)
             then
-                rest.content = string.gsub(rest.content, "^%s+", "")
+                rest.content = rest.content:trimstart()
             end
-            return Callout(node.children)
+            return NoteCallout(node.children)
         elseif class.isinstance(node, Div) and node:has_style_class("alert") then
-            return Callout(node.children)
+            return NoteCallout(node.children)
         end
         return nil
     end
     function markdown(self, out: MarkdownWriter): string
         const quoted = `**Note:** {out:blocks(self.children)}`
-        return "> " .. string.gsub(quoted, "\n", "\n> ")
+        return "> " .. quoted:replace("\n", "\n> ")
     end
 end
 
@@ -210,7 +210,7 @@ return Page("Markdown and JSON", {
     h2("Writing Markdown"),
     Paragraph({
         "Every node has ", Code("to_markdown"), ". Parts Markdown has no syntax for, like a component or an ",
-        "element with a style class, keep their HTML. A container of blocks writes its tags on lines of their ",
+        "element with a style class, are written as HTML. A container of blocks writes its tags on lines of their ",
         "own with Markdown between them, so the text stays readable and reads back as the same component:",
     }),
     example("write", CodeBlock(markdown, "markdown")),
@@ -230,7 +230,7 @@ return Page("Markdown and JSON", {
     example("json", CodeBlock(text, "json")),
     Paragraph({
         "Each element has its ", Code("tag", "plaintext"), ", its component in ", Code("element", "plaintext"),
-        " and its attributes in the order it renders them. Reading the JSON back gives the same HTML: ",
+        " and its attributes in render order. Reading the JSON back gives the same HTML: ",
         Code(tostring(again[1]:to_html() == Paragraph({ "Hi ", Strong("there") }):to_html()), "plaintext"), ".",
     }),
 
@@ -246,7 +246,7 @@ return Page("Markdown and JSON", {
         "chimera adds the ", Code("element", "plaintext"), " name for you. ", Code("Badge.from_json"),
         " also works on its own, and returning nil tells the reader to treat the JSON as a plain tree. A ",
         Code("Json"), " component still needs HTML that parses back as itself, which is why ", Code("Badge"),
-        " keeps its label in an attribute.",
+        " stores its label in an attribute.",
     }),
 
     h2("Recognizing your components"),

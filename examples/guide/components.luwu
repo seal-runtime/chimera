@@ -3,8 +3,8 @@
 --!lint ConstLocal
 
 const .{
-    elements.{ Heading, Paragraph, Link, Div, UnorderedList, ListItem },
-    components.{ Code, CodeBlock, Card, Menu, Dropdown, ThemeSwitcher, Toggle, Tabs, Tab, Grid },
+    elements.{ Heading, Paragraph, Link, Div, UnorderedList, ListItem, DescriptionList },
+    components.{ Code, CodeBlock, Card, Panel, Infobox, Chip, Menu, Dropdown, ThemeSwitcher, Toggle, Tabs, Tab, Grid },
     site.{ Page, PageLink, TableOfContents },
 } = require("@chimera")
 const .{ examples_in } = require("./example")
@@ -28,6 +28,35 @@ const features = Grid({
 }, "14rem")
 --@ end
 
+--@ panel
+const glance = Panel("At a glance", DescriptionList()
+    :item(Code("Card"), "A raised box with a title")
+    :item(Code("Infobox"), "Labeled facts beside the text")
+    :item(Code("Chip"), "A short label with a tooltip")
+):open()
+--@ end
+
+--@ infobox
+const lua = Div({
+    Infobox("Lua")
+        :field("First appeared", "1993")
+        :field("Designed at", "PUC-Rio")
+        :section("Influenced")
+        :field("Languages", "Luau, Luwu"),
+    Paragraph("Lua is a small scripting language that games and editors embed to let users script them."),
+})
+--@ end
+
+--@ chips
+const release = Paragraph({
+    Code("Infobox"),
+    Chip("new")
+        :tone("primary")
+        :tooltip("Added to chimera in October 2026."),
+    Chip("components"):tooltip({ "Part of ", Code("chimera.components"), "." }),
+})
+--@ end
+
 --@ toggle
 const spoiler = Paragraph("The butler did it.")
 const reveal = Div { Toggle("Show the ending", spoiler), spoiler:hidden() }
@@ -45,10 +74,11 @@ return Page("Components", {
     h1("Components"),
     Paragraph({
         "Components are ready-made custom elements provided by chimera. These include ", Code("Menu"), ", ",
-        Code("Dropdown"), ", ", Code("ThemeSwitcher"), ", ", Code("Card"), ", ", Code("Toggle"), " and ",
-        Code("Tabs"), ", along with layouts, code blocks and site navigation. Each one brings its own HTML, CSS ",
-        "and script, is styled by the theme and works on small screens. They live in ", Code("chimera.components"),
-        ".",
+        Code("Dropdown"), ", ", Code("ThemeSwitcher"), ", ", Code("Card"), ", ", Code("Panel"), ", ",
+        Code("Infobox"), ", ",
+        Code("Chip"), ", ", Code("Toggle"), " and ", Code("Tabs"), ", along with layouts, code blocks and site ",
+        "navigation. Each one brings its own HTML, CSS and script, is styled by the theme and works on small ",
+        "screens. They're in ", Code("chimera.components"), ".",
     }),
     TableOfContents(),
 
@@ -69,6 +99,45 @@ return Page("Components", {
     h2("Cards"),
     Paragraph({ Code("Card"), " is a raised box with an optional title:" }),
     example("cards", features),
+
+    h2("Panels"),
+    Paragraph({
+        Code("Panel"), " is a collapsible box for an overview readers skim and jump back to, like the summary of a ",
+        "library's functions. It has the same background as code blocks, with less padding than other boxes. ",
+        "Its title is listed in the page's contents box without being a heading:",
+    }),
+    example("panel", glance),
+    Paragraph({
+        "A panel starts collapsed, and ", Code("open()"), " shows it when the page loads. Headings inside it ",
+        "label its parts and stay out of the contents box.",
+    }),
+
+    h2("Infoboxes"),
+    Paragraph({
+        Code("Infobox"), " sums up a subject in a box of labeled facts beside the text about it. ",
+        "It takes a title, an optional ", Code("image(src, alt, caption)"), " and ", Code("field(label, value)"),
+        "s, which ", Code("section(title)"), " splits into groups. On wide screens it floats to the right of the ",
+        "text after it:",
+    }),
+    example("infobox", lua),
+    Paragraph({
+        "A field whose value is ", Code("nil"), " is left out, so optional facts need no ", Code("if"),
+        " around them.",
+    }),
+
+    h2("Chips and tooltips"),
+    Paragraph({
+        Code("Chip"), " is a short label in a small box, like a status next to a name. ", Code("tone(color)"),
+        " colors it with one of the theme's colors and ", Code("fill(color)"), " with a color of its own, like a ",
+        "brand color. ", Code("icon(content)"), " puts an icon before the label. Point at a chip below, or tap it, ",
+        "to see its tooltip:",
+    }),
+    example("chips", release),
+    Paragraph({
+        Code("tooltip(content)"), " works on any element, not only chips. It shows text or any other elements in ",
+        "the box that code hovers use. A chip's text stays out of its heading's id and its line in the table of ",
+        "contents.",
+    }),
 
     h2("Toggles"),
     Paragraph({ Code("Toggle"), " is a button that shows and hides another element:" }),
@@ -103,3 +172,7 @@ return Page("Components", {
         PageLink("guide/custom-components.html", "Custom components"), ".",
     }),
 })
+    :describe(
+        "Ready-made components like Menu, Dropdown, ThemeSwitcher, Card, Toggle and Tabs, each bringing its own "
+        .. "HTML, CSS and script."
+    )

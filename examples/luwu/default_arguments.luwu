@@ -108,3 +108,7 @@ return Page("Default Arguments", {
         ListItem({ "To callers, ", Code("function f(x = 1)"), " takes an optional number." }),
     }),
 }, "default-arguments.html")
+    :describe(
+        "Function parameters and class constructor parameters can have default values, and callers can leave "
+        .. "those arguments out."
+    )

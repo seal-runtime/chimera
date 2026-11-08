@@ -2,10 +2,10 @@
 --!optimize 2
 --!lint ConstLocal
 
-const .{ equal, contains } = require("./assert")
+const .{ equal, truthy, contains } = require("./assert")
 const chimera = require("@chimera")
 const .{
-    style.{ Style, Rule, token },
+    style.{ Style, Rule, Color, Palette, token },
 } = chimera
 
 const tests: { [string]: () -> () } = {
@@ -13,7 +13,7 @@ const tests: { [string]: () -> () } = {
         equal(Style({ font_size = "12px" }):to_css(), "font-size: 12px")
     end,
 
-    ["custom properties keep their name"] = function()
+    ["custom properties render under their own name"] = function()
         equal(
             Style()
                 :set("--my_var", "1")
@@ -101,6 +101,16 @@ const tests: { [string]: () -> () } = {
         equal(rules[2].style:get("color"), "red")
         equal(if const nested = rules[3].rules then #nested else 0, 2)
         contains(rules[3]:to_css(), "p{margin: 0}")
+    end,
+
+    ["styles take colors"] = function()
+        equal(Style({ color = Color.named("red") }):to_css(), "color: #ff0000")
+    end,
+
+    ["palettes render colors as variables"] = function()
+        const variables = Palette({ primary = Color(1, 2, 3) }):variables()
+        equal(variables:get("--chimera-primary"), "#010203")
+        truthy(variables:get("--chimera-background"), "expected the default background")
     end,
 }
 

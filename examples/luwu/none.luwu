@@ -152,3 +152,7 @@ return Page("The none Primitive", {
         ListItem({ "none is a global value. A local named ", Code("none"), " would hide it." }),
     }),
 }, "none.html")
+    :describe(
+        "none is a value that means intentionally empty. It behaves like nil, except that you can store it in a "
+        .. "table."
+    )

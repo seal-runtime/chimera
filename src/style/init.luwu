@@ -8,7 +8,7 @@ export .{
 
 export .{
     Color,
-} = require("@self/color")
+} = require("@color")
 
 export .{
     Theme,
@@ -81,7 +81,7 @@ const theme = require("@self/theme")
 export type .{
     ThemeMode,
 } = theme
-const color = require("@self/color")
+const color = require("@color")
 export type .{
     NamedColor,
     AnsiLayer,

@@ -32,6 +32,20 @@ const contact = Column({
 }):gap("0.25rem")
 --@ end
 
+--@ side_by_side
+const usage = Row({
+    Column({
+        Paragraph("Save a page anywhere in your site's folder."),
+        Paragraph("Its path becomes its link."),
+    }),
+    Column({
+        CodeBlock([====[
+            site:add(Page("About", { Paragraph("We make sites in Luwu.") }, "about.html"))
+        ]====]),
+    }),
+})
+--@ end
+
 --@ arrange
 const bar = Footer({ Small("© 2026 Ada"), Row({ Link("Privacy", "#"), Link("Terms", "#") }) })
     :row()
@@ -61,6 +75,12 @@ return Page("Layout", {
     h2("Columns"),
     Paragraph({ Code("Column"), " stacks its children top to bottom:" }),
     example("column", contact),
+    Paragraph({
+        "Columns in a ", Code("Row"), " share its width. Each one shrinks to fit, and a code block inside ",
+        "scrolls instead of widening the page. The columns stack once each would get narrower than the theme's ",
+        Code("column_width"), ":",
+    }),
+    example("side_by_side", usage),
 
     h2("Arranging any container"),
     Paragraph({
@@ -92,3 +112,4 @@ return Page("Layout", {
         end
     ]====]),
 })
+    :describe("Rows, columns and grids that take their spacing from the theme.")

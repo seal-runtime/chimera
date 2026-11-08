@@ -1,0 +1,16 @@
+[package]
+name = "seal-runtime/chimera"
+version = "0.1.0"
+description = "An object oriented static site builder for Luwu: HTML elements and components as classes, typed CSS, themes, and parsing back from HTML, Markdown and JSON"
+authors = ["deviaze"]
+repository = "https://github.com/seal-runtime/chimera"
+license = "MIT"
+
+[target]
+environment = "seal"
+language = "luwu"
+main = "init.luwu"
+includes = ["init.luwu", "src", "README.md", "LICENSE"]
+
+[dependencies]
+color = { name = "seal-runtime/color", version = "^0.1.0" }

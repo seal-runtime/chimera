@@ -3,12 +3,12 @@
 --!lint ConstLocal
 
 const .{ Style, Rule } = require("@style/style")
-const .{ Color } = require("@style/color")
-const .{ token } = require("@style/token")
+const .{ Color } = require("@color")
+const .{ Token, token } = require("@style/token")
 
 --[=[
-    The design tokens a [Theme] sets: its [Color]s, plus the corner radius, spacing, fonts and shadow every
-    element uses. Fields left out keep the [Light][themes.Light] defaults.
+    The design tokens a [Theme] sets: its [Color]s, plus the corner radius, spacing, padding, fonts and shadow every
+    element uses. Fields left out use the [Light][themes.Light] defaults.
 
     ## Usage
 
@@ -37,6 +37,7 @@ const .{ token } = require("@style/token")
 export class Palette
     background = Color.hex("#ffffff")
     surface = Color.hex("#f5f5f7")
+
     text = Color.hex("#1d1d1f")
     muted = Color.hex("#6e6e73")
     primary = Color.hex("#3b5bdb")
@@ -45,6 +46,12 @@ export class Palette
     border = Color.hex("#d2d2d7")
     radius = "8px"
     spacing = "1rem"
+    --- The space inside boxes like cards, code blocks and collapsible sections.
+    padding = "1.25rem"
+    --- The space between the page's content and the edges of the screen.
+    gutter = "1.5rem"
+    --- The narrowest a column in a row or grid gets before the layout wraps it onto a line of its own.
+    column_width = "12rem"
     font = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     mono_font = "ui-monospace, 'JetBrains Mono', Menlo, monospace"
     shadow = "0 1px 3px rgba(0, 0, 0, 0.12)"
@@ -86,6 +93,7 @@ export class Palette
         return Style {
             ["--chimera-background"] = self.background,
             ["--chimera-surface"] = self.surface,
+
             ["--chimera-text"] = self.text,
             ["--chimera-muted"] = self.muted,
             ["--chimera-primary"] = self.primary,
@@ -94,6 +102,9 @@ export class Palette
             ["--chimera-border"] = self.border,
             ["--chimera-radius"] = self.radius,
             ["--chimera-spacing"] = self.spacing,
+            ["--chimera-padding"] = self.padding,
+            ["--chimera-gutter"] = self.gutter,
+            ["--chimera-column-width"] = self.column_width,
             ["--chimera-font"] = self.font,
             ["--chimera-mono-font"] = self.mono_font,
             ["--chimera-shadow"] = self.shadow,
@@ -111,7 +122,27 @@ export class Palette
             ["--chimera-syntax-error"] = self.syntax_error,
             ["--chimera-syntax-warning"] = self.syntax_warning,
             ["--chimera-syntax-info"] = self.syntax_info,
+            ["--chimera-on-muted"] = self:text_on(self.muted),
+            ["--chimera-on-info"] = self:text_on(self.syntax_info),
+            ["--chimera-on-warning"] = self:text_on(self.syntax_warning),
+            ["--chimera-on-error"] = self:text_on(self.syntax_error),
         }
+    end
+
+    --[=[
+        The palette's text or background color, whichever reads better on `fill`. When neither reaches the 4.5
+        contrast body text needs, it's black or white instead. Chips filled with a theme color use it for their label.
+
+        ## Usage
+
+        ```luwu
+        Palette({}):text_on(Color.hex("#bf8700"))
+        ```
+    ]=]
+    function text_on(self, fill: Color): Color
+        const themed = fill:readable(self.text, self.background)
+        fill:contrast(themed) < 4.5 or return themed
+        return fill:readable(Color(0, 0, 0), Color(255, 255, 255))
     end
 
     function display(self, depth: number?, options: unknown?): string
@@ -138,7 +169,7 @@ const themes_by_name: { [string]: class<Theme> } = {}
     ## Usage
 
     A theme needs a unique `name`, a [ThemeMode], and a constructor without arguments. Override [Theme:palette] to
-    set its tokens, and `base_styles` to restyle elements: start from [Theme.base_styles] to keep the defaults, then
+    set its tokens, and `base_styles` to restyle elements: start from [Theme.base_styles] for the defaults, then
     add rules.
     Register the theme so parsed documents can find it by name.
 
@@ -200,7 +231,7 @@ export trait Theme
     --[=[
         The base CSS for every element and built-in component, written with theme tokens.
 
-        Override it in your theme to restyle elements: call [Theme.base_styles] to keep the defaults, then add rules.
+        Override it in your theme to restyle elements: call [Theme.base_styles] for the defaults, then add rules.
 
         ## Usage
 
@@ -214,11 +245,13 @@ export trait Theme
     ]=]
     function base_styles(self): { Rule }
         const border = `1px solid {token("border")}`
+        const row_blocks = ".chimera-column, .chimera-grid, .chimera-card, .chimera-code-block"
+        -- Full-width bars line their content up with the 64rem page column.
+        const page_gutter = Token(`max({token("gutter")}, calc((100% - 64rem) / 2 + {token("gutter")}))`)
         const folded_items = ":not(.chimera-brand):not(.chimera-theme-switcher):not(.chimera-menu-toggle)"
             .. ":not(.chimera-search)"
         return {
             Rule("*, *::before, *::after", { box_sizing = "border-box" }),
-            Rule("html", { scroll_behavior = "smooth" }),
             Rule("body", {
                 margin = "0",
                 background = token("background"),
@@ -226,13 +259,16 @@ export trait Theme
                 font_family = token("font"),
                 font_size = "1.0625rem",
                 line_height = "1.65",
+                overflow_wrap = "break-word",
                 webkit_font_smoothing = "antialiased",
                 transition = "background 0.25s, color 0.25s",
             }),
             Rule("main", {
                 max_width = "64rem",
                 margin = "0 auto",
-                padding = "2rem 1.5rem 4rem",
+                padding_top = "2rem",
+                padding_bottom = "4rem",
+                padding_inline = token("gutter"),
             }),
             Rule("main > :first-child", { margin_top = "0" }),
             Rule("h1, h2, h3, h4, h5, h6", {
@@ -269,6 +305,8 @@ export trait Theme
                 text_decoration = "underline",
                 text_underline_offset = "0.2em",
             }),
+            -- Code passed a link takes the link's color instead of syntax colors.
+            Rule("a > .chimera-code", { color = "inherit" }),
             Rule("img", {
                 max_width = "100%",
                 height = "auto",
@@ -282,8 +320,10 @@ export trait Theme
                 border_radius = "6px",
             }),
             Rule("pre", {
-                padding = "1.1rem 1.25rem",
+                padding = token("padding"),
                 overflow_x = "auto",
+                -- The size code blocks use, so program output reads at the size of the code above it.
+                font_size = "0.875rem",
                 line_height = "1.55",
                 background = token("surface"),
                 border = border,
@@ -344,6 +384,13 @@ export trait Theme
                 margin = "1.5em 0",
                 font_size = "0.95rem",
             }),
+            -- A table too wide for a phone scrolls inside itself instead of squeezing its columns.
+            Rule("@media (max-width: 700px)", {}, {
+                Rule("table", {
+                    display = "block",
+                    overflow_x = "auto",
+                }),
+            }),
             Rule("th, td", {
                 text_align = "left",
                 padding = "0.65em 0.8em",
@@ -363,7 +410,8 @@ export trait Theme
             Rule(".chimera-table-hover tbody tr:hover", { background = token("surface") }),
             Rule("details", {
                 margin = "0.75em 0",
-                padding = "0.9em 1.15em",
+                padding_block = token("padding"):times(0.75),
+                padding_inline = token("padding"),
                 background = token("surface"),
                 border = border,
                 border_radius = token("radius"),
@@ -381,7 +429,8 @@ export trait Theme
                 display = "flex",
                 align_items = "center",
                 gap = "1.5rem",
-                padding = "0.85rem max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem))",
+                padding_block = "0.85rem",
+                padding_inline = page_gutter,
                 background = `color-mix(in srgb, {token("background")} 82%, transparent)`,
                 webkit_backdrop_filter = "blur(12px)",
                 backdrop_filter = "blur(12px)",
@@ -390,13 +439,23 @@ export trait Theme
             Rule(".chimera-menu a", {
                 color = token("muted"),
                 font_weight = "500",
+                white_space = "nowrap",
             }),
             Rule(".chimera-menu a:hover", {
                 color = token("text"),
                 text_decoration = "none",
             }),
             Rule(".chimera-menu .chimera-theme-switcher", { margin_left = "auto" }),
-            Rule(".chimera-menu .chimera-search", { margin_left = "auto" }),
+            Rule(".chimera-menu .chimera-search", {
+                flex = "0 1 15rem",
+                min_width = "5rem",
+                margin_left = "auto",
+            }),
+            -- The menu's links don't wrap, so the search box gives up the width when the bar gets tight.
+            Rule(".chimera-menu .chimera-search-input", {
+                box_sizing = "border-box",
+                width = "100%",
+            }),
             Rule(".chimera-menu .chimera-search ~ .chimera-theme-switcher", { margin_left = "0" }),
             Rule(".chimera-search", {
                 position = "relative",
@@ -573,6 +632,26 @@ export trait Theme
                 font_size = "0.8em",
             }),
             Rule(".chimera-dropdown > summary:hover", { color = token("text") }),
+            -- A linked label follows its link. The arrow after it opens the list and gets a bigger target.
+            Rule(".chimera-dropdown-linked > summary::after", { content = "none" }),
+            Rule(".chimera-dropdown-linked > summary", {
+                display = "inline-flex",
+                align_items = "center",
+                white_space = "nowrap",
+            }),
+            Rule(".chimera-dropdown-linked > summary > a", { color = "inherit" }),
+            Rule(".chimera-dropdown-arrow::after", { content = "\"▾\"" }),
+            Rule(".chimera-dropdown-arrow", {
+                display = "inline-grid",
+                place_items = "center",
+                min_width = "1.6rem",
+                height = "1.6rem",
+                margin_left = "0.1rem",
+                border_radius = "4px",
+                font_size = "1.05em",
+                cursor = "pointer",
+            }),
+            Rule(".chimera-dropdown-arrow:hover", { background = token("surface") }),
             Rule(".chimera-dropdown[open] > summary, .chimera-theme-switcher[open] > summary", { margin_bottom = "0" }),
             Rule(".chimera-dropdown-items, .chimera-theme-options", {
                 position = "absolute",
@@ -658,8 +737,12 @@ export trait Theme
             Rule(".chimera-code-block", {
                 position = "relative",
                 overflow_x = "visible",
+                max_width = "100%",
                 margin = "1.25em 0",
+                -- The font-shrinking container query hides the code's width. The intrinsic size gives layouts it back.
                 ["container-type"] = "inline-size",
+                ["contain-intrinsic-inline-size"] =
+                    `calc(var(--chimera-code-columns, 80) * 0.55rem + 2 * {token("padding")})`,
             }),
             Rule(".chimera-copy", {
                 position = "absolute",
@@ -717,6 +800,7 @@ export trait Theme
                 counter_increment = "chimera-line",
             }),
             Rule(".chimera-code", { white_space = "nowrap" }),
+            Rule(".chimera-code-wrap", { white_space = "normal" }),
             Rule(".hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-meta .hljs-keyword", {
                 color = token("syntax_keyword"),
             }),
@@ -770,6 +854,34 @@ export trait Theme
                 border_radius = "6px",
                 box_shadow = "0 6px 20px rgba(0, 0, 0, 0.18)",
             }),
+            Rule(".chimera-source-menu", { padding = "0.25rem 0" }),
+            Rule(".chimera-source-menu a", {
+                display = "block",
+                padding = "0.2rem 0.75rem",
+                font_family = token("mono_font"),
+                text_decoration = "none",
+            }),
+            Rule(".chimera-source-menu a:hover", { background = token("surface") }),
+            -- The development server's page for a build that failed (tools/serve.luwu).
+            Rule(".chimera-build-error", {
+                max_width = "52rem",
+                margin = "0 auto",
+                padding = "2.5rem 1rem",
+            }),
+            Rule(".chimera-build-error-text", {
+                margin = "1rem 0",
+                color = token("text"),
+                font_family = token("mono_font"),
+                font_size = "0.85rem",
+                white_space = "pre-wrap",
+                overflow_wrap = "anywhere",
+            }),
+            Rule(".chimera-build-error-traceback", {
+                margin_top = "1.5rem",
+                color = token("muted"),
+                font_size = "0.85rem",
+            }),
+            Rule(".chimera-build-error-traceback > p", { margin = "0 0 0.4rem" }),
             Rule(".chimera-hover-message", {
                 padding = "0.55rem 0.75rem",
                 font_family = token("mono_font"),
@@ -844,8 +956,17 @@ export trait Theme
             }),
             Rule(".chimera-grid", {
                 display = "grid",
-                grid_template_columns = "repeat(auto-fit, minmax(min(var(--chimera-grid-min, 12rem), 100%), 1fr))",
+                grid_template_columns =
+                    `repeat(auto-fit, minmax(min(var(--chimera-grid-min, {token("column_width")}), 100%), 1fr))`,
                 gap = token("spacing"),
+            }),
+            -- Children may shrink below their longest word or code line so a layout never runs past the screen.
+            Rule(".chimera-row > *, .chimera-grid > *", { min_width = "0" }),
+            -- The layout's gap spaces its children, so their own margins would only push them out of line.
+            Rule(".chimera-row > *, .chimera-column > *, .chimera-grid > *", { margin_block = "0" }),
+            -- Blocks in a row share its width and wrap onto lines of their own when narrower than column_width.
+            Rule(`.chimera-row > :is({row_blocks})`, {
+                flex = `1 1 {token("column_width")}`,
             }),
             Rule(".chimera-menu .chimera-brand", {
                 color = token("text"),
@@ -855,7 +976,9 @@ export trait Theme
             }),
             Rule(".chimera-footer", {
                 margin_top = "3rem",
-                padding = "2.5rem max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem)) 2rem",
+                padding_top = "2.5rem",
+                padding_bottom = "2rem",
+                padding_inline = page_gutter,
                 color = token("muted"),
                 font_size = "0.9rem",
                 border_top = border,
@@ -885,7 +1008,7 @@ export trait Theme
                 gap = "3rem",
                 max_width = "76rem",
                 margin = "0 auto",
-                padding = "0 1.5rem",
+                padding_inline = token("gutter"),
             }),
             Rule(".chimera-site-layout > aside", {
                 position = "sticky",
@@ -936,7 +1059,8 @@ export trait Theme
             }),
             Rule("main .chimera-toc", {
                 margin = "1.5rem 0",
-                padding = "0.9rem 1.15rem",
+                padding_block = token("padding"):times(0.75),
+                padding_inline = token("padding"),
                 background = token("surface"),
                 border = border,
                 border_radius = token("radius"),
@@ -959,6 +1083,7 @@ export trait Theme
                 grid_template_columns = "repeat(auto-fit, minmax(12rem, 1fr))",
                 gap = "0.75rem 2.5rem",
             }),
+            -- The runtime script in document.luwu closes the contents box below this width (`toc_rail`).
             Rule("@media (min-width: 1100px)", {}, {
                 Rule("main:has(> .chimera-toc)", {
                     display = "grid",
@@ -967,7 +1092,7 @@ export trait Theme
                     align_items = "start",
                     max_width = "none",
                     margin = "0",
-                    padding_left = "max(1.5rem, calc((100% - 64rem) / 2 + 1.5rem))",
+                    padding_left = page_gutter,
                 }),
                 Rule("main:has(> .chimera-toc) > *", {
                     grid_column = 1,
@@ -993,7 +1118,8 @@ export trait Theme
             Rule(".chimera-breadcrumbs", {
                 max_width = "64rem",
                 margin = "0 auto",
-                padding = "1.5rem 1.5rem 0",
+                padding_top = "1.5rem",
+                padding_inline = token("gutter"),
                 color = token("muted"),
                 font_size = "0.875rem",
             }),
@@ -1016,7 +1142,7 @@ export trait Theme
             Rule(".chimera-breadcrumbs [aria-current=\"page\"]", { color = token("text") }),
             Rule(".chimera-breadcrumbs + main", { padding_top = "1.25rem" }),
             Rule(".chimera-card", {
-                padding = "1.4rem 1.5rem",
+                padding = token("padding"),
                 background = token("surface"),
                 border = border,
                 border_radius = token("radius"):times(1.5),
@@ -1029,13 +1155,168 @@ export trait Theme
             }),
             Rule(".chimera-card > h3", { margin_top = "0" }),
             Rule(".chimera-card > :last-child", { margin_bottom = "0" }),
+            Rule(".chimera-panel", {
+                margin = "1.5rem 0",
+                padding_block = token("padding"):times(0.5),
+                padding_inline = token("padding"):times(0.6),
+                background = token("surface"),
+                border_radius = token("radius"):times(1.5),
+            }),
+            Rule(".chimera-panel > summary", { font_size = "1.1rem" }),
+            Rule(".chimera-panel[open] > summary", { margin_bottom = "0.5rem" }),
+            Rule(".chimera-infobox", {
+                display = "flex",
+                flex_direction = "column",
+                gap = "0.6rem",
+                width = "100%",
+                margin = "1.25em 0",
+                padding = token("padding"):times(0.75),
+                font_size = "0.9rem",
+                line_height = "1.5",
+                background = token("surface"),
+                border = border,
+                border_radius = token("radius"),
+            }),
+            Rule("@media (min-width: 700px)", {}, {
+                Rule(".chimera-infobox", {
+                    float = "right",
+                    clear = "right",
+                    width = "min(40%, 18rem)",
+                    margin_top = "0.25rem",
+                    margin_bottom = token("spacing"),
+                    margin_left = token("spacing"),
+                }),
+            }),
+            -- Content after a floating infobox's parent starts below the box instead of wrapping around it.
+            Rule(":where(:has(> .chimera-infobox))", { display = "flow-root" }),
+            Rule(".chimera-infobox > *", { margin = "0" }),
+            Rule(".chimera-infobox-title", {
+                color = token("text"),
+                font_size = "1rem",
+                font_weight = "700",
+                text_align = "center",
+            }),
+            Rule(".chimera-infobox-image img", {
+                display = "block",
+                width = "100%",
+                max_height = "12rem",
+                object_fit = "contain",
+                border_radius = token("radius"),
+            }),
+            Rule(".chimera-infobox-image figcaption", {
+                margin_top = "0.35rem",
+                color = token("muted"),
+                font_size = "0.8rem",
+                text_align = "center",
+            }),
+            Rule(".chimera-infobox-section", {
+                padding_top = "0.5rem",
+                color = token("muted"),
+                font_size = "0.75rem",
+                font_weight = "600",
+                letter_spacing = "0.06em",
+                text_transform = "uppercase",
+                border_top = border,
+            }),
+            Rule(".chimera-infobox dl", {
+                display = "grid",
+                grid_template_columns = "fit-content(40%) minmax(0, 1fr)",
+                gap = "0.3rem 0.75rem",
+            }),
+            Rule(".chimera-infobox dt", {
+                color = token("muted"),
+                font_weight = "600",
+            }),
+            Rule(".chimera-infobox dd", { margin = "0" }),
+            Rule("[data-hover=\"tooltip\"]", { cursor = "help" }),
+            Rule(".chimera-chip", {
+                ["--chimera-chip-color"] = token("muted"),
+                ["--chimera-chip-text"] = token("on_muted"),
+                display = "inline-flex",
+                align_items = "center",
+                gap = "0.3em",
+                margin_left = "0.4em",
+                padding = "0.1em 0.45em",
+                color = "var(--chimera-chip-text)",
+                font_family = token("font"),
+                font_size = "clamp(0.62rem, 0.6em, 0.8rem)",
+                font_weight = "700",
+                line_height = "1.5",
+                white_space = "nowrap",
+                vertical_align = "middle",
+                background = "var(--chimera-chip-color)",
+                -- A filled chip's edge is its own color. A theme-colored outline around a dark fill looks like a halo.
+                border = "1px solid var(--chimera-chip-color)",
+                border_radius = token("radius"):times(0.5),
+            }),
+            Rule(".chimera-alert", {
+                ["--chimera-alert-color"] = token("muted"),
+                margin = "1.25em 0",
+                padding_block = token("padding"):times(0.75),
+                padding_inline = token("padding"),
+                background = "color-mix(in srgb, var(--chimera-alert-color) 10%, transparent)",
+                border = border,
+                border_left = "4px solid var(--chimera-alert-color)",
+                border_radius = token("radius"),
+            }),
+            Rule(".chimera-alert > *", { margin = "0" }),
+            Rule(".chimera-alert > * + *", { margin_top = "0.5em" }),
+            Rule(".chimera-alert-title", {
+                color = "var(--chimera-alert-color)",
+                font_weight = "700",
+            }),
+            Rule(".chimera-alert-plain", { ["--chimera-alert-color"] = token("text") }),
+            Rule(".chimera-alert-primary", { ["--chimera-alert-color"] = token("primary") }),
+            Rule(".chimera-alert-info", { ["--chimera-alert-color"] = token("syntax_info") }),
+            Rule(".chimera-alert-warning", { ["--chimera-alert-color"] = token("syntax_warning") }),
+            Rule(".chimera-alert-error", { ["--chimera-alert-color"] = token("syntax_error") }),
+            -- The first chip after a heading's text stands further from it than chips stand from each other.
+            Rule(":is(h1, h2, h3, h4, h5, h6) > .chimera-chip:not(.chimera-chip + .chimera-chip)", {
+                margin_left = "0.75rem",
+            }),
+            Rule(".chimera-chip-plain", {
+                ["--chimera-chip-color"] = token("surface"),
+                ["--chimera-chip-text"] = token("text"),
+                border_color = token("border"),
+            }),
+            Rule(".chimera-chip-primary", {
+                ["--chimera-chip-color"] = token("primary"),
+                ["--chimera-chip-text"] = token("primary_text"),
+            }),
+            Rule(".chimera-chip-info", {
+                ["--chimera-chip-color"] = token("syntax_info"),
+                ["--chimera-chip-text"] = token("on_info"),
+            }),
+            Rule(".chimera-chip-warning", {
+                ["--chimera-chip-color"] = token("syntax_warning"),
+                ["--chimera-chip-text"] = token("on_warning"),
+            }),
+            Rule(".chimera-chip-error", {
+                ["--chimera-chip-color"] = token("syntax_error"),
+                ["--chimera-chip-text"] = token("on_error"),
+            }),
+            -- A pixel-art icon's fixed size spills evenly into the padding so the chip's height doesn't change.
+            Rule(".chimera-chip-icon", {
+                display = "inline-flex",
+                margin_block = "calc((1.1em - var(--chimera-chip-icon-size, 1.1em)) / 2)",
+            }),
+            Rule(".chimera-chip-icon > svg, .chimera-chip-icon > img", {
+                display = "block",
+                width = "var(--chimera-chip-icon-size, 1.1em)",
+                height = "var(--chimera-chip-icon-size, 1.1em)",
+            }),
+            Rule(".chimera-chip-pixel-icon > img", { image_rendering = "pixelated" }),
         }
     end
 
     --- Every theme class is findable by its name with [Theme.find]. Parsing a page looks up the theme names on its
     --- `<html>` tag there.
     final function __implemented(cls: class<Theme>)
-        themes_by_name[cls().name] = cls
+        const name = cls().name
+        if themes_by_name[name] then
+            error(`two theme classes are named '{name}'; rename one so pages can tell them apart`, 2)
+        end
+        themes_by_name[name] = cls
     end
 
     --[=[
