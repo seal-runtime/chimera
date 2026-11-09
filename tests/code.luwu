@@ -13,6 +13,9 @@ const .{
     themes.{ catppuccin },
 } = chimera
 
+--- The dot of `.{`, `.[` and `.(` as the highlighter writes it, in a span nudged toward its bracket.
+const DOT = `<span class="chimera-bracket-dot">.</span>`
+
 const tests: { [string]: () -> () } = {
     ["luwu code is highlighted at build time"] = function()
         const html = CodeBlock("const x = print(\"hi\") -- note"):to_html()
@@ -42,7 +45,7 @@ end]====]):to_html()
     ["as is a keyword and brackets are colored by depth"] = function()
         const html = CodeBlock("const .{ name, role as job } = f({ [1] = (2) })"):to_html()
         contains(html, `role <span class="hljs-keyword">as</span> job`)
-        contains(html, `<span class="chimera-bracket-1">.\{</span> name`)
+        contains(html, `<span class="chimera-bracket-1">{DOT}\{</span> name`)
         contains(html, `<span class="chimera-bracket-2">\{</span> <span class="chimera-bracket-3">[</span>`)
         contains(html, `<span class="chimera-bracket-3">(</span><span class="hljs-number">2</span>`)
         contains(html, `<span class="chimera-bracket-2">}</span><span class="chimera-bracket-1">)</span>`)
@@ -50,9 +53,47 @@ end]====]):to_html()
 
     ["bundles keep their dot with the bracket"] = function()
         const html = CodeBlock("const pair = .(1, 2)\nif r is Ok.(value) then end"):to_html()
-        contains(html, `= <span class="chimera-bracket-1">.(</span><span class="hljs-number">1</span>`)
-        contains(html, `<span class="hljs-title class_">Ok</span><span class="chimera-bracket-1">.(</span>value`)
+        const opener = `<span class="chimera-bracket-1 chimera-bundle-bracket">{DOT}(</span>`
+        contains(html, `= {opener}<span class="hljs-number">1</span>`)
+        contains(html, `<span class="hljs-title class_">Ok</span>{opener}value`)
     end,
+
+    ["destructuring patterns keep their dot with the bracket"] = function()
+        const html = CodeBlock("const .{ a } = t\nconst .[b] = u\nlocal r = 1 .. [[s]]"):to_html()
+        contains(html, `<span class="chimera-bracket-1">{DOT}\{</span>`)
+        contains(html, `<span class="chimera-bracket-1">{DOT}[</span>b`)
+        excludes(html, `{DOT}[[`)
+    end,
+
+    ["bundle positions read like fields, not numbers"] = function()
+        const html = CodeBlock("print(b.2, b.1.2, t[1].3, 1.5)"):to_html()
+        contains(html, `b.2, b.1.2, t`)
+        contains(html, `<span class="chimera-bracket-2">]</span>.3, <span class="hljs-number">1.5</span>`)
+        excludes(html, `<span class="hljs-number">.2</span>`)
+        excludes(html, `<span class="hljs-number">1.2</span>`)
+    end,
+
+    ["bundle types highlight every member as a type"] = function()
+        const number_type = `<span class="hljs-type">number</span>`
+        const string_type = `<span class="hljs-type">string</span>`
+        contains(
+            CodeBlock("local x: .(number, string) = .(1, \"a\")"):to_html(),
+            `<span class="chimera-bracket-1 chimera-bundle-bracket">{DOT}(</span>{number_type}, {string_type}`
+        )
+        contains(
+            CodeBlock("const seen: { [.(number, number)]: true } = {}"):to_html(),
+            `<span class="chimera-bracket-3 chimera-bundle-bracket">{DOT}(</span>{number_type}, {number_type}`
+        )
+    end,
+
+    ["a bundle's closing paren is marked like its opener but a call's parens aren't"] = function()
+        const html = CodeBlock("print(.(1, f(2)))"):to_html()
+        const bundle_close = `<span class="chimera-bracket-2 chimera-bundle-bracket">)</span>`
+        contains(html, `<span class="chimera-bracket-2 chimera-bundle-bracket">{DOT}(</span>`)
+        contains(html, `<span class="chimera-bracket-3">(</span><span class="hljs-number">2</span>\z
+            <span class="chimera-bracket-3">)</span>{bundle_close}<span class="chimera-bracket-1">)</span>`)
+    end,
+
 
     ["try is a keyword only in front of an expression"] = function()
         const keyword = `<span class="hljs-keyword">try</span>`

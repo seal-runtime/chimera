@@ -681,6 +681,8 @@ export class Site(const name: string)
     published_url: string? = nil
     --- Set with [Site:preview_image].
     preview_file: string? = nil
+    --- Set with [Site:preview_image].
+    preview_size: "large" | "thumbnail" = "large"
     --- Set with [Site:search]. [Site:default_header] shows it.
     search_box: Search? = nil
     language = "en"
@@ -783,16 +785,21 @@ export class Site(const name: string)
         previews don't show SVG. [Site:build] copies `file` to the site's root. It needs [Site:url] because
         previews only load images from a full address.
 
+        `size` is `"large"` by default: a wide image across the preview, for a banner or a poster. A logo or icon looks
+        better as a `"thumbnail"` beside the preview's text.
+
         ## Usage
 
         ```luwu
         site
             :url("https://example.com/")
             :preview_image("assets/preview.png")
+        site:preview_image("assets/logo.png", "thumbnail")
         ```
     ]=]
-    function preview_image(self, file: string): Site
+    function preview_image(self, file: string, size: ("large" | "thumbnail")?): Site
         self.preview_file = file
+        self.preview_size = size or "large"
         return self
     end
 
@@ -819,7 +826,7 @@ export class Site(const name: string)
             if description then Meta.property("og:description", description) else none,
             if address then Meta.property("og:url", address .. page:path()) else none,
             if image then Meta.property("og:image", image) else none,
-            Meta("twitter:card", if image then "summary_large_image" else "summary"),
+            Meta("twitter:card", if image and self.preview_size == "large" then "summary_large_image" else "summary"),
             Meta("theme-color", theme:palette().primary:to_hex()),
         }
         return { for _, tag in tags when tag ~= none give tag }

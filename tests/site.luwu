@@ -353,6 +353,12 @@ const tests: { [string]: () -> () } = {
         contains(published, `<meta property="og:url" content="https://example.com/docs/install.html">`)
         contains(published, `<meta property="og:image" content="https://example.com/preview.png">`)
         contains(published, `<meta name="twitter:card" content="summary_large_image">`)
+        site:preview_image("assets/logo.png", "thumbnail")
+        const thumbnail = site
+            :document(install)
+            :to_html()
+        contains(thumbnail, `<meta property="og:image" content="https://example.com/logo.png">`)
+        contains(thumbnail, `<meta name="twitter:card" content="summary">`)
     end,
 
     ["a page without a description is summarized by its first paragraph"] = function()

@@ -827,6 +827,14 @@ export trait Theme
             Rule(".chimera-bracket-1", { color = token("syntax_bracket_1") }),
             Rule(".chimera-bracket-2", { color = token("syntax_bracket_2") }),
             Rule(".chimera-bracket-3", { color = token("syntax_bracket_3") }),
+            -- A bundle's `.(` and `)` are bold. A call's parens aren't.
+            Rule(".chimera-bundle-bracket", { font_weight = "700" }),
+            -- The dot of `.{`, `.[` and `.(` moves toward its bracket like a ligature. Relative positioning moves
+            -- the glyph without pushing the code after it out of its monospace column.
+            Rule(".chimera-bracket-dot", {
+                position = "relative",
+                left = "0.3ch",
+            }),
             Rule(".chimera-hoverable", {
                 text_decoration = `underline dotted {token("muted")}`,
                 text_underline_offset = "0.25em",

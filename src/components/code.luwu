@@ -365,6 +365,13 @@ const function token_at(
         -- An attribute like `@native` or `@checked`.
         const _, attribute_end = string.find(source, "^@[%a_][%w_]*", index)
         return attribute_end or index, "meta", false
+    elseif char == "." and index > 1 and string.find(source, "^[%w_%)%]]%.%d", index - 1) then
+        -- A bundle position's dot, like `b.1`'s: plain like the dot of `b.x`.
+        return index, "", false
+    elseif string.find(char, "%d") and index > 2 and string.find(source, "^[%w_%)%]]%.%d", index - 2) then
+        -- A bundle position, plain like a field's name. `b.1.2` is two positions, never the number 1.2.
+        const _, position_end = string.find(source, "^%d+", index)
+        return position_end or index, "", false
     elseif string.find(char, "%d") or (char == "." and string.find(source, "^%.%d", index)) then
         const _, finish = string.find(source, "^0[xX][%x_]+", index)
         if finish then
@@ -414,6 +421,8 @@ const function highlight_luwu(source: string): string
     local alias_body = false
     local type_depth = 0
     local bracket_depth = 0
+    -- Whether each open bracket is a bundle's `.(`, innermost last. Its `)` gets the same style.
+    const bundle_brackets: { boolean } = {}
     -- Braces of table types: names inside are types unless they're field names.
     local type_braces = 0
     local previous = ""
@@ -423,8 +432,8 @@ const function highlight_luwu(source: string): string
         const opens = text == "(" or text == "{" or text == "["
         const closes = text == ")" or text == "}" or text == "]"
         if kind ~= "" or opens or closes then
-            -- The `.` of a destructuring `.{` or a bundle's `.(` belongs to the bracket.
-            const dot = (text == "{" or text == "(")
+            -- The `.` of a pattern's `.{` or `.[` or a bundle's `.(` belongs to the bracket.
+            const dot = opens
                 and index - 1 >= plain_start
                 and string.sub(source, index - 1, index - 1) == "."
                 and string.sub(source, index - 2, index - 2) ~= "."
@@ -438,10 +447,15 @@ const function highlight_luwu(source: string): string
                 if closes then
                     bracket_depth = math.max(bracket_depth - 1, 0)
                 end
-                const bracket = if dot then "." .. text else text
-                table.insert(out, `<span class="chimera-bracket-{bracket_depth % 3 + 1}">{bracket}</span>`)
+                const bundle = if opens then dot and text == "(" else table.remove(bundle_brackets) == true
+                -- The dot sits in a separate span that CSS nudges toward the bracket like a ligature.
+                const bracket = if dot then `<span class="chimera-bracket-dot">.</span>{text}` else text
+                const depth_class = `chimera-bracket-{bracket_depth % 3 + 1}`
+                const classes = if bundle then `{depth_class} chimera-bundle-bracket` else depth_class
+                table.insert(out, `<span class="{classes}">{bracket}</span>`)
                 if opens then
                     bracket_depth += 1
+                    table.insert(bundle_brackets, bundle)
                 end
             else
                 table.insert(out, span(kind, text))
@@ -464,6 +478,9 @@ const function highlight_luwu(source: string): string
                 -- `self:method(` is a call, not an annotation.
                 in_type = previous == ":" or not string.find(source, "^[%a_][%w_]*%s*[%(\"'`{]", finish + 1)
             elseif text == ">" and previous == "-" then
+                in_type = true
+            elseif text == "." and in_type and string.sub(source, finish + 1, finish + 1) == "(" then
+                -- A bundle type like `.(number, string)`: its `(` opens a type.
                 in_type = true
             elseif (text == "<" or text == "(") and (after_type or in_type) then
                 type_depth += 1
@@ -496,6 +513,7 @@ const function highlight_luwu(source: string): string
     if plain_start <= #source then
         table.insert(out, Text.escape(string.sub(source, plain_start)))
     end
+
     return table.concat(out)
 end
 
